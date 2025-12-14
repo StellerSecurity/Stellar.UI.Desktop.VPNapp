@@ -9,17 +9,13 @@ export const NewPassword: React.FC = () => {
   return (
     <AuthShell
       title="Create new password"
-      subtitle="Create a new password for your account"
+      subtitle="Create new password for your account"
       onBack={() => navigate("/password-otp")}
     >
       <form className="flex flex-col gap-4">
-        <TextInput label="New password" type="password" />
-        <TextInput label="Confirm new password" type="password" />
-        <Button
-          type="submit"
-          fullWidth
-          onClick={() => navigate("/login")}
-        >
+        <TextInput type="password" placeholder="New password" />
+        <TextInput type="password" placeholder="Confirm new password" />
+        <Button type="submit" fullWidth onClick={() => navigate("/login")}>
           Confirm
         </Button>
       </form>

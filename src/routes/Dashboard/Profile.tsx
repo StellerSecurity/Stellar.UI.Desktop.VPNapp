@@ -6,53 +6,94 @@ import { Button } from "../../components/ui/Button";
 export const Profile: React.FC = () => {
   const navigate = useNavigate();
   const [showLogout, setShowLogout] = useState(false);
+  const [autoConnect, setAutoConnect] = useState(true);
 
   return (
-    <AuthShell
-      title="Profile"
-      subtitle="Manage your Stellar VPN account"
-      onBack={() => navigate("/dashboard")}
-    >
-      <div className="space-y-4">
-        <div className="bg-slate-50 rounded-2xl p-4 text-sm">
-          <div className="flex justify-between items-center mb-2">
-            <div>
-              <div className="text-xs text-slate-500">Account number</div>
-              <div className="font-semibold">6049 9111 1433 1221</div>
+    <AuthShell title="Profile" onBack={() => navigate("/dashboard")}>
+      <div className="space-y-4 flex-1 flex flex-col">
+        <div className="px-6 flex flex-col gap-4">
+          <div className="bg-white rounded-2xl p-4 text-sm">
+            <div className="flex justify-between items-center mb-2">
+              <div>
+                <div className="text-[12px] font-normal text-[#62626A] mb-1">
+                  Account Name / Number
+                </div>
+                <div className="text-[14px] font-semibold text-[#0B0C19]">
+                  6049 9111 1433 1221
+                </div>
+              </div>
+              <button className="text-xs flex items-center gap-2">
+                <img src="/icons/copy.svg" alt="Copy" className="w-6 h-6" />
+              </button>
             </div>
-            <button className="text-xs text-[#256BFF]">Copy</button>
+            <div className="text-[12px] font-normal text-[#62626A] mb-1">
+              Device name:
+            </div>
+            <div className="text-[14px] text-[#0B0C19] font-semibold">
+              Winged Coral
+            </div>
+            <div className="text-[12px] text-[#62626A] mt-3 pt-3 border-t border-[#EAEAF0]">
+              Available for <span className="text-[#2761FC]">5</span> devices
+            </div>
           </div>
-          <div className="text-xs text-slate-500 mt-1">
-            Device name: <span className="font-medium">Winged Coral</span>
-          </div>
-          <div className="text-xs text-slate-500 mt-2">
-            Available for <span className="font-medium">5 devices</span>.
+
+          <div className="bg-white rounded-2xl flex-col p-4 text-sm flex items-center justify-between">
+            <div className="w-full">
+              <div className="text-xs text-[#62626A] mb-2">Expires</div>
+              <div className="flex items-center justify-between mb-2 w-full">
+                <div className="font-medium text-emerald-600">In 30 days</div>
+                <div className="text-sm text-[#62626A]">2024.04.04</div>
+              </div>
+            </div>
+            <Button
+              className="text-base w-full mt-2"
+              onClick={() => navigate("/subscribe")}
+            >
+              Add more days
+            </Button>
           </div>
         </div>
 
-        <div className="bg-slate-50 rounded-2xl p-4 text-sm flex items-center justify-between">
-          <div>
-            <div className="text-xs text-slate-500">Expires</div>
-            <div className="font-medium text-emerald-600">In 30 days</div>
-            <div className="text-xs text-slate-400">2024.04.04</div>
+        <div className="px-5 mt-10 bg-white rounded-2xl flex-1 pt-6 pb-6">
+          <div className="flex items-center justify-between text-sm mb-6 pb-6 border-b border-[#EAEAF0]">
+            <span className="text-[14px] font-semibold text-[#0B0C19] flex items-center gap-2">
+              <img src="/icons/network.svg" alt="Network" className="w-8 h-8" />
+              Auto connect
+            </span>
+            <button
+              type="button"
+              onClick={() => setAutoConnect(!autoConnect)}
+              className={`w-[53px] h-[32px] rounded-full flex items-center px-1 transition-colors ${
+                autoConnect ? "bg-[#2761FC]" : "bg-gray-300"
+              }`}
+            >
+              <span
+                className={`w-[26px] h-[26px] rounded-full bg-white flex items-center justify-center transition-transform ${
+                  autoConnect ? "translate-x-5" : "translate-x-0"
+                }`}
+              >
+                {autoConnect && (
+                  <img
+                    src="/icons/blue-tick.svg"
+                    alt="Tick"
+                    className="w-3 h-3"
+                  />
+                )}
+              </span>
+            </button>
           </div>
-          <Button onClick={() => navigate("/subscribe")}>Add more days</Button>
-        </div>
 
-        <div className="flex items-center justify-between text-sm">
-          <span>Auto connect</span>
-          <button className="w-12 h-7 rounded-full bg-[#256BFF] flex items-center px-1">
-            <span className="w-5 h-5 rounded-full bg-white translate-x-5" />
+          <button
+            type="button"
+            onClick={() => setShowLogout(true)}
+            className="text-sm text-[#62626A] flex items-center gap-3 pl-2"
+          >
+            <img src="/icons/logout.svg" alt="Logout" className="w-6 h-6" />
+            <span className="text-[14px] font-semibold text-[#62626A]">
+              Logout
+            </span>
           </button>
         </div>
-
-        <button
-          type="button"
-          onClick={() => setShowLogout(true)}
-          className="text-sm text-red-500"
-        >
-          Logout
-        </button>
       </div>
 
       {showLogout && (
@@ -72,7 +113,7 @@ export const Profile: React.FC = () => {
               </button>
               <button
                 type="button"
-                className="text-sm text-[#256BFF] font-semibold"
+                className="text-sm text-[#2761FC] font-semibold"
                 onClick={() => navigate("/welcome")}
               >
                 Log out

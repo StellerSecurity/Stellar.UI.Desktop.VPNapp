@@ -19,7 +19,7 @@ export const LoginAccountNumber: React.FC = () => {
         </Button>
         <p className="text-center text-sm text-slate-500 mt-2">
           Or{" "}
-          <Link to="/login" className="text-[#256BFF] font-semibold">
+          <Link to="/login" className="text-[#2761FC] font-semibold">
             log in with email
           </Link>
         </p>

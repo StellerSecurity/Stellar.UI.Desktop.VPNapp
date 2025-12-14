@@ -1,5 +1,6 @@
 import React from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { useConnection } from "./contexts/ConnectionContext";
 import { Welcome } from "./routes/Auth/Welcome";
 import { LoginEmail } from "./routes/Auth/LoginEmail";
 import { LoginAccountNumber } from "./routes/Auth/LoginAccountNumber";
@@ -13,11 +14,26 @@ import { ChangeLocation } from "./routes/Dashboard/ChangeLocation";
 import { Profile } from "./routes/Dashboard/Profile";
 import { Subscribe } from "./routes/Dashboard/Subscribe";
 
-export default function App() {
+function AppContent() {
+  const location = useLocation();
+  const { isConnected } = useConnection();
+  const isDashboardRoute = location.pathname === "/dashboard";
+
+  // Determine background image
+  const getBackgroundImage = () => {
+    if (isDashboardRoute && isConnected) {
+      return "bg-[url('/icons/dashboard-bg.png')]";
+    } else if (isDashboardRoute) {
+      return "bg-[url('/icons/dashboard-bg.png')]";
+    }
+    return "bg-[url('/icons/bg-blue.png')]";
+  };
+
   return (
     <div className="h-screen w-screen bg-slate-900 flex items-center justify-center">
-      <div className="w-[390px] h-[800px] rounded-[40px] bg-[#0B5BFF] shadow-2xl overflow-hidden relative">
-        <div className="absolute inset-0 pointer-events-none opacity-40 bg-[radial-gradient(circle_at_top,#2376ff,#0340a0)]" />
+      <div
+        className={`w-[390px] h-[800px] ${getBackgroundImage()} bg-cover bg-no-repeat overflow-hidden relative`}
+      >
         <div className="relative h-full w-full">
           <Routes>
             <Route path="/" element={<Navigate to="/welcome" replace />} />
@@ -38,4 +54,8 @@ export default function App() {
       </div>
     </div>
   );
+}
+
+export default function App() {
+  return <AppContent />;
 }

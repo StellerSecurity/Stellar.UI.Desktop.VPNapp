@@ -13,12 +13,12 @@ export const Button: React.FC<ButtonProps> = ({
   ...props
 }) => {
   const base =
-    "inline-flex items-center justify-center rounded-full px-6 py-3 text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed";
+    "inline-flex items-center justify-center rounded-full px-6 h-[52px] text-sm font-poppins font-semibold transition disabled:cursor-not-allowed";
   const variants: Record<string, string> = {
-    primary: "bg-[#256BFF] text-white hover:bg-[#1e56cc]",
+    primary: "bg-[#2761FC] text-white hover:bg-[#1e56cc]",
     outline:
-      "border border-[#256BFF] text-[#256BFF] bg-white hover:bg-[#eef3ff]",
-    danger: "bg-[#FF3B30] text-white hover:bg-[#d63129]"
+      "border border-[#2761FC] text-[#2761FC] bg-white hover:bg-[#eef3ff]",
+    danger: "bg-[#FF3B30] text-white hover:bg-[#d63129]",
   };
 
   return (
@@ -27,7 +27,7 @@ export const Button: React.FC<ButtonProps> = ({
         base,
         variants[variant] ?? variants.primary,
         fullWidth ? "w-full" : "",
-        className
+        className,
       ].join(" ")}
       {...props}
     >

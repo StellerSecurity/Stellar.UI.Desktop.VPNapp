@@ -12,7 +12,7 @@ export const OtpInput: React.FC<Props> = ({ length = 4 }) => {
         <input
           key={idx}
           maxLength={1}
-          className="w-12 h-12 rounded-full bg-slate-100 text-center text-lg font-semibold outline-none focus:ring-2 focus:ring-[#256BFF]"
+          className="w-[22%] h-12 rounded-[54px] bg-inputBg text-center text-sm font-normal outline-none text-textDark focus:bg-transparent focus:border focus:border-[#2761FC]"
         />
       ))}
     </div>

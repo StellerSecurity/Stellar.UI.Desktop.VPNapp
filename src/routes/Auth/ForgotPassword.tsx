@@ -9,11 +9,11 @@ export const ForgotPassword: React.FC = () => {
   return (
     <AuthShell
       title="Forgot Password"
-      subtitle="Enter your email to receive a verification code"
+      subtitle="Please enter email to receive verification code"
       onBack={() => navigate("/login")}
     >
       <form className="flex flex-col gap-4">
-        <TextInput label="Email" type="email" placeholder="you@example.com" />
+        <TextInput type="email" placeholder="you@example.com" />
         <Button
           type="submit"
           fullWidth

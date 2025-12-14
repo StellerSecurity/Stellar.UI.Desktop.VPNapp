@@ -19,7 +19,7 @@ export const LoginEmail: React.FC = () => {
           <button
             type="button"
             onClick={() => navigate("/forgot-password")}
-            className="text-xs font-semibold text-[#256BFF]"
+            className="text-xs font-poppins font-semibold text-[#2761FC]"
           >
             Forgot Password?
           </button>
@@ -27,9 +27,9 @@ export const LoginEmail: React.FC = () => {
         <Button type="submit" fullWidth>
           Log In
         </Button>
-        <p className="mt-3 text-center text-xs text-slate-500">
-          Don&apos;t have an account?{" "}
-          <Link to="/register" className="font-semibold text-[#256BFF]">
+        <p className="mt-3 text-center text-sm font-poppins font-normal">
+          <span className="text-[#0B0C19]">Don&apos;t have an account? </span>
+          <Link to="/register" className="font-semibold text-[#2761FC]">
             Create an Account
           </Link>
         </p>
