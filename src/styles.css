@@ -195,3 +195,19 @@ body {
 .change-location-special::-webkit-scrollbar-thumb:hover {
   background: #B0B0C0 !important;
 }
+
+/* Slide-up animation for congrats modal */
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}

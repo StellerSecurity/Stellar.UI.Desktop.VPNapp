@@ -1,5 +1,5 @@
-import React, { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { useConnection } from "../../contexts/ConnectionContext";
 
@@ -10,8 +10,26 @@ const isTauri = () =>
 export const Dashboard: React.FC = () => {
   const { status, setStatus, isConnected } = useConnection();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [showCongrats, setShowCongrats] = useState(false);
 
   const isConnecting = status === "connecting";
+
+  // Check if user just registered
+  useEffect(() => {
+    if (searchParams.get("newUser") === "true") {
+      setShowCongrats(true);
+      // Remove query param from URL
+      setSearchParams({});
+    }
+  }, [searchParams, setSearchParams]);
+
+  const handleCopyAccount = () => {
+    const accountNumber = "6049 9111 1433 1221";
+    navigator.clipboard.writeText(accountNumber).then(() => {
+      // You could add a toast notification here if needed
+    });
+  };
 
   // Listen for events from Rust (vpn-status + vpn-log)
   useEffect(() => {
@@ -222,6 +240,60 @@ export const Dashboard: React.FC = () => {
             : "Connect"}
         </Button>
       </div>
+
+      {/* Congrats Modal */}
+      {showCongrats && (
+        <div className="absolute inset-0 flex items-end justify-center bg-black/40 z-50">
+          <div className="w-full bg-white rounded-t-3xl px-6 pt-8 pb-10 animate-slide-up">
+            <div className="flex flex-col items-center">
+              {/* Green checkmark icon */}
+              <img
+                src="/icons/green-tick.svg"
+                alt="Success"
+                className="w-10 h-10 mb-4"
+              />
+
+              {/* Heading */}
+              <h2 className="text-xl font-bold text-[#0B0C19] mb-2 font-poppins">
+                Congrats!
+              </h2>
+
+              {/* Subtitle */}
+              <p className="text-sm text-[#62626A] mb-6 text-center font-poppins">
+                Here&apos;s your account number. Save it!
+              </p>
+
+              {/* Account Number Input */}
+              <div className="w-full mb-6">
+                <div className="text-[12px] font-normal text-[#62626A] mb-2 font-poppins">
+                  Account Name / Number
+                </div>
+                <div className="flex items-center gap-2 bg-[#EAEAF0] rounded-2xl px-4 py-3">
+                  <span className="flex-1 text-[14px] font-semibold text-[#0B0C19] font-poppins">
+                    6049 9111 1433 1221
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleCopyAccount}
+                    className="flex items-center justify-center"
+                  >
+                    <img src="/icons/copy.svg" alt="Copy" className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Got It Button */}
+              <Button
+                fullWidth
+                onClick={() => setShowCongrats(false)}
+                className="h-[52px] text-base font-poppins"
+              >
+                Got It
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

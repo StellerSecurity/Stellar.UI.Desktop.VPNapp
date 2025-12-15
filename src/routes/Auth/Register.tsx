@@ -18,7 +18,7 @@ export const Register: React.FC = () => {
           fullWidth
           variant="outline"
           className="gap-2"
-          onClick={() => navigate("/dashboard")}
+          onClick={() => navigate("/dashboard?newUser=true")}
         >
           <img src="/icons/light.svg" alt="Light" className="w-5 h-5" />
           <span>One-Click Register</span>
@@ -35,7 +35,7 @@ export const Register: React.FC = () => {
         <Button
           type="submit"
           fullWidth
-          onClick={() => navigate("/dashboard")}
+          onClick={() => navigate("/dashboard?newUser=true")}
         >
           Create Account
         </Button>
