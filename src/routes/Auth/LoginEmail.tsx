@@ -12,7 +12,13 @@ export const LoginEmail: React.FC = () => {
       subtitle="Please enter your email and password"
       onBack={() => navigate("/welcome")}
     >
-      <form className="flex flex-col gap-4">
+      <form
+        className="flex flex-col gap-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          navigate("/dashboard");
+        }}
+      >
         <TextInput placeholder="Email" type="email" />
         <TextInput placeholder="Password" type="password" />
         <div className="flex justify-end">

@@ -194,10 +194,19 @@ const countriesData: Country[] = [
 export const ChangeLocation: React.FC = () => {
   const navigate = useNavigate();
   const [expandedCountry, setExpandedCountry] = useState<string>("switzerland");
+  const [searchTerm, setSearchTerm] = useState("");
 
   const toggleCountry = (countryId: string) => {
     setExpandedCountry(expandedCountry === countryId ? "" : countryId);
   };
+
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const filteredCountries =
+    normalizedSearch.length === 0
+      ? countriesData
+      : countriesData.filter((country) =>
+          country.name.toLowerCase().includes(normalizedSearch)
+        );
 
   return (
     <AuthShell title="Change Location" onBack={() => navigate("/dashboard")}>
@@ -209,6 +218,8 @@ export const ChangeLocation: React.FC = () => {
         />
         <input
           placeholder="Search for country"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full rounded-[54px] bg-inputBg h-[52px] pl-12 pr-6 outline-none focus:outline-none focus:ring-0 text-textDark placeholder:text-[#62626A] text-[14px]"
         />
       </div>
@@ -223,7 +234,7 @@ export const ChangeLocation: React.FC = () => {
             <span>Fastest</span>
           </div>
         </div>
-        {countriesData.map((country) => (
+        {filteredCountries.map((country) => (
           <div
             key={country.id}
             className={expandedCountry === country.id ? "bg-[#F6F6FD]" : ""}

@@ -2,50 +2,25 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Silka Font Face - Add your font files here or use CDN */
 @font-face {
-  font-family: "Silka";
-  src: url("/fonts/Silka-Regular.woff2") format("woff2"),
-       url("/fonts/Silka-Regular.woff") format("woff"),
-       url("/fonts/Silka-Regular.ttf") format("truetype");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Silka";
-  src: url("/fonts/Silka-Medium.woff2") format("woff2"),
-       url("/fonts/Silka-Medium.woff") format("woff"),
-       url("/fonts/Silka-Medium.ttf") format("truetype");
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Silka";
-  src: url("/fonts/Silka-SemiBold.woff2") format("woff2"),
-       url("/fonts/Silka-SemiBold.woff") format("woff"),
-       url("/fonts/Silka-SemiBold.ttf") format("truetype");
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Silka";
-  src: url("/fonts/Silka-Bold.woff2") format("woff2"),
-       url("/fonts/Silka-Bold.woff") format("woff"),
-       url("/fonts/Silka-Bold.ttf") format("truetype");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
+    font-family: 'Silka';
+  src: url('/fonts/silka.woff2') format('woff2'),
+       url('/fonts/silka.woff') format('woff'),
+       url('/fonts/silka.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
 }
 
 body {
   @apply antialiased;
   font-family: "Poppins", system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", sans-serif;
+}
+
+/* Ensure Tailwind's font-silka utility actually applies Silka.
+   The body font rule above was overriding it due to CSS order, so we reinforce it here. */
+.font-silka {
+  font-family: "Silka", sans-serif !important;
 }
 
 .change-location-special {

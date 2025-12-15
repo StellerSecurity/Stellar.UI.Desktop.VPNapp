@@ -98,15 +98,20 @@ export const Profile: React.FC = () => {
 
       {showLogout && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm">
-            <h2 className="text-lg font-semibold mb-2">Log out</h2>
-            <p className="text-sm text-slate-500 mb-4">
+          <div className="text-center rounded-2xl pt-12 pb-8 px-6 w-full max-w-[345px] logout-screen bg-[#F6F6FD]">
+            <img
+              src="/icons/logout.svg"
+              alt="Logout"
+              className="w-8 h-8 mx-auto mb-4"
+            />
+            <h2 className="text-xl font-bold mb-2">Log out</h2>
+            <p className="text-sm text-[#62626A] pb-4 mb-6 border-b border-[#EAEAF0]">
               Are you sure you want to log out?
             </p>
-            <div className="flex justify-end gap-3">
+            <div className="flex justify-end gap-5">
               <button
                 type="button"
-                className="text-sm text-slate-500"
+                className="text-sm font-semibold text-[#62626A]"
                 onClick={() => setShowLogout(false)}
               >
                 Cancel

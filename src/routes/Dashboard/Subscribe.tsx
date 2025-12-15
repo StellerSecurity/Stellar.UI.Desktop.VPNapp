@@ -52,7 +52,7 @@ export const Subscribe: React.FC = () => {
 
   return (
     <AuthShell onBack={() => navigate("/dashboard")}>
-      <h2 className="text-sm font-semibold text-[#62626A] my-2">
+      <h2 className="text-xs font-semibold text-[#62626A] my-2">
         Select your VPN plan
       </h2>
       <div className="space-y-4 text-sm">
@@ -67,7 +67,7 @@ export const Subscribe: React.FC = () => {
         </Button>
 
         <div className="mt-4 space-y-3">
-          <h3 className="font-bold text-xl rounded-2xl border border-slate-100 p-3 bg-slate-50">
+          <h3 className="font-bold text-xl rounded-2xl border border-[#EAEAF0] py-8 px-5">
             Secure your online <br />
             privacy with
             <span className="text-[#2761FC]"> Stellar VPN</span>
@@ -75,23 +75,23 @@ export const Subscribe: React.FC = () => {
           <FeatureCard
             image="/icons/world-check.svg"
             title="Worldwide servers"
-            text="Global VPN coverage for all your devices."
+            text="Global VPN coverage"
           />
           <FeatureCard
             image="/icons/devices.svg"
             title="Multi-device compatibility"
-            text="Use Stellar VPN on all your phones, tablets and computers."
+            text="Use on unlimited devices"
           />
           <FeatureCard
             image="/icons/no-file.svg"
             title="No logging"
-            text="We do not log your online activity. Full privacy."
+            text="Our VPN service never logs your online activity, ensuring complete anonymity."
           />
         </div>
 
         {/* Testimonials Slider Section */}
         <div className="mt-6">
-          <h3 className="text-center text-xl font-semibold text-[#0B0C19] mt-10 mb-5">
+          <h3 className="text-center text-xl font-bold text-[#0B0C19] mt-10 mb-5">
             Testimonials
           </h3>
           <div className="relative -ml-5 -mr-5">
@@ -110,7 +110,7 @@ export const Subscribe: React.FC = () => {
                         }}
                       />
                     </div>
-                    <p className="text-[16px] font-semibold text-[#0B0C19] mb-6">
+                    <p className="text-[16px] font-semibold text-[#0B0C19] mb-8">
                       {testimonial.text}
                     </p>
                     <div className="flex items-center gap-3">
