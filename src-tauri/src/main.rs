@@ -1,5 +1,4 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-
 use std::{
     io::{BufRead, BufReader},
     process::{Child, Command, Stdio},
@@ -63,7 +62,7 @@ fn vpn_disconnect(state: State<'_, VpnState>, app: tauri::AppHandle) -> Result<(
     }
 
     guard.status = "disconnected".to_string();
-    let _ = app.emit("vpn-status", guard.status.clone());
+    let _ = app.emit("vpn-status", guard.status.clone()).ok();
 
     Ok(())
 }
@@ -108,7 +107,7 @@ fn vpn_connect(
                 let mut guard = state_arc.lock().unwrap();
                 guard.status = format!("error: {msg}");
             }
-            let _ = app.emit("vpn-status", format!("error: {msg}"));
+            let _ = app.emit("vpn-status", format!("error: {msg}")).ok();
             return Err(msg);
         }
     };
@@ -121,7 +120,7 @@ fn vpn_connect(
         guard.process = Some(child);
         guard.status = "connecting".to_string();
     }
-    let _ = app.emit("vpn-status", "connecting");
+    let _ = app.emit("vpn-status", "connecting").ok();
 
     // Handle stdout: logs and "connected" detection.
     if let Some(out) = stdout {
@@ -132,7 +131,7 @@ fn vpn_connect(
             let reader = BufReader::new(out);
 
             for line in reader.lines().flatten() {
-                let _ = app_clone.emit("vpn-log", line.clone());
+                let _ = app_clone.emit("vpn-log", line.clone()).ok();
 
                 if line.contains("Initialization Sequence Completed") {
                     if let Ok(mut g) = state_clone.lock() {

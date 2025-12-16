@@ -4,25 +4,26 @@
   "version": "0.1.0",
   "identifier": "org.stellarsecurity.vpn.desktop",
   "build": {
-    "beforeBuildCommand": "npm run build:web",
     "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build:web",
     "devUrl": "http://localhost:5173",
     "frontendDist": "../dist"
   },
   "app": {
-    "security": {
-      "csp": null
-    },
     "windows": [
       {
         "title": "Stellar VPN",
-        "width": 1200,
-        "height": 720,
-        "resizable": true,
+        "width": 390,
+        "height": 800,
+        "resizable": false,
         "fullscreen": false
       }
-    ]
+    ],
+    "security": {
+      "csp": null
+    }
   },
-  "bundle": {},
-  "plugins": {}
+  "bundle": {
+    "active": true
+  }
 }

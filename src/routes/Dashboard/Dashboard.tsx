@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { useConnection } from "../../contexts/ConnectionContext";
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 
 // Check if running in Tauri
 const isTauri = () =>
@@ -41,26 +43,22 @@ export const Dashboard: React.FC = () => {
     let unlistenStatus: (() => void) | undefined;
     let unlistenLog: (() => void) | undefined;
 
-    import("@tauri-apps/api/event").then(({ listen }) => {
-      listen<string>("vpn-status", (event) => {
+    (async () => {
+      unlistenStatus = await listen<string>("vpn-status", (event) => {
         const s = event.payload;
+
         if (s === "connected" || s === "connecting" || s === "disconnected") {
           setStatus(s as "disconnected" | "connecting" | "connected");
-        } else if (s.startsWith("error")) {
+        } else if (typeof s === "string" && s.startsWith("error")) {
           console.error("VPN error:", s);
           setStatus("disconnected");
         }
-      }).then((fn) => {
-        unlistenStatus = fn;
       });
 
-      listen<string>("vpn-log", (event) => {
-        // You can show these logs in the UI later – for now we just log to console
+      unlistenLog = await listen<string>("vpn-log", (event) => {
         console.log("[VPN]", event.payload);
-      }).then((fn) => {
-        unlistenLog = fn;
       });
-    });
+    })();
 
     return () => {
       if (unlistenStatus) unlistenStatus();
@@ -84,12 +82,10 @@ export const Dashboard: React.FC = () => {
       if (status === "disconnected") {
         setStatus("connecting");
 
-        const { invoke } = await import("@tauri-apps/api/core");
         await invoke("vpn_connect", {
           configPath: "/home/bb/Hentet/stellar-vpn-desktop/japan.ovpn",
         });
       } else {
-        const { invoke } = await import("@tauri-apps/api/core");
         await invoke("vpn_disconnect");
         setStatus("disconnected");
       }

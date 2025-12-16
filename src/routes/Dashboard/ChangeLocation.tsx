@@ -291,7 +291,7 @@ export const ChangeLocation: React.FC = () => {
                 ))}
               </div>
             )}
-          </div>
+        </div>
         ))}
       </div>
     </AuthShell>
