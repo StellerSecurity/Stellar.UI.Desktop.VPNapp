@@ -5,7 +5,6 @@ import { Welcome } from "./routes/Auth/Welcome";
 import { LoginEmail } from "./routes/Auth/LoginEmail";
 import { LoginAccountNumber } from "./routes/Auth/LoginAccountNumber";
 import { Register } from "./routes/Auth/Register";
-import { RegisterOtp } from "./routes/Auth/RegisterOtp";
 import { ForgotPassword } from "./routes/Auth/ForgotPassword";
 import { PasswordOtp } from "./routes/Auth/PasswordOtp";
 import { NewPassword } from "./routes/Auth/NewPassword";
@@ -41,7 +40,6 @@ function AppContent() {
             <Route path="/login" element={<LoginEmail />} />
             <Route path="/login-account" element={<LoginAccountNumber />} />
             <Route path="/register" element={<Register />} />
-            <Route path="/register-otp" element={<RegisterOtp />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/password-otp" element={<PasswordOtp />} />
             <Route path="/new-password" element={<NewPassword />} />

@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { useConnection } from "../../contexts/ConnectionContext";
+import { useSubscription } from "../../contexts/SubscriptionContext";
+import { getAccountNumber } from "../../services/api";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
@@ -11,26 +13,53 @@ const isTauri = () =>
 
 export const Dashboard: React.FC = () => {
   const { status, setStatus, isConnected } = useConnection();
+  const { subscription, refreshSubscription } = useSubscription();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [showCongrats, setShowCongrats] = useState(false);
+  const [accountNumber, setAccountNumber] = useState<string | null>(null);
 
   const isConnecting = status === "connecting";
 
-  // Check if user just registered
+  // Load account number from storage and check if we should show congrats modal
   useEffect(() => {
-    if (searchParams.get("newUser") === "true") {
-      setShowCongrats(true);
-      // Remove query param from URL
-      setSearchParams({});
-    }
+    const loadAccountNumber = async () => {
+      const account = await getAccountNumber();
+      setAccountNumber(account);
+
+      // Only show congrats modal if:
+      // 1. User just registered (newUser=true in URL)
+      // 2. Account number exists (one-click register only)
+      // Email/password registration doesn't provide account_number
+      if (searchParams.get("newUser") === "true") {
+        if (account) {
+          // One-click register - show congrats modal with account number
+          setShowCongrats(true);
+        }
+        // Email/password register - no account number, don't show modal
+        // Remove query param from URL
+        setSearchParams({});
+      }
+    };
+    loadAccountNumber();
   }, [searchParams, setSearchParams]);
 
+  // Format account number with spaces (XXXX XXXX XXXX XXXX)
+  const formatAccountNumber = (account: string | null): string => {
+    if (!account) return "N/A";
+    // Remove existing spaces and add them back in groups of 4
+    const cleaned = account.replace(/\s/g, "");
+    return cleaned.match(/.{1,4}/g)?.join(" ") || account;
+  };
+
   const handleCopyAccount = () => {
-    const accountNumber = "6049 9111 1433 1221";
-    navigator.clipboard.writeText(accountNumber).then(() => {
-      // You could add a toast notification here if needed
-    });
+    if (accountNumber) {
+      // Copy the raw account number (without spaces) to clipboard
+      const cleaned = accountNumber.replace(/\s/g, "");
+      navigator.clipboard.writeText(cleaned).then(() => {
+        // You could add a toast notification here if needed
+      });
+    }
   };
 
   // Listen for events from Rust (vpn-status + vpn-log)
@@ -122,7 +151,11 @@ export const Dashboard: React.FC = () => {
         <div className="flex items-center gap-3">
           <button className="rounded-full bg-white px-3 py-1 text-[12px]">
             <span className="text-[#00B252] font-semibold">
-              {isConnected ? "30 days" : "0 days"}
+              {subscription?.days_remaining !== undefined
+                ? `${subscription.days_remaining} days`
+                : isConnected
+                ? "30 days"
+                : "0 days"}
             </span>
           </button>
           <button
@@ -237,8 +270,8 @@ export const Dashboard: React.FC = () => {
         </Button>
       </div>
 
-      {/* Congrats Modal */}
-      {showCongrats && (
+      {/* Congrats Modal - Only show if account number exists (one-click register) */}
+      {showCongrats && accountNumber && (
         <div className="absolute inset-0 flex items-end justify-center bg-black/40 z-50">
           <div className="w-full bg-white rounded-t-3xl px-6 pt-8 pb-10 animate-slide-up">
             <div className="flex flex-col items-center">
@@ -266,7 +299,7 @@ export const Dashboard: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-2 bg-[#EAEAF0] rounded-2xl px-4 py-3">
                   <span className="flex-1 text-[14px] font-semibold text-[#0B0C19] font-poppins">
-                    6049 9111 1433 1221
+                    {formatAccountNumber(accountNumber)}
                   </span>
                   <button
                     type="button"
