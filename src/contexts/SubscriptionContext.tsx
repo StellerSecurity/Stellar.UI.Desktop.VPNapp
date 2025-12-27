@@ -65,7 +65,7 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({
   };
 
   /**
-   * Start polling with randomized interval (15-20 minutes)
+   * Start polling every 30 minutes
    */
   const startPolling = () => {
     if (isPollingRef.current) {
@@ -77,14 +77,10 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({
     const poll = async () => {
       await refreshSubscription();
 
-      // Randomize interval between 15-20 minutes (900000-1200000 ms)
-      const minInterval = 15 * 60 * 1000; // 15 minutes
-      const maxInterval = 20 * 60 * 1000; // 20 minutes
-      const randomInterval =
-        Math.floor(Math.random() * (maxInterval - minInterval + 1)) +
-        minInterval;
+      // Poll every 30 minutes (1800000 ms)
+      const interval = 30 * 60 * 1000; // 30 minutes
 
-      pollingIntervalRef.current = setTimeout(poll, randomInterval);
+      pollingIntervalRef.current = setTimeout(poll, interval);
     };
 
     // Initial call

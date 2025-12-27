@@ -17,6 +17,7 @@ export interface User {
 }
 
 export interface Subscription {
+  id?: string; // Subscription ID
   expires_at: string; // e.g., "2025-12-18 00:29:06"
   status: SubscriptionStatus;
   days_remaining: number;
@@ -132,6 +133,27 @@ export async function getAccountNumber(): Promise<string | null> {
   }
 
   return localStorage.getItem("stellar_vpn_account_number");
+}
+
+/**
+ * Get device name from secure storage
+ */
+export async function getDeviceName(): Promise<string | null> {
+  const isTauri =
+    typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+  if (isTauri) {
+    try {
+      const { Store } = await import("@tauri-apps/plugin-store");
+      const store = new Store(".stellar-vpn.dat");
+      return (await store.get<string>("device_name")) || null;
+    } catch (error) {
+      console.warn("Tauri store not available, using localStorage:", error);
+    }
+    return localStorage.getItem("stellar_vpn_device_name");
+  }
+
+  return localStorage.getItem("stellar_vpn_device_name");
 }
 
 /**
@@ -301,11 +323,12 @@ export async function fetchHomeData(): Promise<HomeResponse | null> {
     }
 
     const response = await fetch(`${API_BASE_URL}/dashboardcontroller/home`, {
-      method: "GET",
+      method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
+      body: JSON.stringify({}), // POST request needs a body (empty object)
     });
 
     let data: HomeResponse;

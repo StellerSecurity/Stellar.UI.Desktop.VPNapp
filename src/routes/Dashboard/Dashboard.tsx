@@ -3,7 +3,11 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { useConnection } from "../../contexts/ConnectionContext";
 import { useSubscription } from "../../contexts/SubscriptionContext";
-import { getAccountNumber, getSelectedServer } from "../../services/api";
+import {
+  getAccountNumber,
+  getSelectedServer,
+  getDeviceName,
+} from "../../services/api";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
@@ -21,14 +25,18 @@ export const Dashboard: React.FC = () => {
   const [selectedServerName, setSelectedServerName] = useState<string | null>(
     null
   );
+  const [showCopiedToast, setShowCopiedToast] = useState(false);
+  const [deviceName, setDeviceName] = useState<string | null>(null);
 
   const isConnecting = status === "connecting";
 
-  // Load account number and selected server from storage
+  // Load account number, device name, and selected server from storage
   useEffect(() => {
     const loadData = async () => {
       const account = await getAccountNumber();
+      const device = await getDeviceName();
       setAccountNumber(account);
+      setDeviceName(device);
 
       const server = await getSelectedServer();
       setSelectedServerName(server.name);
@@ -54,13 +62,41 @@ export const Dashboard: React.FC = () => {
     return cleaned.match(/.{1,4}/g)?.join(" ") || account;
   };
 
-  const handleCopyAccount = () => {
+  const handleCopyAccount = async () => {
     if (accountNumber) {
-      // Copy the raw account number (without spaces) to clipboard
-      const cleaned = accountNumber.replace(/\s/g, "");
-      navigator.clipboard.writeText(cleaned).then(() => {
-        // You could add a toast notification here if needed
-      });
+      try {
+        // Copy the raw account number (without spaces) to clipboard
+        const cleaned = accountNumber.replace(/\s/g, "");
+        await navigator.clipboard.writeText(cleaned);
+        // Show toast notification
+        console.log("Copy successful, showing toast");
+        setShowCopiedToast(true);
+        setTimeout(() => {
+          setShowCopiedToast(false);
+        }, 2000); // Hide after 2 seconds
+      } catch (err) {
+        console.error("Failed to copy:", err);
+        // Fallback for older browsers or when clipboard API fails
+        const textArea = document.createElement("textarea");
+        textArea.value = accountNumber.replace(/\s/g, "");
+        textArea.style.position = "fixed";
+        textArea.style.opacity = "0";
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+          document.execCommand("copy");
+          console.log("Copy successful (fallback), showing toast");
+          setShowCopiedToast(true);
+          setTimeout(() => {
+            setShowCopiedToast(false);
+          }, 2000);
+        } catch (fallbackErr) {
+          console.error("Fallback copy failed:", fallbackErr);
+        }
+        document.body.removeChild(textArea);
+      }
+    } else {
+      console.log("No account number to copy");
     }
   };
 
@@ -181,7 +217,7 @@ export const Dashboard: React.FC = () => {
       <div className="px-6 mt-4 text-[11px] text-white/80 relative z-10">
         <span className="text-[#D6D6E0] text-[12px]">Device Name: </span>
         <span className="font-semibold text-[12px] text-white">
-          Winged Coral
+          {deviceName || "N/A"}
         </span>
       </div>
 
@@ -302,7 +338,7 @@ export const Dashboard: React.FC = () => {
               </p>
 
               {/* Account Number Input */}
-              <div className="w-full mb-6">
+              <div className="w-full mb-6 relative">
                 <div className="text-[12px] font-normal text-[#62626A] mb-2 font-poppins">
                   Account Name / Number
                 </div>
@@ -311,17 +347,32 @@ export const Dashboard: React.FC = () => {
                     {formatAccountNumber(accountNumber)}
                   </span>
                   {accountNumber && (
-                    <button
-                      type="button"
-                      onClick={handleCopyAccount}
-                      className="flex items-center justify-center"
-                    >
-                      <img
-                        src="/icons/copy.svg"
-                        alt="Copy"
-                        className="w-5 h-5"
-                      />
-                    </button>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          console.log("Copy button clicked");
+                          handleCopyAccount();
+                        }}
+                        className="flex items-center justify-center hover:opacity-80 transition-opacity"
+                      >
+                        <img
+                          src="/icons/copy.svg"
+                          alt="Copy"
+                          className="w-5 h-5"
+                        />
+                      </button>
+                      {/* Copied Toast Notification - Right above button */}
+                      {showCopiedToast && (
+                        <div className="absolute bottom-full right-0 mb-1 z-[9999] pointer-events-none">
+                          <div className="bg-[#0B0C19] text-white px-3 py-1.5 rounded-lg text-[10px] font-medium shadow-lg whitespace-nowrap">
+                            Copied!
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

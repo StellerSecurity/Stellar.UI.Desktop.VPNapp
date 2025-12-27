@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Slider from "react-slick";
 import "slick-carousel/slick/slick.css";
@@ -9,6 +9,7 @@ import { Button } from "../../components/ui/Button";
 export const Subscribe: React.FC = () => {
   const navigate = useNavigate();
   const sliderRef = useRef<Slider>(null);
+  const [selectedPlan, setSelectedPlan] = useState<string>("yearly");
 
   const testimonials = [
     {
@@ -57,12 +58,31 @@ export const Subscribe: React.FC = () => {
       </h2>
       <div className="space-y-4 text-sm">
         <div className="space-y-2">
-          <PlanRow title="Monthly plan" price="€ 9.99 / month" />
-          <PlanRow title="Yearly plan" price="€ 4.99 / month" highlighted />
-          <PlanRow title="Weekly plan" price="€ 5.99 / week" />
+          <PlanRow
+            title="Monthly plan"
+            price="€ 9.99 / month"
+            highlighted={selectedPlan === "monthly"}
+            onClick={() => setSelectedPlan("monthly")}
+          />
+          <PlanRow
+            title="Yearly plan"
+            price="€ 4.99 / month"
+            highlighted={selectedPlan === "yearly"}
+            onClick={() => setSelectedPlan("yearly")}
+          />
+          <PlanRow
+            title="Weekly plan"
+            price="€ 5.99 / week"
+            highlighted={selectedPlan === "weekly"}
+            onClick={() => setSelectedPlan("weekly")}
+          />
         </div>
 
-        <Button fullWidth className="mt-2 text-base bg-[#2761FC]">
+        <Button
+          fullWidth
+          className="mt-2 text-base bg-[#2761FC]"
+          onClick={() => window.open("https://stellarsecurity.com", "_blank")}
+        >
           Subscribe
         </Button>
 
@@ -143,7 +163,11 @@ export const Subscribe: React.FC = () => {
 
         {/* Subscribe Button at the end */}
         <div className="mt-6 pb-8">
-          <Button fullWidth className="text-base bg-[#2761FC]">
+          <Button
+            fullWidth
+            className="text-base bg-[#2761FC]"
+            onClick={() => window.open("https://stellarsecurity.com", "_blank")}
+          >
             Subscribe
           </Button>
         </div>
@@ -156,16 +180,23 @@ type PlanRowProps = {
   title: string;
   price: string;
   highlighted?: boolean;
+  onClick?: () => void;
 };
 
-const PlanRow: React.FC<PlanRowProps> = ({ title, price, highlighted }) => {
+const PlanRow: React.FC<PlanRowProps> = ({
+  title,
+  price,
+  highlighted,
+  onClick,
+}) => {
   return (
     <div
+      onClick={onClick}
       className={[
-        "flex items-center justify-between rounded-full border px-5",
+        "flex items-center justify-between rounded-full border px-5 cursor-pointer transition-all",
         highlighted
           ? "border-[#2761FC] bg-transparent text-[#2761FC] font-semibold"
-          : "border-slate-200",
+          : "border-slate-200 hover:border-slate-300",
       ].join(" ")}
     >
       <span className="font-regular">{title}</span>

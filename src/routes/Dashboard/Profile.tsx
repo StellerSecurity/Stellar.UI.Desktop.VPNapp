@@ -1,12 +1,97 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AuthShell } from "../../components/layout/AuthShell";
 import { Button } from "../../components/ui/Button";
+import { useSubscription } from "../../contexts/SubscriptionContext";
+import {
+  getAccountNumber,
+  getDeviceName,
+  clearAuthData,
+} from "../../services/api";
 
 export const Profile: React.FC = () => {
   const navigate = useNavigate();
+  const { subscription } = useSubscription();
   const [showLogout, setShowLogout] = useState(false);
   const [autoConnect, setAutoConnect] = useState(true);
+  const [accountNumber, setAccountNumber] = useState<string | null>(null);
+  const [deviceName, setDeviceName] = useState<string | null>(null);
+  const [showCopiedToast, setShowCopiedToast] = useState(false);
+
+  // Load account number and device name from storage
+  useEffect(() => {
+    const loadData = async () => {
+      const account = await getAccountNumber();
+      const device = await getDeviceName();
+      setAccountNumber(account);
+      setDeviceName(device);
+    };
+    loadData();
+  }, []);
+
+  // Format account number with spaces (XXXX XXXX XXXX XXXX)
+  const formatAccountNumber = (account: string | null): string => {
+    if (!account) return "N/A";
+    // Remove existing spaces and add them back in groups of 4
+    const cleaned = account.replace(/\s/g, "");
+    return cleaned.match(/.{1,4}/g)?.join(" ") || account;
+  };
+
+  // Format expiration date
+  const formatExpirationDate = (dateString: string | undefined): string => {
+    if (!dateString) return "N/A";
+    try {
+      // Parse "2025-12-18 00:29:06" format
+      const date = new Date(dateString.replace(" ", "T"));
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}.${month}.${day}`;
+    } catch (error) {
+      return "N/A";
+    }
+  };
+
+  // Handle logout
+  const handleLogout = async () => {
+    await clearAuthData();
+    navigate("/welcome");
+  };
+
+  // Handle copy account number
+  const handleCopyAccount = async () => {
+    if (accountNumber) {
+      try {
+        // Copy the raw account number (without spaces) to clipboard
+        const cleaned = accountNumber.replace(/\s/g, "");
+        await navigator.clipboard.writeText(cleaned);
+        // Show toast notification
+        setShowCopiedToast(true);
+        setTimeout(() => {
+          setShowCopiedToast(false);
+        }, 2000); // Hide after 2 seconds
+      } catch (err) {
+        console.error("Failed to copy:", err);
+        // Fallback for older browsers or when clipboard API fails
+        const textArea = document.createElement("textarea");
+        textArea.value = accountNumber.replace(/\s/g, "");
+        textArea.style.position = "fixed";
+        textArea.style.opacity = "0";
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+          document.execCommand("copy");
+          setShowCopiedToast(true);
+          setTimeout(() => {
+            setShowCopiedToast(false);
+          }, 2000);
+        } catch (fallbackErr) {
+          console.error("Fallback copy failed:", fallbackErr);
+        }
+        document.body.removeChild(textArea);
+      }
+    }
+  };
 
   return (
     <AuthShell title="Profile" onBack={() => navigate("/dashboard")}>
@@ -19,18 +104,38 @@ export const Profile: React.FC = () => {
                   Account Name / Number
                 </div>
                 <div className="text-[14px] font-semibold text-[#0B0C19]">
-                  6049 9111 1433 1221
+                  {formatAccountNumber(accountNumber)}
                 </div>
               </div>
-              <button className="text-xs flex items-center gap-2">
-                <img src="/icons/copy.svg" alt="Copy" className="w-6 h-6" />
-              </button>
+              {accountNumber && (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleCopyAccount();
+                    }}
+                    className="text-xs flex items-center gap-2 hover:opacity-80 transition-opacity"
+                  >
+                    <img src="/icons/copy.svg" alt="Copy" className="w-6 h-6" />
+                  </button>
+                  {/* Copied Toast Notification - Right above button */}
+                  {showCopiedToast && (
+                    <div className="absolute bottom-full right-0 mb-1 z-[9999] pointer-events-none">
+                      <div className="bg-[#0B0C19] text-white px-3 py-1.5 rounded-lg text-[10px] font-medium shadow-lg whitespace-nowrap">
+                        Copied!
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             <div className="text-[12px] font-normal text-[#62626A] mb-1">
               Device name:
             </div>
             <div className="text-[14px] text-[#0B0C19] font-semibold">
-              Winged Coral
+              {deviceName || "N/A"}
             </div>
             <div className="text-[12px] text-[#62626A] mt-3 pt-3 border-t border-[#EAEAF0]">
               Available for <span className="text-[#2761FC]">5</span> devices
@@ -41,8 +146,16 @@ export const Profile: React.FC = () => {
             <div className="w-full">
               <div className="text-xs text-[#62626A] mb-2">Expires</div>
               <div className="flex items-center justify-between mb-2 w-full">
-                <div className="font-medium text-emerald-600">In 30 days</div>
-                <div className="text-sm text-[#62626A]">2024.04.04</div>
+                <div className="font-medium text-emerald-600">
+                  {subscription?.days_remaining !== undefined
+                    ? `In ${subscription.days_remaining} ${
+                        subscription.days_remaining === 1 ? "day" : "days"
+                      }`
+                    : "N/A"}
+                </div>
+                <div className="text-sm text-[#62626A]">
+                  {formatExpirationDate(subscription?.expires_at)}
+                </div>
               </div>
             </div>
             <Button
@@ -119,7 +232,7 @@ export const Profile: React.FC = () => {
               <button
                 type="button"
                 className="text-sm text-[#2761FC] font-semibold"
-                onClick={() => navigate("/welcome")}
+                onClick={handleLogout}
               >
                 Log out
               </button>
