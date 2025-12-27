@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { useConnection } from "../../contexts/ConnectionContext";
 import { useSubscription } from "../../contexts/SubscriptionContext";
-import { getAccountNumber } from "../../services/api";
+import { getAccountNumber, getSelectedServer } from "../../services/api";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
@@ -18,23 +18,32 @@ export const Dashboard: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [showCongrats, setShowCongrats] = useState(false);
   const [accountNumber, setAccountNumber] = useState<string | null>(null);
+  const [selectedServerName, setSelectedServerName] = useState<string | null>(
+    null
+  );
 
   const isConnecting = status === "connecting";
 
-  // Load account number from storage and check if we should show congrats modal
+  // Load account number and selected server from storage
   useEffect(() => {
-    const loadAccountNumber = async () => {
+    const loadData = async () => {
       const account = await getAccountNumber();
       setAccountNumber(account);
 
-      // Show congrats modal for all new users (both one-click and email/password register)
-      if (searchParams.get("newUser") === "true") {
+      const server = await getSelectedServer();
+      setSelectedServerName(server.name);
+
+      // Show congrats modal only for one-click registration (when oneClick=true)
+      if (
+        searchParams.get("newUser") === "true" &&
+        searchParams.get("oneClick") === "true"
+      ) {
         setShowCongrats(true);
-        // Remove query param from URL
+        // Remove query params from URL
         setSearchParams({});
       }
     };
-    loadAccountNumber();
+    loadData();
   }, [searchParams, setSearchParams]);
 
   // Format account number with spaces (XXXX XXXX XXXX XXXX)
@@ -104,8 +113,13 @@ export const Dashboard: React.FC = () => {
       if (status === "disconnected") {
         setStatus("connecting");
 
+        // Get selected server config URL
+        const server = await getSelectedServer();
+        const configPath =
+          server.configUrl || "/home/bb/Hentet/stellar-vpn-desktop/japan.ovpn";
+
         await invoke("vpn_connect", {
-          configPath: "/home/bb/Hentet/stellar-vpn-desktop/japan.ovpn",
+          configPath: configPath,
         });
       } else {
         await invoke("vpn_disconnect");
@@ -238,7 +252,7 @@ export const Dashboard: React.FC = () => {
                 alt="Flag"
                 className="w-6 h-6 rounded-full"
               />
-              Czechia
+              {selectedServerName || "Select Location"}
             </span>
           </div>
           <img src="/icons/right-arrow.svg" alt="Arrow" className="w-5 h-4" />

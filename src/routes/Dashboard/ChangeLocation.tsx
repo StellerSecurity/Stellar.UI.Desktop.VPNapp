@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AuthShell } from "../../components/layout/AuthShell";
-import { fetchServerList, type VpnServer } from "../../services/api";
+import {
+  fetchServerList,
+  type VpnServer,
+  setSelectedServer,
+} from "../../services/api";
 
 type ServerItem = {
   id: string;
@@ -210,7 +214,16 @@ export const ChangeLocation: React.FC = () => {
                         {city.servers.map((server) => (
                           <li
                             key={server.id}
-                            className="py-4 flex items-center gap-2"
+                            className="py-4 flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={async () => {
+                              if (server.config_url) {
+                                await setSelectedServer(
+                                  server.name,
+                                  server.config_url
+                                );
+                                navigate("/dashboard");
+                              }
+                            }}
                           >
                             <div className="w-2 h-2 rounded-full bg-[#00B252]"></div>
                             <span className="ml-1">{server.name}</span>

@@ -135,6 +135,69 @@ export async function getAccountNumber(): Promise<string | null> {
 }
 
 /**
+ * Store selected VPN server location
+ */
+export async function setSelectedServer(
+  serverName: string,
+  configUrl: string
+): Promise<void> {
+  const isTauri =
+    typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+  if (isTauri) {
+    try {
+      const { Store } = await import("@tauri-apps/plugin-store");
+      const store = new Store(".stellar-vpn.dat");
+      await store.set("selected_server_name", serverName);
+      await store.set("selected_server_config_url", configUrl);
+      await store.save();
+      return;
+    } catch (error) {
+      console.warn("Tauri store not available, using localStorage:", error);
+    }
+    localStorage.setItem("stellar_vpn_selected_server_name", serverName);
+    localStorage.setItem("stellar_vpn_selected_server_config_url", configUrl);
+    return;
+  }
+
+  localStorage.setItem("stellar_vpn_selected_server_name", serverName);
+  localStorage.setItem("stellar_vpn_selected_server_config_url", configUrl);
+}
+
+/**
+ * Get selected VPN server location
+ */
+export async function getSelectedServer(): Promise<{
+  name: string | null;
+  configUrl: string | null;
+}> {
+  const isTauri =
+    typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+  if (isTauri) {
+    try {
+      const { Store } = await import("@tauri-apps/plugin-store");
+      const store = new Store(".stellar-vpn.dat");
+      const name = (await store.get<string>("selected_server_name")) || null;
+      const configUrl =
+        (await store.get<string>("selected_server_config_url")) || null;
+      return { name, configUrl };
+    } catch (error) {
+      console.warn("Tauri store not available, using localStorage:", error);
+    }
+    return {
+      name: localStorage.getItem("stellar_vpn_selected_server_name"),
+      configUrl: localStorage.getItem("stellar_vpn_selected_server_config_url"),
+    };
+  }
+
+  return {
+    name: localStorage.getItem("stellar_vpn_selected_server_name"),
+    configUrl: localStorage.getItem("stellar_vpn_selected_server_config_url"),
+  };
+}
+
+/**
  * Store authentication data in secure storage
  */
 export async function storeAuthData(

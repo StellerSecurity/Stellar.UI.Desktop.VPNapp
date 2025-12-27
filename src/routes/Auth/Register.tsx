@@ -42,8 +42,8 @@ export const Register: React.FC = () => {
         await refreshSubscription();
         // Start polling
         startPolling();
-        // Navigate to dashboard
-        navigate("/dashboard?newUser=true");
+        // Navigate to dashboard with oneClick flag to show account number popup
+        navigate("/dashboard?newUser=true&oneClick=true");
       });
     } catch (error) {
       console.error("One-click register error:", error);
@@ -81,8 +81,8 @@ export const Register: React.FC = () => {
         await refreshSubscription();
         // Start polling
         startPolling();
-        // Navigate to dashboard
-        navigate("/dashboard?newUser=true");
+        // Navigate to dashboard without oneClick flag (no account number popup for email/password registration)
+        navigate("/dashboard");
       });
     } catch (error) {
       console.error("Register error:", error);
