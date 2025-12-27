@@ -23,7 +23,16 @@ export const Register: React.FC = () => {
       const authResponse = await registerWithAccountNumber();
 
       if (!authResponse) {
-        setError("Registration failed. Please try again.");
+        setError("Service unavailable. Please try again.");
+        return;
+      }
+
+      // Check response code
+      if (authResponse.response_code !== 200) {
+        setError(
+          authResponse.response_message ||
+            "Registration failed. Please try again."
+        );
         return;
       }
 
@@ -53,7 +62,16 @@ export const Register: React.FC = () => {
       const authResponse = await register(email, password);
 
       if (!authResponse) {
-        setError("Registration failed. Please check your information.");
+        setError("Service unavailable. Please try again.");
+        return;
+      }
+
+      // Check response code
+      if (authResponse.response_code !== 200) {
+        setError(
+          authResponse.response_message ||
+            "Registration failed. Please check your information."
+        );
         return;
       }
 

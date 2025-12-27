@@ -24,7 +24,16 @@ export const LoginEmail: React.FC = () => {
       const authResponse = await login(email, password);
 
       if (!authResponse) {
-        setError("Login failed. Please check your credentials.");
+        setError("Service unavailable. Please try again.");
+        return;
+      }
+
+      // Check response code
+      if (authResponse.response_code !== 200) {
+        setError(
+          authResponse.response_message ||
+            "Login failed. Please check your credentials."
+        );
         return;
       }
 

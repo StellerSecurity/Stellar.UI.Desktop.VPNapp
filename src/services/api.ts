@@ -48,6 +48,7 @@ export interface AuthResponse {
   token: string;
   device_name: string;
   account_number?: string; // Only present for account number flows
+  response_message?: string; // Error message if response_code !== 200
 }
 
 // Password Reset interfaces
@@ -70,6 +71,17 @@ export interface UpdatePasswordRequest {
   email: string;
   confirmation_code: string;
   new_password: string;
+}
+
+// Server List interfaces
+export interface VpnServer {
+  id: string;
+  name: string; // e.g., "Switzerland – Zurich"
+  country: string; // Country code e.g., "CH", "US"
+  lat: number;
+  lon: number;
+  protocols: string[]; // e.g., ["udp", "tcp"]
+  config_url: string; // URL to .ovpn config file
 }
 
 /**
@@ -233,20 +245,27 @@ export async function fetchHomeData(): Promise<HomeResponse | null> {
       },
     });
 
-    if (!response.ok) {
+    let data: HomeResponse;
+    try {
+      data = await response.json();
+    } catch (parseError) {
+      // Handle non-JSON responses (gateway errors, outages)
+      console.error("Failed to parse response as JSON:", parseError);
       if (response.status === 401) {
         // Token expired or invalid
         await clearAuthData();
         console.error("Authentication failed: token expired or invalid");
-      } else {
-        console.error(
-          `Home API request failed: ${response.status} ${response.statusText}`
-        );
       }
       return null;
     }
 
-    const data: HomeResponse = await response.json();
+    // Handle 401 even if JSON parsing succeeded
+    if (response.status === 401 || (data as any).response_code === 401) {
+      await clearAuthData();
+      console.error("Authentication failed: token expired or invalid");
+      return null;
+    }
+
     return data;
   } catch (error) {
     console.error("Error fetching home data:", error);
@@ -270,20 +289,31 @@ export async function login(
       body: JSON.stringify({ username, password }),
     });
 
-    if (!response.ok) {
-      console.error(`Login failed: ${response.status} ${response.statusText}`);
-      return null;
+    let data: AuthResponse;
+    try {
+      data = await response.json();
+    } catch (parseError) {
+      // Handle non-JSON responses (gateway errors, outages)
+      console.error("Failed to parse response as JSON:", parseError);
+      return {
+        response_code: 500,
+        response_message: "Service unavailable, try again",
+      } as AuthResponse;
     }
 
-    const data: AuthResponse = await response.json();
+    // response_code is the source of truth, not HTTP status
     if (data.response_code === 200) {
       return data;
     }
 
-    return null;
+    // Return error response with details
+    return data;
   } catch (error) {
     console.error("Error during login:", error);
-    return null;
+    return {
+      response_code: 500,
+      response_message: "Service unavailable, try again",
+    } as AuthResponse;
   }
 }
 
@@ -303,22 +333,31 @@ export async function register(
       body: JSON.stringify({ username, password }),
     });
 
-    if (!response.ok) {
-      console.error(
-        `Registration failed: ${response.status} ${response.statusText}`
-      );
-      return null;
+    let data: AuthResponse;
+    try {
+      data = await response.json();
+    } catch (parseError) {
+      // Handle non-JSON responses (gateway errors, outages)
+      console.error("Failed to parse response as JSON:", parseError);
+      return {
+        response_code: 500,
+        response_message: "Service unavailable, try again",
+      } as AuthResponse;
     }
 
-    const data: AuthResponse = await response.json();
+    // response_code is the source of truth, not HTTP status
     if (data.response_code === 200) {
       return data;
     }
 
-    return null;
+    // Return error response with details
+    return data;
   } catch (error) {
     console.error("Error during registration:", error);
-    return null;
+    return {
+      response_code: 500,
+      response_message: "Service unavailable, try again",
+    } as AuthResponse;
   }
 }
 
@@ -338,22 +377,31 @@ export async function registerWithAccountNumber(): Promise<AuthResponse | null> 
       }
     );
 
-    if (!response.ok) {
-      console.error(
-        `Anonymous registration failed: ${response.status} ${response.statusText}`
-      );
-      return null;
+    let data: AuthResponse;
+    try {
+      data = await response.json();
+    } catch (parseError) {
+      // Handle non-JSON responses (gateway errors, outages)
+      console.error("Failed to parse response as JSON:", parseError);
+      return {
+        response_code: 500,
+        response_message: "Service unavailable, try again",
+      } as AuthResponse;
     }
 
-    const data: AuthResponse = await response.json();
+    // response_code is the source of truth, not HTTP status
     if (data.response_code === 200) {
       return data;
     }
 
-    return null;
+    // Return error response with details
+    return data;
   } catch (error) {
     console.error("Error during anonymous registration:", error);
-    return null;
+    return {
+      response_code: 500,
+      response_message: "Service unavailable, try again",
+    } as AuthResponse;
   }
 }
 
@@ -375,22 +423,31 @@ export async function loginWithAccountNumber(
       }
     );
 
-    if (!response.ok) {
-      console.error(
-        `Account number login failed: ${response.status} ${response.statusText}`
-      );
-      return null;
+    let data: AuthResponse;
+    try {
+      data = await response.json();
+    } catch (parseError) {
+      // Handle non-JSON responses (gateway errors, outages)
+      console.error("Failed to parse response as JSON:", parseError);
+      return {
+        response_code: 500,
+        response_message: "Service unavailable, try again",
+      } as AuthResponse;
     }
 
-    const data: AuthResponse = await response.json();
+    // response_code is the source of truth, not HTTP status
     if (data.response_code === 200) {
       return data;
     }
 
-    return null;
+    // Return error response with details
+    return data;
   } catch (error) {
     console.error("Error during account number login:", error);
-    return null;
+    return {
+      response_code: 500,
+      response_message: "Service unavailable, try again",
+    } as AuthResponse;
   }
 }
 
@@ -514,5 +571,47 @@ export async function updatePasswordWithResetCode(
       response_code: 500,
       response_message: "Service unavailable, try again",
     };
+  }
+}
+
+/**
+ * Fetch VPN server list
+ * @returns Array of VPN servers or null if request fails
+ */
+export async function fetchServerList(): Promise<VpnServer[] | null> {
+  try {
+    const token = await getBearerToken();
+
+    if (!token) {
+      console.error("No bearer token found in storage");
+      return null;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/vpncontroller/server-list`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        // Token expired or invalid
+        await clearAuthData();
+        console.error("Authentication failed: token expired or invalid");
+      } else {
+        console.error(
+          `Server list API request failed: ${response.status} ${response.statusText}`
+        );
+      }
+      return null;
+    }
+
+    const data: VpnServer[] = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error fetching server list:", error);
+    return null;
   }
 }

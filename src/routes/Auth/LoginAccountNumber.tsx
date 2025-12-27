@@ -26,7 +26,16 @@ export const LoginAccountNumber: React.FC = () => {
       const authResponse = await loginWithAccountNumber(cleanedAccountNumber);
 
       if (!authResponse) {
-        setError("Login failed. Please check your account number.");
+        setError("Service unavailable. Please try again.");
+        return;
+      }
+
+      // Check response code
+      if (authResponse.response_code !== 200) {
+        setError(
+          authResponse.response_message ||
+            "Login failed. Please check your account number."
+        );
         return;
       }
 

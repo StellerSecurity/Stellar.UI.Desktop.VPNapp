@@ -27,16 +27,9 @@ export const Dashboard: React.FC = () => {
       const account = await getAccountNumber();
       setAccountNumber(account);
 
-      // Only show congrats modal if:
-      // 1. User just registered (newUser=true in URL)
-      // 2. Account number exists (one-click register only)
-      // Email/password registration doesn't provide account_number
+      // Show congrats modal for all new users (both one-click and email/password register)
       if (searchParams.get("newUser") === "true") {
-        if (account) {
-          // One-click register - show congrats modal with account number
-          setShowCongrats(true);
-        }
-        // Email/password register - no account number, don't show modal
+        setShowCongrats(true);
         // Remove query param from URL
         setSearchParams({});
       }
@@ -270,8 +263,8 @@ export const Dashboard: React.FC = () => {
         </Button>
       </div>
 
-      {/* Congrats Modal - Only show if account number exists (one-click register) */}
-      {showCongrats && accountNumber && (
+      {/* Congrats Modal - Show for all new users */}
+      {showCongrats && (
         <div className="absolute inset-0 flex items-end justify-center bg-black/40 z-50">
           <div className="w-full bg-white rounded-t-3xl px-6 pt-8 pb-10 animate-slide-up">
             <div className="flex flex-col items-center">
@@ -289,7 +282,9 @@ export const Dashboard: React.FC = () => {
 
               {/* Subtitle */}
               <p className="text-sm text-[#62626A] mb-6 text-center font-poppins">
-                Here&apos;s your account number. Save it!
+                {accountNumber
+                  ? "Here's your account number. Save it!"
+                  : "Welcome! Your account has been created."}
               </p>
 
               {/* Account Number Input */}
@@ -301,13 +296,19 @@ export const Dashboard: React.FC = () => {
                   <span className="flex-1 text-[14px] font-semibold text-[#0B0C19] font-poppins">
                     {formatAccountNumber(accountNumber)}
                   </span>
-                  <button
-                    type="button"
-                    onClick={handleCopyAccount}
-                    className="flex items-center justify-center"
-                  >
-                    <img src="/icons/copy.svg" alt="Copy" className="w-5 h-5" />
-                  </button>
+                  {accountNumber && (
+                    <button
+                      type="button"
+                      onClick={handleCopyAccount}
+                      className="flex items-center justify-center"
+                    >
+                      <img
+                        src="/icons/copy.svg"
+                        alt="Copy"
+                        className="w-5 h-5"
+                      />
+                    </button>
+                  )}
                 </div>
               </div>
 

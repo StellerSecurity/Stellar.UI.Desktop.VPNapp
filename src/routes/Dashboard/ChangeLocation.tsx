@@ -1,10 +1,13 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AuthShell } from "../../components/layout/AuthShell";
+import { fetchServerList, type VpnServer } from "../../services/api";
 
 type ServerItem = {
   id: string;
   name: string;
+  config_url?: string;
+  protocols?: string[];
 };
 
 type City = {
@@ -18,183 +21,99 @@ type Country = {
   cities: City[];
 };
 
-const countriesData: Country[] = [
-  {
-    id: "switzerland",
-    name: "Switzerland",
-    cities: [
-      {
-        name: "Zurich",
-        servers: [
-          { id: "1", name: "se-mm-01235" },
-          { id: "2", name: "se-mm-01236" },
-          { id: "3", name: "se-mm-01237" },
-        ],
-      },
-    ],
-  },
-  {
-    id: "germany",
-    name: "Germany",
-    cities: [
-      {
-        name: "Berlin",
-        servers: [
-          { id: "4", name: "de-ber-001" },
-          { id: "5", name: "de-ber-002" },
-        ],
-      },
-      {
-        name: "Frankfurt",
-        servers: [
-          { id: "6", name: "de-fra-001" },
-          { id: "7", name: "de-fra-002" },
-        ],
-      },
-    ],
-  },
-  {
-    id: "france",
-    name: "France",
-    cities: [
-      {
-        name: "Paris",
-        servers: [
-          { id: "8", name: "fr-par-001" },
-          { id: "9", name: "fr-par-002" },
-        ],
-      },
-    ],
-  },
-  {
-    id: "united-kingdom",
-    name: "United Kingdom",
-    cities: [
-      {
-        name: "London",
-        servers: [
-          { id: "10", name: "uk-lon-001" },
-          { id: "11", name: "uk-lon-002" },
-          { id: "12", name: "uk-lon-003" },
-        ],
-      },
-      {
-        name: "Manchester",
-        servers: [{ id: "13", name: "uk-man-001" }],
-      },
-    ],
-  },
-  {
-    id: "united-states",
-    name: "United States",
-    cities: [
-      {
-        name: "New York",
-        servers: [
-          { id: "14", name: "us-nyc-001" },
-          { id: "15", name: "us-nyc-002" },
-        ],
-      },
-      {
-        name: "Los Angeles",
-        servers: [
-          { id: "16", name: "us-lax-001" },
-          { id: "17", name: "us-lax-002" },
-        ],
-      },
-      {
-        name: "Chicago",
-        servers: [{ id: "18", name: "us-chi-001" }],
-      },
-    ],
-  },
-  {
-    id: "japan",
-    name: "Japan",
-    cities: [
-      {
-        name: "Tokyo",
-        servers: [
-          { id: "19", name: "jp-tyo-001" },
-          { id: "20", name: "jp-tyo-002" },
-        ],
-      },
-      {
-        name: "Osaka",
-        servers: [{ id: "21", name: "jp-osk-001" }],
-      },
-    ],
-  },
-  {
-    id: "canada",
-    name: "Canada",
-    cities: [
-      {
-        name: "Toronto",
-        servers: [
-          { id: "22", name: "ca-tor-001" },
-          { id: "23", name: "ca-tor-002" },
-        ],
-      },
-      {
-        name: "Vancouver",
-        servers: [{ id: "24", name: "ca-van-001" }],
-      },
-    ],
-  },
-  {
-    id: "australia",
-    name: "Australia",
-    cities: [
-      {
-        name: "Sydney",
-        servers: [
-          { id: "25", name: "au-syd-001" },
-          { id: "26", name: "au-syd-002" },
-        ],
-      },
-      {
-        name: "Melbourne",
-        servers: [{ id: "27", name: "au-mel-001" }],
-      },
-    ],
-  },
-  {
-    id: "netherlands",
-    name: "Netherlands",
-    cities: [
-      {
-        name: "Amsterdam",
-        servers: [
-          { id: "28", name: "nl-ams-001" },
-          { id: "29", name: "nl-ams-002" },
-        ],
-      },
-    ],
-  },
-  {
-    id: "spain",
-    name: "Spain",
-    cities: [
-      {
-        name: "Madrid",
-        servers: [{ id: "30", name: "es-mad-001" }],
-      },
-      {
-        name: "Barcelona",
-        servers: [
-          { id: "31", name: "es-bcn-001" },
-          { id: "32", name: "es-bcn-002" },
-        ],
-      },
-    ],
-  },
-];
+/**
+ * Transform flat server list from API into nested Country -> City -> Server structure
+ */
+function transformServerList(servers: VpnServer[]): Country[] {
+  // Map to store countries
+  const countriesMap = new Map<string, Country>();
+
+  servers.forEach((server) => {
+    // Parse name format: "Switzerland – Zurich" or "USA – New York"
+    const nameParts = server.name.split("–").map((s) => s.trim());
+    const countryName = nameParts[0] || server.country;
+    const cityName = nameParts[1] || "Unknown";
+
+    // Create country ID from country name (lowercase, replace spaces with hyphens)
+    const countryId = countryName.toLowerCase().replace(/\s+/g, "-");
+
+    // Get or create country
+    let country = countriesMap.get(countryId);
+    if (!country) {
+      country = {
+        id: countryId,
+        name: countryName,
+        cities: [],
+      };
+      countriesMap.set(countryId, country);
+    }
+
+    // Find or create city
+    let city = country.cities.find((c) => c.name === cityName);
+    if (!city) {
+      city = {
+        name: cityName,
+        servers: [],
+      };
+      country.cities.push(city);
+    }
+
+    // Add server to city
+    city.servers.push({
+      id: server.id,
+      name: server.name,
+      config_url: server.config_url,
+      protocols: server.protocols,
+    });
+  });
+
+  // Convert map to array and sort
+  return Array.from(countriesMap.values()).sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+}
 
 export const ChangeLocation: React.FC = () => {
   const navigate = useNavigate();
-  const [expandedCountry, setExpandedCountry] = useState<string>("switzerland");
+  const [expandedCountry, setExpandedCountry] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [countriesData, setCountriesData] = useState<Country[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch server list from API
+  useEffect(() => {
+    const loadServers = async () => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const servers = await fetchServerList();
+
+        if (!servers || servers.length === 0) {
+          setError("No servers available");
+          setCountriesData([]);
+          return;
+        }
+
+        const transformed = transformServerList(servers);
+        setCountriesData(transformed);
+
+        // Auto-expand first country if available
+        if (transformed.length > 0) {
+          setExpandedCountry(transformed[0].id);
+        }
+      } catch (err) {
+        console.error("Error loading server list:", err);
+        setError("Failed to load server list");
+        setCountriesData([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadServers();
+  }, []);
 
   const toggleCountry = (countryId: string) => {
     setExpandedCountry(expandedCountry === countryId ? "" : countryId);
@@ -224,6 +143,15 @@ export const ChangeLocation: React.FC = () => {
         />
       </div>
       <div className="overflow-auto text-sm rounded-2xl custom-scrollbar bg-white">
+        {isLoading && (
+          <div className="p-8 text-center text-[#62626A]">
+            Loading servers...
+          </div>
+        )}
+        {error && <div className="p-8 text-center text-red-500">{error}</div>}
+        {!isLoading && !error && filteredCountries.length === 0 && (
+          <div className="p-8 text-center text-[#62626A]">No servers found</div>
+        )}
         <div className="rounded-2xl py-3 px-8">
           <div className="text-[14px] flex items-center gap-3 text-[#0B0C19]">
             <img
@@ -234,65 +162,67 @@ export const ChangeLocation: React.FC = () => {
             <span>Fastest</span>
           </div>
         </div>
-        {filteredCountries.map((country) => (
-          <div
-            key={country.id}
-            className={expandedCountry === country.id ? "bg-[#F6F6FD]" : ""}
-          >
-            <button
-              type="button"
-              onClick={() => toggleCountry(country.id)}
-              className={`w-full text-[#0B0C19] py-4 px-8 flex items-center justify-between text-left ${
-                expandedCountry === country.id ? "" : ""
-              }`}
+        {!isLoading &&
+          !error &&
+          filteredCountries.map((country) => (
+            <div
+              key={country.id}
+              className={expandedCountry === country.id ? "bg-[#F6F6FD]" : ""}
             >
-              <div className="flex items-center gap-3">
-                <img
-                  src="/icons/flag.svg"
-                  alt="Flag"
-                  className="w-6 h-6 rounded-full"
-                />
-                <span
-                  className={
-                    expandedCountry === country.id ? "font-semibold" : ""
-                  }
-                >
-                  {country.name}
-                </span>
-              </div>
-              <img
-                src="/icons/back.svg"
-                alt="Arrow"
-                className={`w-2 h-3 transition-transform ${
-                  expandedCountry === country.id ? "rotate-90" : "-rotate-90"
+              <button
+                type="button"
+                onClick={() => toggleCountry(country.id)}
+                className={`w-full text-[#0B0C19] py-4 px-8 flex items-center justify-between text-left ${
+                  expandedCountry === country.id ? "" : ""
                 }`}
-              />
-            </button>
-            {expandedCountry === country.id && (
-              <div className="bg-[#F6F6FD] px-16">
-                {country.cities.map((city, cityIndex) => (
-                  <div key={cityIndex}>
-                    <div className="font-semibold text-[#0B0C19] text-[14px] py-4 flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-[#00B252]"></div>
-                      <span>{city.name}</span>
+              >
+                <div className="flex items-center gap-3">
+                  <img
+                    src="/icons/flag.svg"
+                    alt="Flag"
+                    className="w-6 h-6 rounded-full"
+                  />
+                  <span
+                    className={
+                      expandedCountry === country.id ? "font-semibold" : ""
+                    }
+                  >
+                    {country.name}
+                  </span>
+                </div>
+                <img
+                  src="/icons/back.svg"
+                  alt="Arrow"
+                  className={`w-2 h-3 transition-transform ${
+                    expandedCountry === country.id ? "rotate-90" : "-rotate-90"
+                  }`}
+                />
+              </button>
+              {expandedCountry === country.id && (
+                <div className="bg-[#F6F6FD] px-16">
+                  {country.cities.map((city, cityIndex) => (
+                    <div key={cityIndex}>
+                      <div className="font-semibold text-[#0B0C19] text-[14px] py-4 flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-[#00B252]"></div>
+                        <span>{city.name}</span>
+                      </div>
+                      <ul className="text-[#0B0C19] text-sm pl-6">
+                        {city.servers.map((server) => (
+                          <li
+                            key={server.id}
+                            className="py-4 flex items-center gap-2"
+                          >
+                            <div className="w-2 h-2 rounded-full bg-[#00B252]"></div>
+                            <span className="ml-1">{server.name}</span>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
-                    <ul className="text-[#0B0C19] text-sm pl-6">
-                      {city.servers.map((server) => (
-                        <li
-                          key={server.id}
-                          className="py-4 flex items-center gap-2"
-                        >
-                          <div className="w-2 h-2 rounded-full bg-[#00B252]"></div>
-                          <span className="ml-1">{server.name}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            )}
-        </div>
-        ))}
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
       </div>
     </AuthShell>
   );
