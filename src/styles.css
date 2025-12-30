@@ -269,3 +269,8 @@ img[src*="icons"] {
   border: 2px solid rgba(39, 97, 252, 0.3) !important;
   border-top-color: #2761FC !important;
 }
+
+/* Back arrow rotation for change location */
+.backk-arrow {
+  transform: rotate(-90deg);
+}

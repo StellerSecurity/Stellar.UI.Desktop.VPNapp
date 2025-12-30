@@ -185,7 +185,7 @@ export const ChangeLocation: React.FC = () => {
                     className="w-6 h-6 rounded-full"
                   />
                   <span
-                    className={`text-[14px] ${
+                    className={`text-[13px] ${
                       expandedCountry === country.id
                         ? "font-semibold"
                         : "font-normal"
@@ -194,13 +194,13 @@ export const ChangeLocation: React.FC = () => {
                     {country.name}
                   </span>
                 </div>
-                <img
-                  src="/icons/back.svg"
-                  alt="Arrow"
-                  className={`w-4 h-5 transition-transform ${
-                    expandedCountry === country.id ? "rotate-90" : "rotate-180"
+                <div
+                  className={`backk-arrow transition-transform ${
+                    expandedCountry === country.id ? "rotate-180" : ""
                   }`}
-                />
+                >
+                  <img src="/icons/back.svg" alt="Arrow" className="w-4 h-5" />
+                </div>
               </button>
               {expandedCountry === country.id && (
                 <div className="bg-[#F6F6FD] px-16">
