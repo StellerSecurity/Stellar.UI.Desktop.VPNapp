@@ -110,8 +110,14 @@ export const Register: React.FC = () => {
           onClick={handleOneClickRegister}
           disabled={isLoading}
         >
-          <img src="/icons/light.svg" alt="Light" className="w-5 h-5" />
-          <span>{isLoading ? "Registering..." : "One-Click Register"}</span>
+          {isLoading ? (
+            <span className="spinner spinner-outline"></span>
+          ) : (
+            <>
+              <img src="/icons/light.svg" alt="Light" className="w-5 h-5" />
+              <span>One-Click Register</span>
+            </>
+          )}
         </Button>
 
         <div className="my-1 flex items-center gap-3">
@@ -135,7 +141,13 @@ export const Register: React.FC = () => {
           required
         />
         <Button type="submit" fullWidth disabled={isLoading}>
-          {isLoading ? "Creating Account..." : "Create Account"}
+          {isLoading ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="spinner"></span>
+            </span>
+          ) : (
+            "Create Account"
+          )}
         </Button>
 
         <p className="mt-3 text-center text-sm font-poppins font-normal">

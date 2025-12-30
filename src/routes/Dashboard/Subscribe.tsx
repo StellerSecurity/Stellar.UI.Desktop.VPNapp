@@ -130,7 +130,7 @@ export const Subscribe: React.FC = () => {
                         }}
                       />
                     </div>
-                    <p className="text-[16px] font-semibold text-[#0B0C19] mb-8">
+                    <p className="text-[12px] font-semibold text-[#0B0C19] mb-8">
                       {testimonial.text}
                     </p>
                     <div className="flex items-center gap-3">

@@ -12,10 +12,26 @@
     font-display: swap;
 }
 
+html {
+  font-size: 80%; /* Reduce base font size by 20% to match window size reduction */
+}
+
 body {
   @apply antialiased;
   font-family: "Poppins", system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", sans-serif;
 }
+
+/* Scale down all icons - reduce by 40% (0.6 scale) to make them appropriately sized */
+img[src*="icons"] {
+  transform: scale(0.6) !important;
+  transform-origin: center;
+  display: inline-block; /* Ensure transform works properly */
+}
+
+/* Note: Spacing (padding, margins, gaps) is already scaled by 20% because:
+   - html { font-size: 80% } scales all rem-based values (which Tailwind uses)
+   - This automatically reduces padding, margins, gaps, etc. proportionally
+*/
 
 /* Ensure Tailwind's font-silka utility actually applies Silka.
    The body font rule above was overriding it due to CSS order, so we reinforce it here. */
@@ -226,4 +242,30 @@ body {
 
 .animate-fade-in {
   animation: fade-in 0.3s ease-out;
+}
+
+/* Loading spinner */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+/* Spinner for outline button variant */
+.spinner-outline {
+  border: 2px solid rgba(39, 97, 252, 0.3) !important;
+  border-top-color: #2761FC !important;
 }

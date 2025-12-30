@@ -57,8 +57,11 @@ export const OtpInput: React.FC<Props> = ({
 
   const handlePaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
-    const pastedData = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, length);
-    
+    const pastedData = e.clipboardData
+      .getData("text")
+      .replace(/\D/g, "")
+      .slice(0, length);
+
     if (!isControlled) {
       setInternalValue(pastedData);
     }
@@ -86,7 +89,7 @@ export const OtpInput: React.FC<Props> = ({
           onChange={(e) => handleChange(idx, e.target.value)}
           onKeyDown={(e) => handleKeyDown(idx, e)}
           onPaste={handlePaste}
-          className="w-[22%] h-12 rounded-[54px] bg-inputBg text-center text-sm font-normal outline-none text-textDark focus:bg-transparent focus:border focus:border-[#2761FC]"
+          className="w-[22%] h-10 rounded-[54px] bg-inputBg text-center text-sm font-normal outline-none text-textDark focus:bg-transparent focus:border focus:border-[#2761FC]"
         />
       ))}
     </div>

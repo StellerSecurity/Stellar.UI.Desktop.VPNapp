@@ -13,7 +13,7 @@ export const Button: React.FC<ButtonProps> = ({
   ...props
 }) => {
   const base =
-    "inline-flex items-center justify-center rounded-full px-6 h-[52px] text-sm font-poppins font-semibold transition disabled:cursor-not-allowed";
+    "inline-flex items-center justify-center rounded-full px-6 h-[42px] text-sm font-poppins font-semibold transition disabled:cursor-not-allowed";
   const variants: Record<string, string> = {
     primary: "bg-[#2761FC] text-white hover:bg-[#1e56cc]",
     outline:

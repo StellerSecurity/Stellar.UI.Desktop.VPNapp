@@ -134,16 +134,14 @@ export const ChangeLocation: React.FC = () => {
   return (
     <AuthShell title="Change Location" onBack={() => navigate("/dashboard")}>
       <div className="mb-4 relative px-0">
-        <img
-          src="/icons/search.svg"
-          alt="Search"
-          className="absolute left-5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] pointer-events-none"
-        />
+        <div className="absolute left-5 top-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none z-10">
+          <img src="/icons/search.svg" alt="Search" className="w-5 h-5" />
+        </div>
         <input
           placeholder="Search for country"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full rounded-[54px] bg-inputBg h-[52px] pl-12 pr-6 outline-none focus:outline-none focus:ring-0 text-textDark placeholder:text-[#62626A] text-[14px]"
+          className="w-full rounded-[54px] bg-inputBg h-[42px] pl-12 pr-6 outline-none focus:outline-none focus:ring-0 text-textDark placeholder:text-[#62626A] text-[14px]"
         />
       </div>
       <div className="overflow-auto text-sm rounded-2xl custom-scrollbar bg-white">
@@ -187,9 +185,11 @@ export const ChangeLocation: React.FC = () => {
                     className="w-6 h-6 rounded-full"
                   />
                   <span
-                    className={
-                      expandedCountry === country.id ? "font-semibold" : ""
-                    }
+                    className={`text-[14px] ${
+                      expandedCountry === country.id
+                        ? "font-semibold"
+                        : "font-normal"
+                    }`}
                   >
                     {country.name}
                   </span>
@@ -197,8 +197,8 @@ export const ChangeLocation: React.FC = () => {
                 <img
                   src="/icons/back.svg"
                   alt="Arrow"
-                  className={`w-2 h-3 transition-transform ${
-                    expandedCountry === country.id ? "rotate-90" : "-rotate-90"
+                  className={`w-4 h-5 transition-transform ${
+                    expandedCountry === country.id ? "rotate-90" : "rotate-180"
                   }`}
                 />
               </button>
@@ -206,11 +206,11 @@ export const ChangeLocation: React.FC = () => {
                 <div className="bg-[#F6F6FD] px-16">
                   {country.cities.map((city, cityIndex) => (
                     <div key={cityIndex}>
-                      <div className="font-semibold text-[#0B0C19] text-[14px] py-4 flex items-center gap-2">
+                      <div className="font-semibold text-[#0B0C19] text-[12px] py-4 flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-[#00B252]"></div>
                         <span>{city.name}</span>
                       </div>
-                      <ul className="text-[#0B0C19] text-sm pl-6">
+                      <ul className="text-[#0B0C19] text-[12px] pl-6">
                         {city.servers.map((server) => (
                           <li
                             key={server.id}

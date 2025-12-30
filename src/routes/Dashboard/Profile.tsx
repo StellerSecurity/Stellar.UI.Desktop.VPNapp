@@ -7,24 +7,28 @@ import {
   getAccountNumber,
   getDeviceName,
   clearAuthData,
+  getAutoConnect,
+  setAutoConnect,
 } from "../../services/api";
 
 export const Profile: React.FC = () => {
   const navigate = useNavigate();
   const { subscription } = useSubscription();
   const [showLogout, setShowLogout] = useState(false);
-  const [autoConnect, setAutoConnect] = useState(true);
+  const [autoConnect, setAutoConnectState] = useState(false);
   const [accountNumber, setAccountNumber] = useState<string | null>(null);
   const [deviceName, setDeviceName] = useState<string | null>(null);
   const [showCopiedToast, setShowCopiedToast] = useState(false);
 
-  // Load account number and device name from storage
+  // Load account number, device name, and auto connect preference from storage
   useEffect(() => {
     const loadData = async () => {
       const account = await getAccountNumber();
       const device = await getDeviceName();
+      const autoConnectPref = await getAutoConnect();
       setAccountNumber(account);
       setDeviceName(device);
+      setAutoConnectState(autoConnectPref);
     };
     loadData();
   }, []);
@@ -100,10 +104,10 @@ export const Profile: React.FC = () => {
           <div className="bg-white rounded-2xl p-4 text-sm">
             <div className="flex justify-between items-center mb-2">
               <div>
-                <div className="text-[12px] font-normal text-[#62626A] mb-1">
+                <div className="text-[11px] font-normal text-[#62626A] mb-1">
                   Account Name / Number
                 </div>
-                <div className="text-[14px] font-semibold text-[#0B0C19]">
+                <div className="text-[12px] font-semibold text-[#0B0C19]">
                   {formatAccountNumber(accountNumber)}
                 </div>
               </div>
@@ -118,7 +122,7 @@ export const Profile: React.FC = () => {
                     }}
                     className="text-xs flex items-center gap-2 hover:opacity-80 transition-opacity"
                   >
-                    <img src="/icons/copy.svg" alt="Copy" className="w-6 h-6" />
+                    <img src="/icons/copy.svg" alt="Copy" className="w-8 h-8" />
                   </button>
                   {/* Copied Toast Notification - Right above button */}
                   {showCopiedToast && (
@@ -131,7 +135,7 @@ export const Profile: React.FC = () => {
                 </div>
               )}
             </div>
-            <div className="text-[12px] font-normal text-[#62626A] mb-1">
+            <div className="text-[11px] font-normal text-[#62626A] mb-1">
               Device name:
             </div>
             <div className="text-[14px] text-[#0B0C19] font-semibold">
@@ -144,9 +148,9 @@ export const Profile: React.FC = () => {
 
           <div className="bg-white rounded-2xl flex-col p-4 text-sm flex items-center justify-between">
             <div className="w-full">
-              <div className="text-xs text-[#62626A] mb-2">Expires</div>
+              <div className="text-sm text-[#62626A] mb-2">Expires</div>
               <div className="flex items-center justify-between mb-2 w-full">
-                <div className="font-medium text-emerald-600">
+                <div className="font-medium flex items-center gap-1">
                   {subscription?.days_remaining !== undefined
                     ? `In ${subscription.days_remaining} ${
                         subscription.days_remaining === 1 ? "day" : "days"
@@ -159,7 +163,7 @@ export const Profile: React.FC = () => {
               </div>
             </div>
             <Button
-              className="text-base w-full mt-2"
+              className="text-[13px] w-full mt-2 h-[42px]"
               onClick={() => navigate("/subscribe")}
             >
               Add more days
@@ -170,26 +174,34 @@ export const Profile: React.FC = () => {
         <div className="px-5 mt-10 bg-white rounded-2xl flex-1 pt-6 pb-6">
           <div className="flex items-center justify-between text-sm mb-6 pb-6 border-b border-[#EAEAF0]">
             <span className="text-[14px] font-semibold text-[#0B0C19] flex items-center gap-2">
-              <img src="/icons/network.svg" alt="Network" className="w-8 h-8" />
+              <img
+                src="/icons/network.svg"
+                alt="Network"
+                className="w-11 h-11"
+              />
               Auto connect
             </span>
             <button
               type="button"
-              onClick={() => setAutoConnect(!autoConnect)}
-              className={`w-[53px] h-[32px] rounded-full flex items-center px-1 transition-colors ${
+              onClick={async () => {
+                const newValue = !autoConnect;
+                setAutoConnectState(newValue);
+                await setAutoConnect(newValue);
+              }}
+              className={`w-[42px] h-[26px] rounded-full flex items-center px-1 transition-colors ${
                 autoConnect ? "bg-[#2761FC]" : "bg-gray-300"
               }`}
             >
               <span
-                className={`w-[26px] h-[26px] rounded-full bg-white flex items-center justify-center transition-transform ${
-                  autoConnect ? "translate-x-5" : "translate-x-0"
+                className={`w-[20px] h-[20px] rounded-full bg-white flex items-center justify-center transition-transform ${
+                  autoConnect ? "translate-x-4" : "translate-x-0"
                 }`}
               >
                 {autoConnect && (
                   <img
                     src="/icons/blue-tick.svg"
                     alt="Tick"
-                    className="w-3 h-3"
+                    className="w-4 h-4"
                   />
                 )}
               </span>
@@ -201,7 +213,7 @@ export const Profile: React.FC = () => {
             onClick={() => setShowLogout(true)}
             className="text-sm text-[#62626A] flex items-center gap-3 pl-2"
           >
-            <img src="/icons/logout.svg" alt="Logout" className="w-6 h-6" />
+            <img src="/icons/logout.svg" alt="Logout" className="w-7 h-7" />
             <span className="text-[14px] font-semibold text-[#62626A]">
               Logout
             </span>
@@ -210,12 +222,12 @@ export const Profile: React.FC = () => {
       </div>
 
       {showLogout && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/40">
-          <div className="text-center rounded-2xl pt-12 pb-8 px-6 w-full max-w-[345px] logout-screen bg-[#F6F6FD]">
+        <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-50">
+          <div className="text-center rounded-2xl pt-12 pb-8 px-6 w-full max-w-[280px] mx-4 logout-screen bg-[#F6F6FD]">
             <img
               src="/icons/logout.svg"
               alt="Logout"
-              className="w-8 h-8 mx-auto mb-4"
+              className="w-10 h-10 mx-auto mb-4"
             />
             <h2 className="text-xl font-bold mb-2">Log out</h2>
             <p className="text-sm text-[#62626A] pb-4 mb-6 border-b border-[#EAEAF0]">

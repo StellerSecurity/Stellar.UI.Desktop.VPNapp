@@ -74,7 +74,13 @@ export const LoginAccountNumber: React.FC = () => {
           required
         />
         <Button type="submit" fullWidth disabled={isLoading}>
-          {isLoading ? "Logging in..." : "Log In"}
+          {isLoading ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="spinner"></span>
+            </span>
+          ) : (
+            "Log In"
+          )}
         </Button>
         <p className="text-center text-sm text-slate-500 mt-2">
           Or{" "}

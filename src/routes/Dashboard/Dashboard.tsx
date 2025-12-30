@@ -7,6 +7,8 @@ import {
   getAccountNumber,
   getSelectedServer,
   getDeviceName,
+  fetchServerList,
+  getAutoConnect,
 } from "../../services/api";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -53,6 +55,78 @@ export const Dashboard: React.FC = () => {
     };
     loadData();
   }, [searchParams, setSearchParams]);
+
+  // Prefetch server list in the background when dashboard loads
+  useEffect(() => {
+    const prefetchServers = async () => {
+      try {
+        // Fetch in background - don't await, just trigger the fetch
+        // This will populate the cache for when ChangeLocation opens
+        fetchServerList().catch((err) => {
+          console.warn("Failed to prefetch server list:", err);
+          // Silently fail - ChangeLocation will retry when opened
+        });
+      } catch (err) {
+        console.warn("Error prefetching server list:", err);
+      }
+    };
+    prefetchServers();
+  }, []);
+
+  // Auto connect if enabled when dashboard loads
+  useEffect(() => {
+    let mounted = true;
+
+    const attemptAutoConnect = async () => {
+      // Only auto-connect if:
+      // 1. Running in Tauri (not web mode)
+      // 2. Auto connect is enabled
+      // 3. Currently disconnected
+      // 4. A server is selected
+      if (!isTauri()) {
+        return;
+      }
+
+      const autoConnectEnabled = await getAutoConnect();
+      if (!autoConnectEnabled || !mounted) {
+        return;
+      }
+
+      // Check current status
+      if (status !== "disconnected") {
+        return; // Already connected or connecting
+      }
+
+      const server = await getSelectedServer();
+      if (!server.configUrl || !mounted) {
+        return; // No server selected
+      }
+
+      // Auto connect
+      try {
+        setStatus("connecting");
+        await invoke("vpn_connect", {
+          configPath: server.configUrl,
+        });
+      } catch (error) {
+        console.error("Auto connect failed:", error);
+        if (mounted) {
+          setStatus("disconnected");
+        }
+      }
+    };
+
+    // Small delay to ensure status is initialized and data is loaded
+    const timer = setTimeout(() => {
+      attemptAutoConnect();
+    }, 1000);
+
+    return () => {
+      mounted = false;
+      clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
   // Format account number with spaces (XXXX XXXX XXXX XXXX)
   const formatAccountNumber = (account: string | null): string => {
@@ -181,19 +255,43 @@ export const Dashboard: React.FC = () => {
 
       {/* Header */}
       <div className="px-6 pt-10 flex items-center justify-between relative z-10">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-2xl bg-white flex items-center justify-center shadow overflow-hidden">
-            <img
-              src="/icons/dashboard-icon.svg"
-              alt="Dashboard"
-              className="h-full w-full object-contain"
-            />
-          </div>
-          <span className="text-sm font-semibold font-silka">Stellar VPN</span>
+        <div className="flex items-center logo-container">
+          {/* <div className="rounded-2xl bg-white h-auto w-auto shadow overflow-hidden"> */}
+          <img
+            src="/icons/dashboard-icon.svg"
+            alt="Dashboard"
+            className="h-20 w-20 inline-block"
+          />
+          {/* </div> */}
+          <span className="text-[14px] font-semibold font-silka">
+            Stellar VPN
+          </span>
         </div>
-        <div className="flex items-center gap-3">
-          <button className="rounded-full bg-white px-3 py-1 text-[12px]">
-            <span className="text-[#00B252] font-semibold">
+        <div className="flex items-center gap-1">
+          <button className="rounded-full bg-white px-3 py-1 text-[11px]">
+            <span
+              className={`font-semibold flex items-center gap-1 ${
+                subscription?.days_remaining === 0
+                  ? "!text-red-500"
+                  : "text-[#00B252]"
+              }`}
+            >
+              {subscription?.days_remaining === 0 && (
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M8 6.00003V8.6667M8 10.6667V10.6734M2 8.00003C2 8.78796 2.15519 9.56818 2.45672 10.2961C2.75825 11.0241 3.20021 11.6855 3.75736 12.2427C4.31451 12.7998 4.97595 13.2418 5.7039 13.5433C6.43185 13.8448 7.21207 14 8 14C8.78793 14 9.56815 13.8448 10.2961 13.5433C11.0241 13.2418 11.6855 12.7998 12.2426 12.2427C12.7998 11.6855 13.2417 11.0241 13.5433 10.2961C13.8448 9.56818 14 8.78796 14 8.00003C14 7.2121 13.8448 6.43188 13.5433 5.70393C13.2417 4.97598 12.7998 4.31454 12.2426 3.75739C11.6855 3.20024 11.0241 2.75828 10.2961 2.45675C9.56815 2.15523 8.78793 2.00003 8 2.00003C7.21207 2.00003 6.43185 2.15523 5.7039 2.45675C4.97595 2.75828 4.31451 3.20024 3.75736 3.75739C3.20021 4.31454 2.75825 4.97598 2.45672 5.70393C2.15519 6.43188 2 7.2121 2 8.00003Z"
+                    stroke="#E10000"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              )}
               {subscription?.days_remaining !== undefined
                 ? `${subscription.days_remaining} days`
                 : isConnected
@@ -208,7 +306,7 @@ export const Dashboard: React.FC = () => {
             <img
               src="/icons/user.svg"
               alt="Profile"
-              className="w-[20px] h-[20px]"
+              className="w-[25px] h-[25px]"
             />
           </button>
         </div>
@@ -223,10 +321,14 @@ export const Dashboard: React.FC = () => {
 
       {/* Status pill */}
       <div className="px-6 mt-6 text-center">
-        <div className="bg-[rgba(0,0,0,0.08)] inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs text-white font-semibold backdrop-blur-[18px]">
+        <div className="bg-[rgba(0,0,0,0.08)] inline-flex items-center gap-2 rounded-full px-4 pr-6 py-2 text-md text-white font-semibold backdrop-blur-[18px]">
           {isConnected ? (
             <>
-              <img src="/icons/secured.svg" alt="Secured" className="w-6 h-6" />
+              <img
+                src="/icons/secured.svg"
+                alt="Secured"
+                className="w-10 h-10"
+              />
               <span>Secured connection</span>
             </>
           ) : isConnecting ? (
@@ -236,7 +338,7 @@ export const Dashboard: React.FC = () => {
               <img
                 src="/icons/unsecured.svg"
                 alt="Unsecured"
-                className="w-6 h-6"
+                className="w-10 h-10"
               />
               <span>Unsecured connection</span>
             </>
@@ -296,7 +398,7 @@ export const Dashboard: React.FC = () => {
         <Button
           fullWidth
           variant={isConnected ? "danger" : "primary"}
-          className={`!text-[16px] h-[54px] ${
+          className={`!text-[15px] h-[46px] ${
             isConnected && "!bg-white border border-[#E10000] !text-[#E10000]"
           } ${
             isConnecting &&
@@ -316,13 +418,13 @@ export const Dashboard: React.FC = () => {
       {/* Congrats Modal - Show for all new users */}
       {showCongrats && (
         <div className="absolute inset-0 flex items-end justify-center bg-black/40 z-50">
-          <div className="w-full bg-white rounded-t-3xl px-6 pt-8 pb-10 animate-slide-up">
+          <div className="w-full bg-white rounded-t-3xl px-6 pt-6 pb-7 animate-slide-up">
             <div className="flex flex-col items-center">
               {/* Green checkmark icon */}
               <img
                 src="/icons/green-tick.svg"
                 alt="Success"
-                className="w-10 h-10 mb-4"
+                className="w-12 h-12 mb-2"
               />
 
               {/* Heading */}
@@ -339,11 +441,11 @@ export const Dashboard: React.FC = () => {
 
               {/* Account Number Input */}
               <div className="w-full mb-6 relative">
-                <div className="text-[12px] font-normal text-[#62626A] mb-2 font-poppins">
+                <div className="text-[11px] font-normal text-[#62626A] mb-2 font-poppins">
                   Account Name / Number
                 </div>
                 <div className="flex items-center gap-2 bg-[#EAEAF0] rounded-2xl px-4 py-3">
-                  <span className="flex-1 text-[14px] font-semibold text-[#0B0C19] font-poppins">
+                  <span className="flex-1 text-[13px] font-semibold text-[#0B0C19] font-poppins">
                     {formatAccountNumber(accountNumber)}
                   </span>
                   {accountNumber && (
@@ -361,7 +463,7 @@ export const Dashboard: React.FC = () => {
                         <img
                           src="/icons/copy.svg"
                           alt="Copy"
-                          className="w-5 h-5"
+                          className="w-7 h-7"
                         />
                       </button>
                       {/* Copied Toast Notification - Right above button */}
@@ -381,7 +483,7 @@ export const Dashboard: React.FC = () => {
               <Button
                 fullWidth
                 onClick={() => setShowCongrats(false)}
-                className="h-[52px] text-base font-poppins"
+                className="h-[42px] text-base font-poppins"
               >
                 Got It
               </Button>

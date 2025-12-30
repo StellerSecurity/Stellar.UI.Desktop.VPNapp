@@ -88,7 +88,7 @@ export interface VpnServer {
 /**
  * Get bearer token from secure storage
  */
-async function getBearerToken(): Promise<string | null> {
+export async function getBearerToken(): Promise<string | null> {
   // Check if running in Tauri
   const isTauri =
     typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -184,6 +184,54 @@ export async function setSelectedServer(
 
   localStorage.setItem("stellar_vpn_selected_server_name", serverName);
   localStorage.setItem("stellar_vpn_selected_server_config_url", configUrl);
+}
+
+/**
+ * Get auto connect preference from storage
+ */
+export async function getAutoConnect(): Promise<boolean> {
+  const isTauri =
+    typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+  if (isTauri) {
+    try {
+      const { Store } = await import("@tauri-apps/plugin-store");
+      const store = new Store(".stellar-vpn.dat");
+      const autoConnect = await store.get<boolean>("auto_connect");
+      return autoConnect ?? false; // Default to false if not set
+    } catch (error) {
+      console.warn("Tauri store not available, using localStorage:", error);
+    }
+    const stored = localStorage.getItem("stellar_vpn_auto_connect");
+    return stored === "true";
+  }
+
+  const stored = localStorage.getItem("stellar_vpn_auto_connect");
+  return stored === "true";
+}
+
+/**
+ * Set auto connect preference in storage
+ */
+export async function setAutoConnect(enabled: boolean): Promise<void> {
+  const isTauri =
+    typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+  if (isTauri) {
+    try {
+      const { Store } = await import("@tauri-apps/plugin-store");
+      const store = new Store(".stellar-vpn.dat");
+      await store.set("auto_connect", enabled);
+      await store.save();
+      return;
+    } catch (error) {
+      console.warn("Tauri store not available, using localStorage:", error);
+    }
+    localStorage.setItem("stellar_vpn_auto_connect", enabled.toString());
+    return;
+  }
+
+  localStorage.setItem("stellar_vpn_auto_connect", enabled.toString());
 }
 
 /**
@@ -660,11 +708,28 @@ export async function updatePasswordWithResetCode(
   }
 }
 
+// Cache for server list to avoid repeated API calls
+let serverListCache: VpnServer[] | null = null;
+let serverListCacheTime: number = 0;
+const SERVER_LIST_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
 /**
- * Fetch VPN server list
+ * Fetch VPN server list (with caching)
+ * @param forceRefresh - If true, bypass cache and fetch fresh data
  * @returns Array of VPN servers or null if request fails
  */
-export async function fetchServerList(): Promise<VpnServer[] | null> {
+export async function fetchServerList(
+  forceRefresh: boolean = false
+): Promise<VpnServer[] | null> {
+  // Return cached data if available and not expired, unless force refresh
+  const now = Date.now();
+  if (
+    !forceRefresh &&
+    serverListCache &&
+    now - serverListCacheTime < SERVER_LIST_CACHE_DURATION
+  ) {
+    return serverListCache;
+  }
   try {
     const token = await getBearerToken();
 
@@ -695,6 +760,11 @@ export async function fetchServerList(): Promise<VpnServer[] | null> {
     }
 
     const data: VpnServer[] = await response.json();
+
+    // Update cache
+    serverListCache = data;
+    serverListCacheTime = Date.now();
+
     return data;
   } catch (error) {
     console.error("Error fetching server list:", error);

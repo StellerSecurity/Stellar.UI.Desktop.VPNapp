@@ -29,20 +29,20 @@ export const AuthShell: React.FC<Props> = ({
     >
       {isSubscribe ? (
         <div className="flex justify-center flex-col items-center mt-auto gap-4">
-          <div className="flex items-center gap-3 mt-20">
-            <div className="h-8 w-8 rounded-xl bg-white flex items-center justify-center shadow-md overflow-hidden">
+          <div className="flex items-center mt-20">
+            <div className="overflow-hidden">
               <img
                 src="/icons/logo.svg"
                 alt="Stellar VPN Logo"
-                className="h-full w-full object-contain"
+                className="h-14 w-14 object-contain"
               />
             </div>
-            <span className="!text-white font-semibold text-sm font-silka">
+            <span className="!text-white font-semibold text-md font-silka">
               Stellar VPN
             </span>
           </div>
           <div className="flex flex-col items-start gap-2 text-left w-full px-6">
-            <h2 className="text-white text-[20px] font-bold font-poppins my-2">
+            <h2 className="text-white text-[18px] font-bold font-poppins my-2">
               Get started with Stellar VPN!
             </h2>
             <div className="flex flex-col gap-5 mt-2">
@@ -110,15 +110,15 @@ export const AuthShell: React.FC<Props> = ({
               onClick={onBack}
               className={`mr-2 flex items-center justify-center absolute ${
                 isChangeLocation
-                  ? "left-1 top-[9px]"
+                  ? "left-1 top-[4px]"
                   : isProfile
-                  ? "left-5 top-[9px]"
+                  ? "left-5 top-[4px]"
                   : isSubscribe
-                  ? "left-5 top-[9px]"
+                  ? "left-5 top-[4px]"
                   : "left-0 top-0"
               }`}
             >
-              <img src="/icons/back.svg" alt="Back" className="w-2 h-3" />
+              <img src="/icons/back.svg" alt="Back" className="w-4 h-5" />
             </button>
           )}
           <div

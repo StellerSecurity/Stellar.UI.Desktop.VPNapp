@@ -88,7 +88,13 @@ export const LoginEmail: React.FC = () => {
           </button>
         </div>
         <Button type="submit" fullWidth disabled={isLoading}>
-          {isLoading ? "Logging in..." : "Log In"}
+          {isLoading ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="spinner"></span>
+            </span>
+          ) : (
+            "Log In"
+          )}
         </Button>
         <p className="mt-3 text-center text-sm font-poppins font-normal">
           <span className="text-[#0B0C19]">Don&apos;t have an account? </span>
