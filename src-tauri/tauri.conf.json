@@ -6,15 +6,15 @@
   "build": {
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build:web",
-    "devUrl": "http://localhost:5173",
+    "devUrl": "http://localhost:5174",
     "frontendDist": "../dist"
   },
   "app": {
     "windows": [
       {
         "title": "Stellar VPN",
-        "width": 390,
-        "height": 800,
+        "width": 312,
+        "height": 640,
         "resizable": false,
         "fullscreen": false
       }
