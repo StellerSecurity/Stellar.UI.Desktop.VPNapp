@@ -15,7 +15,10 @@ import { listen } from "@tauri-apps/api/event";
 
 // Check if running in Tauri
 const isTauri = () =>
-  typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+    typeof window !== "undefined" &&
+    ((window as any).__TAURI__ !== undefined ||
+        (window as any).__TAURI_INTERNALS__ !== undefined);
+
 
 export const Dashboard: React.FC = () => {
   const { status, setStatus, isConnected } = useConnection();
@@ -32,6 +35,26 @@ export const Dashboard: React.FC = () => {
 
   const isConnecting = status === "connecting";
 
+  const DEFAULT_OVPN_URL =
+      "https://stellarvpnserverstorage.blob.core.windows.net/openvpn/stellar-switzerland.ovpn";
+
+// DEV ONLY. Remove before shipping.
+  const TEST_OVPN_USERNAME = "stvpn_eu_test_1";
+  const TEST_OVPN_PASSWORD = "testpassword";
+
+  const syncStatus = async () => {
+    try {
+      const s = await invoke<string>("vpn_status");
+      if (s === "connected" || s === "connecting" || s === "disconnected") {
+        setStatus(s as any);
+      } else if (typeof s === "string" && s.startsWith("error")) {
+        setStatus("disconnected");
+      }
+    } catch {
+      // ignore
+    }
+  };
+
   // Load account number, device name, and selected server from storage
   useEffect(() => {
     const loadData = async () => {
@@ -41,6 +64,7 @@ export const Dashboard: React.FC = () => {
       setDeviceName(device);
 
       const server = await getSelectedServer();
+      const configPath = DEFAULT_OVPN_URL;
       setSelectedServerName(server.name);
 
       // Show congrats modal only for one-click registration (when oneClick=true)
@@ -102,12 +126,20 @@ export const Dashboard: React.FC = () => {
         return; // No server selected
       }
 
+      const configPath = DEFAULT_OVPN_URL;
+
+
       // Auto connect
       try {
         setStatus("connecting");
         await invoke("vpn_connect", {
-          configPath: server.configUrl,
+          configPath,
+          username: TEST_OVPN_USERNAME,
+          password: TEST_OVPN_PASSWORD,
         });
+
+        await syncStatus();
+
       } catch (error) {
         console.error("Auto connect failed:", error);
         if (mounted) {
@@ -225,12 +257,17 @@ export const Dashboard: React.FC = () => {
 
         // Get selected server config URL
         const server = await getSelectedServer();
-        const configPath =
-          server.configUrl || "/home/bb/Hentet/stellar-vpn-desktop/japan.ovpn";
+        const configPath = DEFAULT_OVPN_URL;
 
+        setStatus("connecting");
         await invoke("vpn_connect", {
-          configPath: configPath,
+          configPath,
+          username: TEST_OVPN_USERNAME,
+          password: TEST_OVPN_PASSWORD,
         });
+
+        await syncStatus();
+
       } else {
         await invoke("vpn_disconnect");
         setStatus("disconnected");
