@@ -9,6 +9,6 @@ export default defineConfig({
   server: {
     open: false, // Don't open browser automatically
     strictPort: true,
-    port: 5174,
+    port: 5176,
   },
 });

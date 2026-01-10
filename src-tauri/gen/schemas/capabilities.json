@@ -1,1 +1,1 @@
-{"main-capability":{"identifier":"main-capability","description":"Main window capability","local":true,"windows":["main"],"permissions":["core:default","core:event:default","store:default"]}}
+{"main-capability":{"identifier":"main-capability","description":"Main window capability","local":true,"windows":["main"],"permissions":["core:event:default","core:path:default","store:default"]}}

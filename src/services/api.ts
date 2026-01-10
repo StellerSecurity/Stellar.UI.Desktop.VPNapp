@@ -4,7 +4,7 @@
  */
 
 const API_BASE_URL =
-  "https://stellaruidesktopvpnapiprod.azurewebsites.net/api/v1";
+    "https://stellaruidesktopvpnapiprod.azurewebsites.net/api/v1";
 
 export enum SubscriptionStatus {
   INACTIVE = 0,
@@ -85,204 +85,133 @@ export interface VpnServer {
   config_url: string; // URL to .ovpn config file
 }
 
+// ---------- Storage helpers (Tauri v2 Store plugin + web fallback) ----------
+
+const STORE_FILE = ".stellar-vpn.dat";
+
+const LS_KEYS = {
+  bearerToken: "stellar_vpn_bearer_token",
+  deviceName: "stellar_vpn_device_name",
+  accountNumber: "stellar_vpn_account_number",
+  selectedServerName: "stellar_vpn_selected_server_name",
+  selectedServerConfigUrl: "stellar_vpn_selected_server_config_url",
+  autoConnect: "stellar_vpn_auto_connect",
+} as const;
+
+const isTauri =
+    typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+type KVStore = {
+  get<T>(key: string): Promise<T | null | undefined>;
+  set(key: string, value: any): Promise<void>;
+  delete(key: string): Promise<void>;
+  save(): Promise<void>;
+};
+
+let _storePromise: Promise<KVStore> | null = null;
+
+async function getStore(): Promise<KVStore> {
+  if (_storePromise) return _storePromise;
+
+  _storePromise = (async () => {
+    const mod = await import("@tauri-apps/plugin-store");
+    // Tauri v2 docs: use load() to create/load store instances.
+    const store = (await mod.load(STORE_FILE, { autoSave: false })) as KVStore;
+    return store;
+  })();
+
+  return _storePromise;
+}
+
+function lsGet(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function lsSet(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // ignore
+  }
+}
+
+function lsRemove(key: string): void {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // ignore
+  }
+}
+
+// ---------- Token / identity ----------
+
 /**
  * Get bearer token from secure storage
  */
 export async function getBearerToken(): Promise<string | null> {
-  // Check if running in Tauri
-  const isTauri =
-    typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-
   if (isTauri) {
     try {
-      // Try to use Tauri's secure storage if available
-      const { Store } = await import("@tauri-apps/plugin-store");
-      const store = new Store(".stellar-vpn.dat");
+      const store = await getStore();
       const token = await store.get<string>("bearer_token");
-      if (token) {
-        return token;
-      }
+      if (token) return token;
     } catch (error) {
-      // If store plugin is not available or fails, use localStorage
       console.warn("Tauri store not available, using localStorage:", error);
     }
-    // Fallback to localStorage if store import failed or plugin not available
-    return localStorage.getItem("stellar_vpn_bearer_token");
+    return lsGet(LS_KEYS.bearerToken);
   }
 
-  // Web mode: use localStorage
-  return localStorage.getItem("stellar_vpn_bearer_token");
+  return lsGet(LS_KEYS.bearerToken);
 }
 
 /**
  * Get account number from secure storage
  */
 export async function getAccountNumber(): Promise<string | null> {
-  const isTauri =
-    typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-
   if (isTauri) {
     try {
-      const { Store } = await import("@tauri-apps/plugin-store");
-      const store = new Store(".stellar-vpn.dat");
+      const store = await getStore();
       return (await store.get<string>("account_number")) || null;
     } catch (error) {
       console.warn("Tauri store not available, using localStorage:", error);
     }
-    return localStorage.getItem("stellar_vpn_account_number");
+    return lsGet(LS_KEYS.accountNumber);
   }
 
-  return localStorage.getItem("stellar_vpn_account_number");
+  return lsGet(LS_KEYS.accountNumber);
 }
 
 /**
  * Get device name from secure storage
  */
 export async function getDeviceName(): Promise<string | null> {
-  const isTauri =
-    typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-
   if (isTauri) {
     try {
-      const { Store } = await import("@tauri-apps/plugin-store");
-      const store = new Store(".stellar-vpn.dat");
+      const store = await getStore();
       return (await store.get<string>("device_name")) || null;
     } catch (error) {
       console.warn("Tauri store not available, using localStorage:", error);
     }
-    return localStorage.getItem("stellar_vpn_device_name");
+    return lsGet(LS_KEYS.deviceName);
   }
 
-  return localStorage.getItem("stellar_vpn_device_name");
-}
-
-/**
- * Store selected VPN server location
- */
-export async function setSelectedServer(
-  serverName: string,
-  configUrl: string
-): Promise<void> {
-  const isTauri =
-    typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-
-  if (isTauri) {
-    try {
-      const { Store } = await import("@tauri-apps/plugin-store");
-      const store = new Store(".stellar-vpn.dat");
-      await store.set("selected_server_name", serverName);
-      await store.set("selected_server_config_url", configUrl);
-      await store.save();
-      return;
-    } catch (error) {
-      console.warn("Tauri store not available, using localStorage:", error);
-    }
-    localStorage.setItem("stellar_vpn_selected_server_name", serverName);
-    localStorage.setItem("stellar_vpn_selected_server_config_url", configUrl);
-    return;
-  }
-
-  localStorage.setItem("stellar_vpn_selected_server_name", serverName);
-  localStorage.setItem("stellar_vpn_selected_server_config_url", configUrl);
-}
-
-/**
- * Get auto connect preference from storage
- */
-export async function getAutoConnect(): Promise<boolean> {
-  const isTauri =
-    typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-
-  if (isTauri) {
-    try {
-      const { Store } = await import("@tauri-apps/plugin-store");
-      const store = new Store(".stellar-vpn.dat");
-      const autoConnect = await store.get<boolean>("auto_connect");
-      return autoConnect ?? false; // Default to false if not set
-    } catch (error) {
-      console.warn("Tauri store not available, using localStorage:", error);
-    }
-    const stored = localStorage.getItem("stellar_vpn_auto_connect");
-    return stored === "true";
-  }
-
-  const stored = localStorage.getItem("stellar_vpn_auto_connect");
-  return stored === "true";
-}
-
-/**
- * Set auto connect preference in storage
- */
-export async function setAutoConnect(enabled: boolean): Promise<void> {
-  const isTauri =
-    typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-
-  if (isTauri) {
-    try {
-      const { Store } = await import("@tauri-apps/plugin-store");
-      const store = new Store(".stellar-vpn.dat");
-      await store.set("auto_connect", enabled);
-      await store.save();
-      return;
-    } catch (error) {
-      console.warn("Tauri store not available, using localStorage:", error);
-    }
-    localStorage.setItem("stellar_vpn_auto_connect", enabled.toString());
-    return;
-  }
-
-  localStorage.setItem("stellar_vpn_auto_connect", enabled.toString());
-}
-
-/**
- * Get selected VPN server location
- */
-export async function getSelectedServer(): Promise<{
-  name: string | null;
-  configUrl: string | null;
-}> {
-  const isTauri =
-    typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-
-  if (isTauri) {
-    try {
-      const { Store } = await import("@tauri-apps/plugin-store");
-      const store = new Store(".stellar-vpn.dat");
-      const name = (await store.get<string>("selected_server_name")) || null;
-      const configUrl =
-        (await store.get<string>("selected_server_config_url")) || null;
-      return { name, configUrl };
-    } catch (error) {
-      console.warn("Tauri store not available, using localStorage:", error);
-    }
-    return {
-      name: localStorage.getItem("stellar_vpn_selected_server_name"),
-      configUrl: localStorage.getItem("stellar_vpn_selected_server_config_url"),
-    };
-  }
-
-  return {
-    name: localStorage.getItem("stellar_vpn_selected_server_name"),
-    configUrl: localStorage.getItem("stellar_vpn_selected_server_config_url"),
-  };
+  return lsGet(LS_KEYS.deviceName);
 }
 
 /**
  * Store authentication data in secure storage
  */
 export async function storeAuthData(
-  token: string,
-  deviceName: string,
-  accountNumber?: string
+    token: string,
+    deviceName: string,
+    accountNumber?: string
 ): Promise<void> {
-  const isTauri =
-    typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-
   if (isTauri) {
     try {
-      // Try to use Tauri's secure storage if available
-      const { Store } = await import("@tauri-apps/plugin-store");
-      const store = new Store(".stellar-vpn.dat");
+      const store = await getStore();
       await store.set("bearer_token", token);
       await store.set("device_name", deviceName);
       if (accountNumber) {
@@ -291,23 +220,18 @@ export async function storeAuthData(
       await store.save();
       return;
     } catch (error) {
-      // If store plugin is not available or fails, use localStorage
       console.warn("Tauri store not available, using localStorage:", error);
     }
-    // Fallback to localStorage if store import failed or plugin not available
-    localStorage.setItem("stellar_vpn_bearer_token", token);
-    localStorage.setItem("stellar_vpn_device_name", deviceName);
-    if (accountNumber) {
-      localStorage.setItem("stellar_vpn_account_number", accountNumber);
-    }
+
+    lsSet(LS_KEYS.bearerToken, token);
+    lsSet(LS_KEYS.deviceName, deviceName);
+    if (accountNumber) lsSet(LS_KEYS.accountNumber, accountNumber);
     return;
   }
 
-  localStorage.setItem("stellar_vpn_bearer_token", token);
-  localStorage.setItem("stellar_vpn_device_name", deviceName);
-  if (accountNumber) {
-    localStorage.setItem("stellar_vpn_account_number", accountNumber);
-  }
+  lsSet(LS_KEYS.bearerToken, token);
+  lsSet(LS_KEYS.deviceName, deviceName);
+  if (accountNumber) lsSet(LS_KEYS.accountNumber, accountNumber);
 }
 
 /**
@@ -321,33 +245,27 @@ export async function setBearerToken(token: string): Promise<void> {
  * Clear all authentication data from storage
  */
 export async function clearAuthData(): Promise<void> {
-  const isTauri =
-    typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-
   if (isTauri) {
     try {
-      // Try to use Tauri's secure storage if available
-      const { Store } = await import("@tauri-apps/plugin-store");
-      const store = new Store(".stellar-vpn.dat");
+      const store = await getStore();
       await store.delete("bearer_token");
       await store.delete("device_name");
       await store.delete("account_number");
       await store.save();
       return;
     } catch (error) {
-      // If store plugin is not available or fails, use localStorage
       console.warn("Tauri store not available, using localStorage:", error);
     }
-    // Fallback to localStorage if store import failed or plugin not available
-    localStorage.removeItem("stellar_vpn_bearer_token");
-    localStorage.removeItem("stellar_vpn_device_name");
-    localStorage.removeItem("stellar_vpn_account_number");
+
+    lsRemove(LS_KEYS.bearerToken);
+    lsRemove(LS_KEYS.deviceName);
+    lsRemove(LS_KEYS.accountNumber);
     return;
   }
 
-  localStorage.removeItem("stellar_vpn_bearer_token");
-  localStorage.removeItem("stellar_vpn_device_name");
-  localStorage.removeItem("stellar_vpn_account_number");
+  lsRemove(LS_KEYS.bearerToken);
+  lsRemove(LS_KEYS.deviceName);
+  lsRemove(LS_KEYS.accountNumber);
 }
 
 /**
@@ -356,6 +274,107 @@ export async function clearAuthData(): Promise<void> {
 export async function clearBearerToken(): Promise<void> {
   await clearAuthData();
 }
+
+// ---------- VPN preferences ----------
+
+/**
+ * Store selected VPN server location
+ */
+export async function setSelectedServer(
+    serverName: string,
+    configUrl: string
+): Promise<void> {
+  if (isTauri) {
+    try {
+      const store = await getStore();
+      await store.set("selected_server_name", serverName);
+      await store.set("selected_server_config_url", configUrl);
+      await store.save();
+      return;
+    } catch (error) {
+      console.warn("Tauri store not available, using localStorage:", error);
+    }
+
+    lsSet(LS_KEYS.selectedServerName, serverName);
+    lsSet(LS_KEYS.selectedServerConfigUrl, configUrl);
+    return;
+  }
+
+  lsSet(LS_KEYS.selectedServerName, serverName);
+  lsSet(LS_KEYS.selectedServerConfigUrl, configUrl);
+}
+
+/**
+ * Get selected VPN server location
+ */
+export async function getSelectedServer(): Promise<{
+  name: string | null;
+  configUrl: string | null;
+}> {
+  if (isTauri) {
+    try {
+      const store = await getStore();
+      const name = (await store.get<string>("selected_server_name")) || null;
+      const configUrl =
+          (await store.get<string>("selected_server_config_url")) || null;
+      return { name, configUrl };
+    } catch (error) {
+      console.warn("Tauri store not available, using localStorage:", error);
+    }
+
+    return {
+      name: lsGet(LS_KEYS.selectedServerName),
+      configUrl: lsGet(LS_KEYS.selectedServerConfigUrl),
+    };
+  }
+
+  return {
+    name: lsGet(LS_KEYS.selectedServerName),
+    configUrl: lsGet(LS_KEYS.selectedServerConfigUrl),
+  };
+}
+
+/**
+ * Get auto connect preference from storage
+ */
+export async function getAutoConnect(): Promise<boolean> {
+  if (isTauri) {
+    try {
+      const store = await getStore();
+      const autoConnect = await store.get<boolean>("auto_connect");
+      return autoConnect ?? false;
+    } catch (error) {
+      console.warn("Tauri store not available, using localStorage:", error);
+    }
+
+    return lsGet(LS_KEYS.autoConnect) === "true";
+  }
+
+  return lsGet(LS_KEYS.autoConnect) === "true";
+}
+
+/**
+ * Set auto connect preference in storage
+ */
+export async function setAutoConnect(enabled: boolean): Promise<void> {
+  if (isTauri) {
+    try {
+      const store = await getStore();
+      await store.set("auto_connect", enabled);
+      await store.save();
+      return;
+    } catch (error) {
+      console.warn("Tauri store not available, using localStorage:", error);
+    }
+
+    lsSet(LS_KEYS.autoConnect, enabled.toString());
+    return;
+  }
+
+  lsSet(LS_KEYS.autoConnect, enabled.toString());
+}
+
+// ---------- API calls ----------
 
 /**
  * Call the Home endpoint to get user and subscription status
@@ -376,24 +395,21 @@ export async function fetchHomeData(): Promise<HomeResponse | null> {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({}), // POST request needs a body (empty object)
+      body: JSON.stringify({}),
     });
 
     let data: HomeResponse;
     try {
       data = await response.json();
     } catch (parseError) {
-      // Handle non-JSON responses (gateway errors, outages)
       console.error("Failed to parse response as JSON:", parseError);
       if (response.status === 401) {
-        // Token expired or invalid
         await clearAuthData();
         console.error("Authentication failed: token expired or invalid");
       }
       return null;
     }
 
-    // Handle 401 even if JSON parsing succeeded
     if (response.status === 401 || (data as any).response_code === 401) {
       await clearAuthData();
       console.error("Authentication failed: token expired or invalid");
@@ -411,8 +427,8 @@ export async function fetchHomeData(): Promise<HomeResponse | null> {
  * Login with email and password
  */
 export async function login(
-  username: string,
-  password: string
+    username: string,
+    password: string
 ): Promise<AuthResponse | null> {
   try {
     const response = await fetch(`${API_BASE_URL}/logincontroller/login`, {
@@ -427,7 +443,6 @@ export async function login(
     try {
       data = await response.json();
     } catch (parseError) {
-      // Handle non-JSON responses (gateway errors, outages)
       console.error("Failed to parse response as JSON:", parseError);
       return {
         response_code: 500,
@@ -435,12 +450,10 @@ export async function login(
       } as AuthResponse;
     }
 
-    // response_code is the source of truth, not HTTP status
     if (data.response_code === 200) {
       return data;
     }
 
-    // Return error response with details
     return data;
   } catch (error) {
     console.error("Error during login:", error);
@@ -455,8 +468,8 @@ export async function login(
  * Register with email and password
  */
 export async function register(
-  username: string,
-  password: string
+    username: string,
+    password: string
 ): Promise<AuthResponse | null> {
   try {
     const response = await fetch(`${API_BASE_URL}/logincontroller/register`, {
@@ -471,7 +484,6 @@ export async function register(
     try {
       data = await response.json();
     } catch (parseError) {
-      // Handle non-JSON responses (gateway errors, outages)
       console.error("Failed to parse response as JSON:", parseError);
       return {
         response_code: 500,
@@ -479,12 +491,10 @@ export async function register(
       } as AuthResponse;
     }
 
-    // response_code is the source of truth, not HTTP status
     if (data.response_code === 200) {
       return data;
     }
 
-    // Return error response with details
     return data;
   } catch (error) {
     console.error("Error during registration:", error);
@@ -501,21 +511,20 @@ export async function register(
 export async function registerWithAccountNumber(): Promise<AuthResponse | null> {
   try {
     const response = await fetch(
-      `${API_BASE_URL}/logincontroller/register/withaccountnumber`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({}),
-      }
+        `${API_BASE_URL}/logincontroller/register/withaccountnumber`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({}),
+        }
     );
 
     let data: AuthResponse;
     try {
       data = await response.json();
     } catch (parseError) {
-      // Handle non-JSON responses (gateway errors, outages)
       console.error("Failed to parse response as JSON:", parseError);
       return {
         response_code: 500,
@@ -523,12 +532,10 @@ export async function registerWithAccountNumber(): Promise<AuthResponse | null> 
       } as AuthResponse;
     }
 
-    // response_code is the source of truth, not HTTP status
     if (data.response_code === 200) {
       return data;
     }
 
-    // Return error response with details
     return data;
   } catch (error) {
     console.error("Error during anonymous registration:", error);
@@ -543,25 +550,24 @@ export async function registerWithAccountNumber(): Promise<AuthResponse | null> 
  * Login with account number
  */
 export async function loginWithAccountNumber(
-  accountNumber: string
+    accountNumber: string
 ): Promise<AuthResponse | null> {
   try {
     const response = await fetch(
-      `${API_BASE_URL}/logincontroller/login/withaccountnumber`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ account_number: accountNumber }),
-      }
+        `${API_BASE_URL}/logincontroller/login/withaccountnumber`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ account_number: accountNumber }),
+        }
     );
 
     let data: AuthResponse;
     try {
       data = await response.json();
     } catch (parseError) {
-      // Handle non-JSON responses (gateway errors, outages)
       console.error("Failed to parse response as JSON:", parseError);
       return {
         response_code: 500,
@@ -569,12 +575,10 @@ export async function loginWithAccountNumber(
       } as AuthResponse;
     }
 
-    // response_code is the source of truth, not HTTP status
     if (data.response_code === 200) {
       return data;
     }
 
-    // Return error response with details
     return data;
   } catch (error) {
     console.error("Error during account number login:", error);
@@ -589,7 +593,7 @@ export async function loginWithAccountNumber(
  * Send password reset code to email
  */
 export async function sendPasswordResetCode(
-  email: string
+    email: string
 ): Promise<StellarResponse | null> {
   try {
     const response = await fetch(`${API_BASE_URL}/password/forgot`, {
@@ -604,7 +608,6 @@ export async function sendPasswordResetCode(
     try {
       data = await response.json();
     } catch (parseError) {
-      // Handle non-JSON responses (gateway errors, outages)
       console.error("Failed to parse response as JSON:", parseError);
       return {
         response_code: 500,
@@ -612,7 +615,6 @@ export async function sendPasswordResetCode(
       };
     }
 
-    // response_code is the source of truth, not HTTP status
     return data;
   } catch (error) {
     console.error("Error sending password reset code:", error);
@@ -627,8 +629,8 @@ export async function sendPasswordResetCode(
  * Verify password reset code
  */
 export async function verifyPasswordResetCode(
-  email: string,
-  confirmationCode: string
+    email: string,
+    confirmationCode: string
 ): Promise<StellarResponse | null> {
   try {
     const response = await fetch(`${API_BASE_URL}/password/verifycode`, {
@@ -667,9 +669,9 @@ export async function verifyPasswordResetCode(
  * Update password with reset code
  */
 export async function updatePasswordWithResetCode(
-  email: string,
-  confirmationCode: string,
-  newPassword: string
+    email: string,
+    confirmationCode: string,
+    newPassword: string
 ): Promise<StellarResponse | null> {
   try {
     const response = await fetch(`${API_BASE_URL}/password/updatepassword`, {
@@ -719,17 +721,17 @@ const SERVER_LIST_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
  * @returns Array of VPN servers or null if request fails
  */
 export async function fetchServerList(
-  forceRefresh: boolean = false
+    forceRefresh: boolean = false
 ): Promise<VpnServer[] | null> {
-  // Return cached data if available and not expired, unless force refresh
   const now = Date.now();
   if (
-    !forceRefresh &&
-    serverListCache &&
-    now - serverListCacheTime < SERVER_LIST_CACHE_DURATION
+      !forceRefresh &&
+      serverListCache &&
+      now - serverListCacheTime < SERVER_LIST_CACHE_DURATION
   ) {
     return serverListCache;
   }
+
   try {
     const token = await getBearerToken();
 
@@ -748,12 +750,11 @@ export async function fetchServerList(
 
     if (!response.ok) {
       if (response.status === 401) {
-        // Token expired or invalid
         await clearAuthData();
         console.error("Authentication failed: token expired or invalid");
       } else {
         console.error(
-          `Server list API request failed: ${response.status} ${response.statusText}`
+            `Server list API request failed: ${response.status} ${response.statusText}`
         );
       }
       return null;
@@ -761,7 +762,6 @@ export async function fetchServerList(
 
     const data: VpnServer[] = await response.json();
 
-    // Update cache
     serverListCache = data;
     serverListCacheTime = Date.now();
 
@@ -771,3 +771,4 @@ export async function fetchServerList(
     return null;
   }
 }
+
