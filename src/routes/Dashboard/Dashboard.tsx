@@ -397,16 +397,6 @@ export const Dashboard: React.FC = () => {
             {isConnected ? "Disconnect" : isConnecting ? "Connecting..." : "Connect"}
           </Button>
 
-          {isTauri() && (
-              <button
-                  type="button"
-                  className="mt-3 w-full rounded-full bg-white/10 px-5 py-3 text-xs text-[#EAEAF0]"
-                  onClick={() => setShowLogs((v) => !v)}
-              >
-                {showLogs ? "Hide logs" : "Show logs"}
-              </button>
-          )}
-
           {showLogs && (
               <div className="mt-3 rounded-2xl bg-black/40 p-3 text-[11px] max-h-[180px] overflow-auto">
                 <div className="flex items-center justify-between mb-2">

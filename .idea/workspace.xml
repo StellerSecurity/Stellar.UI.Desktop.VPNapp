@@ -4,19 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="45de0aa4-b568-4cf0-89f1-da837d51870b" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src-tauri/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/Cargo.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src-tauri/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src-tauri/build.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/build.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src-tauri/capabilities/main-capability.json" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/capabilities/main-capability.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src-tauri/gen/schemas/capabilities.json" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/gen/schemas/capabilities.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src-tauri/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src-tauri/tauri.conf.json" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/tauri.conf.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/routes/Dashboard/Dashboard.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/routes/Dashboard/Dashboard.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/services/api.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/services/api.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/vite.config.ts" beforeDir="false" afterPath="$PROJECT_DIR$/vite.config.ts" afterDir="false" />
-    </list>
+    <list default="true" id="45de0aa4-b568-4cf0-89f1-da837d51870b" name="Changes" comment="Always on VPN" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -72,11 +60,24 @@
       <option name="presentableId" value="Default" />
       <updated>1765067380858</updated>
       <workItem from="1765067382115" duration="3134000" />
-      <workItem from="1768000805115" duration="5257000" />
+      <workItem from="1768000805115" duration="5845000" />
     </task>
+    <task id="LOCAL-00001" summary="Always on VPN">
+      <option name="closed" value="true" />
+      <created>1768006170920</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1768006170920</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Always on VPN" />
+    <option name="LAST_COMMIT_MESSAGE" value="Always on VPN" />
   </component>
 </project>
