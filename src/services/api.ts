@@ -242,6 +242,13 @@ export async function setBearerToken(token: string): Promise<void> {
  * Clear all authentication data from storage
  */
 export async function clearAuthData(): Promise<void> {
+
+  try {
+    localStorage.removeItem("stellar_vpn_home_cache_v1");
+  } catch {
+    // ignore
+  }
+
   if (isTauri) {
     try {
       const store = await getStore();
