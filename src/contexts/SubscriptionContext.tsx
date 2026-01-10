@@ -8,10 +8,10 @@ import React, {
 } from "react";
 import {
   fetchHomeData,
-  SubscriptionStatus,
   type HomeResponse,
   type Subscription,
   type User,
+  getBearerToken,
 } from "../services/api";
 
 interface SubscriptionContextType {
@@ -24,22 +24,59 @@ interface SubscriptionContextType {
 }
 
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(
-  undefined
+    undefined
 );
 
+// Cache key (not secrets, just UI state)
+const HOME_CACHE_KEY = "stellar_vpn_home_cache_v1";
+
+// How long we allow showing cached data while offline/booting.
+// We still revalidate in the background immediately.
+const HOME_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+type HomeCachePayload = {
+  v: 1;
+  ts: number;
+  data: HomeResponse;
+};
+
+function readHomeCache(): HomeResponse | null {
+  try {
+    const raw = window.localStorage.getItem(HOME_CACHE_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw) as HomeCachePayload;
+    if (!parsed || parsed.v !== 1 || !parsed.ts || !parsed.data) return null;
+
+    const age = Date.now() - parsed.ts;
+    if (age > HOME_CACHE_TTL_MS) return null;
+
+    return parsed.data;
+  } catch {
+    return null;
+  }
+}
+
+function writeHomeCache(data: HomeResponse) {
+  try {
+    const payload: HomeCachePayload = { v: 1, ts: Date.now(), data };
+    window.localStorage.setItem(HOME_CACHE_KEY, JSON.stringify(payload));
+  } catch {
+    // ignore
+  }
+}
+
 export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({
-  children,
-}) => {
+                                                                          children,
+                                                                        }) => {
   const [user, setUser] = useState<User | null>(null);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const pollingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isPollingRef = useRef(false);
 
-  /**
-   * Fetch subscription data from API
-   */
   const refreshSubscription = async () => {
     setIsLoading(true);
     setError(null);
@@ -50,13 +87,14 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({
       if (data) {
         setUser(data.user);
         setSubscription(data.subscription);
+        writeHomeCache(data);
       } else {
         setError("Failed to fetch subscription data");
-        // Don't clear existing data on temporary failures
+        // Keep existing cached state if API fails (stale is better than blank)
       }
     } catch (err) {
       const errorMessage =
-        err instanceof Error ? err.message : "Unknown error occurred";
+          err instanceof Error ? err.message : "Unknown error occurred";
       setError(errorMessage);
       console.error("Error refreshing subscription:", err);
     } finally {
@@ -64,78 +102,76 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({
     }
   };
 
-  /**
-   * Start polling every 30 minutes
-   */
   const startPolling = () => {
-    if (isPollingRef.current) {
-      return; // Already polling
-    }
+    if (isPollingRef.current) return;
 
     isPollingRef.current = true;
 
     const poll = async () => {
       await refreshSubscription();
 
-      // Poll every 30 minutes (1800000 ms)
-      const interval = 30 * 60 * 1000; // 30 minutes
+      // Poll every 30 minutes
+      const interval = 30 * 60 * 1000;
 
-      pollingIntervalRef.current = setTimeout(poll, interval);
+      pollingTimeoutRef.current = setTimeout(poll, interval);
     };
 
-    // Initial call
+    // Immediate refresh on start
     poll();
   };
 
-  /**
-   * Stop polling
-   */
   const stopPolling = () => {
-    if (pollingIntervalRef.current) {
-      clearTimeout(pollingIntervalRef.current);
-      pollingIntervalRef.current = null;
+    if (pollingTimeoutRef.current) {
+      clearTimeout(pollingTimeoutRef.current);
+      pollingTimeoutRef.current = null;
     }
     isPollingRef.current = false;
   };
 
-  /**
-   * Check if user is authenticated (has bearer token)
-   */
-  const isAuthenticated = () => {
-    return (
-      typeof window !== "undefined" &&
-      localStorage.getItem("stellar_vpn_bearer_token") !== null
-    );
-  };
-
-  // Start polling when component mounts if authenticated
   useEffect(() => {
-    if (isAuthenticated()) {
-      // Initial fetch
-      refreshSubscription();
-      // Start polling
+    let mounted = true;
+
+    (async () => {
+      // IMPORTANT: In Tauri, the token might live in the Tauri Store, not localStorage.
+      const token = await getBearerToken();
+      if (!mounted) return;
+
+      if (!token) {
+        // Not logged in -> don't show cached data
+        return;
+      }
+
+      // Load cached data instantly for UX
+      const cached = readHomeCache();
+      if (cached) {
+        setUser(cached.user);
+        setSubscription(cached.subscription);
+      }
+
+      // Then revalidate in background + start polling
       startPolling();
-    }
+    })();
 
     return () => {
+      mounted = false;
       stopPolling();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
-    <SubscriptionContext.Provider
-      value={{
-        user,
-        subscription,
-        isLoading,
-        error,
-        refreshSubscription,
-        startPolling,
-      }}
-    >
-      {children}
-    </SubscriptionContext.Provider>
+      <SubscriptionContext.Provider
+          value={{
+            user,
+            subscription,
+            isLoading,
+            error,
+            refreshSubscription,
+            startPolling,
+          }}
+      >
+        {children}
+      </SubscriptionContext.Provider>
   );
 };
 

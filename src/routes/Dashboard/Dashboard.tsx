@@ -495,20 +495,19 @@ export const Dashboard: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <button className="rounded-full bg-white px-3 py-1 text-[11px]">
-            <span
-                className={`font-semibold flex items-center gap-1 ${
-                    subscription?.days_remaining === 0
-                        ? "!text-red-500"
-                        : "text-[#00B252]"
-                }`}
+            <button
+                className="rounded-full bg-white px-3 py-1 text-[11px]"
+                onClick={() => navigate("/profile")}
             >
-              {subscription?.days_remaining !== undefined
-                  ? `${subscription.days_remaining} days`
-                  : isConnected
-                      ? "30 days"
-                      : "0 days"}
-            </span>
+  <span
+      className={`font-semibold flex items-center gap-1 ${
+          (subscription?.days_remaining ?? 0) === 0 ? "!text-red-500" : "text-[#00B252]"
+      }`}
+  >
+    {subscription?.days_remaining !== undefined
+        ? `${subscription.days_remaining} days`
+        : "0 days"}
+  </span>
             </button>
 
             <button

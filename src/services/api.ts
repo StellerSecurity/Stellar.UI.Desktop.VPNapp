@@ -465,6 +465,7 @@ export async function setAutoConnect(enabled: boolean): Promise<void> {
  * @returns HomeResponse or null if request fails
  */
 export async function fetchHomeData(): Promise<HomeResponse | null> {
+  console.log('Getting home data');
   try {
     const token = await getBearerToken();
 
@@ -485,6 +486,7 @@ export async function fetchHomeData(): Promise<HomeResponse | null> {
     let data: HomeResponse;
     try {
       data = await response.json();
+      console.log('Home data', data);
     } catch (parseError) {
       console.error("Failed to parse response as JSON:", parseError);
       if (response.status === 401) {
