@@ -93,8 +93,6 @@ const LS_KEYS = {
   bearerToken: "stellar_vpn_bearer_token",
   deviceName: "stellar_vpn_device_name",
   accountNumber: "stellar_vpn_account_number",
-  selectedServerName: "stellar_vpn_selected_server_name",
-  selectedServerConfigUrl: "stellar_vpn_selected_server_config_url",
   autoConnect: "stellar_vpn_auto_connect",
 } as const;
 
@@ -115,7 +113,6 @@ async function getStore(): Promise<KVStore> {
 
   _storePromise = (async () => {
     const mod = await import("@tauri-apps/plugin-store");
-    // Tauri v2 docs: use load() to create/load store instances.
     const store = (await mod.load(STORE_FILE, { autoSave: false })) as KVStore;
     return store;
   })();
@@ -280,59 +277,146 @@ export async function clearBearerToken(): Promise<void> {
 /**
  * Store selected VPN server location
  */
+export type SelectedServer = {
+  name: string;
+  configUrl: string;
+  countryCode?: string | null; // lowercase, e.g. "ch"
+};
+
+const LS_SELECTED_SERVER = "stellar_vpn_selected_server_v1";
+
+// Backward-compat legacy keys (if you ever stored them)
+const LS_LEGACY_SERVER_NAME = "stellar_vpn_selected_server_name";
+const LS_LEGACY_SERVER_CFG = "stellar_vpn_selected_server_config_url";
+
+function normalizeCountryCode(cc?: string | null): string | null {
+  const raw = (cc || "").trim().toLowerCase();
+  return raw ? raw : null;
+}
+
 export async function setSelectedServer(
-    serverName: string,
-    configUrl: string
+    name: string,
+    configUrl: string,
+    countryCode?: string | null
 ): Promise<void> {
+  const payload: SelectedServer = {
+    name,
+    configUrl,
+    countryCode: normalizeCountryCode(countryCode),
+  };
+
+  // Prefer Tauri store when possible
   if (isTauri) {
     try {
       const store = await getStore();
-      await store.set("selected_server_name", serverName);
-      await store.set("selected_server_config_url", configUrl);
+      await store.set("selected_server", payload);
       await store.save();
+
+      // Same-tab refresh trigger
+      window.dispatchEvent(new Event("stellar:selected-server"));
       return;
     } catch (error) {
       console.warn("Tauri store not available, using localStorage:", error);
     }
-
-    lsSet(LS_KEYS.selectedServerName, serverName);
-    lsSet(LS_KEYS.selectedServerConfigUrl, configUrl);
-    return;
   }
 
-  lsSet(LS_KEYS.selectedServerName, serverName);
-  lsSet(LS_KEYS.selectedServerConfigUrl, configUrl);
+  // localStorage fallback
+  try {
+    window.localStorage.setItem(LS_SELECTED_SERVER, JSON.stringify(payload));
+
+    // Also write legacy fields to avoid breaking old reads elsewhere
+    window.localStorage.setItem(LS_LEGACY_SERVER_NAME, name);
+    window.localStorage.setItem(LS_LEGACY_SERVER_CFG, configUrl);
+
+    window.dispatchEvent(new Event("stellar:selected-server"));
+  } catch {
+    // ignore
+  }
 }
 
-/**
- * Get selected VPN server location
- */
-export async function getSelectedServer(): Promise<{
-  name: string | null;
-  configUrl: string | null;
-}> {
+export async function getSelectedServer(): Promise<SelectedServer | null> {
+  // 1) Try Tauri store first
   if (isTauri) {
     try {
       const store = await getStore();
-      const name = (await store.get<string>("selected_server_name")) || null;
-      const configUrl =
-          (await store.get<string>("selected_server_config_url")) || null;
-      return { name, configUrl };
-    } catch (error) {
-      console.warn("Tauri store not available, using localStorage:", error);
-    }
+      const obj = await store.get<any>("selected_server");
+      if (obj && typeof obj === "object") {
+        const name = typeof obj.name === "string" ? obj.name : "";
+        const configUrl =
+            typeof obj.configUrl === "string"
+                ? obj.configUrl
+                : typeof obj.config_url === "string"
+                    ? obj.config_url
+                    : "";
 
+        const countryCode =
+            typeof obj.countryCode === "string"
+                ? obj.countryCode
+                : typeof obj.country_code === "string"
+                    ? obj.country_code
+                    : null;
+
+        if (name && configUrl) {
+          return {
+            name,
+            configUrl,
+            countryCode: normalizeCountryCode(countryCode),
+          };
+        }
+      }
+    } catch (error) {
+      console.warn("Tauri store read failed, using localStorage:", error);
+    }
+  }
+
+  // 2) localStorage current key
+  try {
+    const raw = window.localStorage.getItem(LS_SELECTED_SERVER);
+    if (raw) {
+      const obj = JSON.parse(raw) as any;
+
+      const name = typeof obj?.name === "string" ? obj.name : "";
+      const configUrl =
+          typeof obj?.configUrl === "string"
+              ? obj.configUrl
+              : typeof obj?.config_url === "string"
+                  ? obj.config_url
+                  : "";
+
+      const countryCode =
+          typeof obj?.countryCode === "string"
+              ? obj.countryCode
+              : typeof obj?.country_code === "string"
+                  ? obj.country_code
+                  : null;
+
+      if (name && configUrl) {
+        return {
+          name,
+          configUrl,
+          countryCode: normalizeCountryCode(countryCode),
+        };
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  // 3) Legacy fallback (name+config separate keys)
+  const legacyName = lsGet(LS_LEGACY_SERVER_NAME);
+  const legacyCfg = lsGet(LS_LEGACY_SERVER_CFG);
+  if (legacyName && legacyCfg) {
     return {
-      name: lsGet(LS_KEYS.selectedServerName),
-      configUrl: lsGet(LS_KEYS.selectedServerConfigUrl),
+      name: legacyName,
+      configUrl: legacyCfg,
+      countryCode: null,
     };
   }
 
-  return {
-    name: lsGet(LS_KEYS.selectedServerName),
-    configUrl: lsGet(LS_KEYS.selectedServerConfigUrl),
-  };
+  return null;
 }
+
+// ---------- Auto connect preference ----------
 
 /**
  * Get auto connect preference from storage
@@ -450,10 +534,6 @@ export async function login(
       } as AuthResponse;
     }
 
-    if (data.response_code === 200) {
-      return data;
-    }
-
     return data;
   } catch (error) {
     console.error("Error during login:", error);
@@ -489,10 +569,6 @@ export async function register(
         response_code: 500,
         response_message: "Service unavailable, try again",
       } as AuthResponse;
-    }
-
-    if (data.response_code === 200) {
-      return data;
     }
 
     return data;
@@ -532,10 +608,6 @@ export async function registerWithAccountNumber(): Promise<AuthResponse | null> 
       } as AuthResponse;
     }
 
-    if (data.response_code === 200) {
-      return data;
-    }
-
     return data;
   } catch (error) {
     console.error("Error during anonymous registration:", error);
@@ -573,10 +645,6 @@ export async function loginWithAccountNumber(
         response_code: 500,
         response_message: "Service unavailable, try again",
       } as AuthResponse;
-    }
-
-    if (data.response_code === 200) {
-      return data;
     }
 
     return data;
@@ -771,4 +839,3 @@ export async function fetchServerList(
     return null;
   }
 }
-

@@ -9,42 +9,60 @@ import {
   clearAuthData,
   getAutoConnect,
   setAutoConnect,
+  getSelectedServer,
 } from "../../services/api";
 import { invoke } from "@tauri-apps/api/core";
 
 const isTauri = () =>
     typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
+const DEFAULT_OVPN_URL =
+    "https://stellarvpnserverstorage.blob.core.windows.net/openvpn/stellar-switzerland.ovpn";
+
 export const Profile: React.FC = () => {
   const navigate = useNavigate();
   const { subscription } = useSubscription();
+
   const [showLogout, setShowLogout] = useState(false);
+
   const [autoConnect, setAutoConnectState] = useState(false);
+  const [killSwitch, setKillSwitch] = useState(false);
+  const [crashRecovery, setCrashRecovery] = useState(false);
+
   const [accountNumber, setAccountNumber] = useState<string | null>(null);
   const [deviceName, setDeviceName] = useState<string | null>(null);
   const [showCopiedToast, setShowCopiedToast] = useState(false);
 
-  // Load account number, device name, and auto connect preference from storage
   useEffect(() => {
     const loadData = async () => {
       const account = await getAccountNumber();
       const device = await getDeviceName();
       const autoConnectPref = await getAutoConnect();
+
       setAccountNumber(account);
       setDeviceName(device);
       setAutoConnectState(autoConnectPref);
+
+      if (isTauri()) {
+        try {
+          const ks = await invoke<boolean>("killswitch_status");
+          const cr = await invoke<boolean>("crashrecovery_status");
+          setKillSwitch(Boolean(ks));
+          setCrashRecovery(Boolean(cr));
+        } catch {
+          // ignore
+        }
+      }
     };
     loadData();
   }, []);
 
-  // Format account number with spaces (XXXX XXXX XXXX XXXX)
   const formatAccountNumber = (account: string | null): string => {
     if (!account) return "N/A";
     const cleaned = account.replace(/\s/g, "");
     return cleaned.match(/.{1,4}/g)?.join(" ") || account;
   };
 
-  // Format expiration date
   const formatExpirationDate = (dateString: string | undefined): string => {
     if (!dateString) return "N/A";
     try {
@@ -58,31 +76,6 @@ export const Profile: React.FC = () => {
     }
   };
 
-  // Handle logout (disconnect VPN first)
-  const handleLogout = async () => {
-    // Best-effort VPN disconnect so we don't keep tunneling after logout
-    if (isTauri()) {
-      try {
-        await invoke("vpn_disconnect");
-      } catch (e) {
-        // Do not block logout if disconnect fails
-        console.warn("vpn_disconnect failed during logout:", e);
-      }
-    }
-
-    // Optional but recommended: disable auto-connect on logout
-    try {
-      setAutoConnectState(false);
-      await setAutoConnect(false);
-    } catch (e) {
-      console.warn("setAutoConnect(false) failed during logout:", e);
-    }
-
-    await clearAuthData();
-    navigate("/welcome");
-  };
-
-  // Handle copy account number
   const handleCopyAccount = async () => {
     if (!accountNumber) return;
 
@@ -107,6 +100,86 @@ export const Profile: React.FC = () => {
         console.error("Fallback copy failed:", fallbackErr);
       }
       document.body.removeChild(textArea);
+    }
+  };
+
+  const handleLogout = async () => {
+    if (isTauri()) {
+      // Always clean up VPN first
+      try {
+        await invoke("vpn_disconnect");
+      } catch {
+        // ignore
+      }
+
+      // Optional: disable kill switch on logout to avoid "no internet surprise"
+      try {
+        await invoke("killswitch_set", {
+          enabled: false,
+          configPath: null,
+          bearerToken: null,
+        });
+      } catch {
+        // ignore
+      }
+
+      // Optional: disable crash recovery on logout
+      try {
+        await invoke("crashrecovery_set", { enabled: false });
+      } catch {
+        // ignore
+      }
+    }
+
+    await clearAuthData();
+    navigate("/welcome");
+  };
+
+  const toggleKillSwitch = async () => {
+    const next = !killSwitch;
+    setKillSwitch(next);
+
+    if (!isTauri()) return;
+
+    try {
+      if (next) {
+        const server = await getSelectedServer().catch(() => null);
+        const cfg = server?.configUrl ? server.configUrl : DEFAULT_OVPN_URL;
+
+        await invoke("killswitch_set", {
+          enabled: true,
+          configPath: cfg,
+          bearerToken: null,
+        });
+      } else {
+        await invoke("killswitch_set", {
+          enabled: false,
+          configPath: null,
+          bearerToken: null,
+        });
+      }
+    } catch (e: any) {
+      console.error("Kill switch error:", e);
+      setKillSwitch(!next);
+
+      alert(
+          "Kill switch failed.\n\nOn Linux this requires sudo until we ship a privileged helper.\nUse scripts/linux-dev-root.sh for dev."
+      );
+    }
+  };
+
+  const toggleCrashRecovery = async () => {
+    const next = !crashRecovery;
+    setCrashRecovery(next);
+
+    if (!isTauri()) return;
+
+    try {
+      await invoke("crashrecovery_set", { enabled: next });
+    } catch (e) {
+      console.error("Crash recovery toggle error:", e);
+      setCrashRecovery(!next);
+      alert("Failed to update crash recovery setting.");
     }
   };
 
@@ -137,6 +210,7 @@ export const Profile: React.FC = () => {
                       >
                         <img src="/icons/copy.svg" alt="Copy" className="w-8 h-8" />
                       </button>
+
                       {showCopiedToast && (
                           <div className="absolute bottom-full right-0 mb-1 z-[9999] pointer-events-none">
                             <div className="bg-[#0B0C19] text-white px-3 py-1.5 rounded-lg text-[10px] font-medium shadow-lg whitespace-nowrap">
@@ -186,6 +260,7 @@ export const Profile: React.FC = () => {
           </div>
 
           <div className="px-5 mt-10 bg-white rounded-2xl flex-1 pt-6 pb-6">
+            {/* Auto connect */}
             <div className="flex items-center justify-between text-sm mb-6 pb-6 border-b border-[#EAEAF0]">
             <span className="text-[14px] font-semibold text-[#0B0C19] flex items-center gap-2">
               <img src="/icons/network.svg" alt="Network" className="w-11 h-11" />
@@ -214,6 +289,69 @@ export const Profile: React.FC = () => {
               </button>
             </div>
 
+            {/* Kill switch */}
+            <div className="flex items-center justify-between text-sm mb-6 pb-6 border-b border-[#EAEAF0]">
+              <div className="flex flex-col">
+              <span className="text-[14px] font-semibold text-[#0B0C19] flex items-center gap-2">
+                <img src="/icons/network.svg" alt="Kill switch" className="w-11 h-11" />
+                Kill switch
+              </span>
+                <span className="text-[11px] text-[#62626A] mt-1">
+                Blocks internet when VPN is down. Linux dev requires sudo.
+              </span>
+              </div>
+
+              <button
+                  type="button"
+                  onClick={toggleKillSwitch}
+                  className={`w-[42px] h-[26px] rounded-full flex items-center px-1 transition-colors ${
+                      killSwitch ? "bg-[#2761FC]" : "bg-gray-300"
+                  }`}
+              >
+              <span
+                  className={`w-[20px] h-[20px] rounded-full bg-white flex items-center justify-center transition-transform ${
+                      killSwitch ? "translate-x-4" : "translate-x-0"
+                  }`}
+              >
+                {killSwitch && (
+                    <img src="/icons/blue-tick.svg" alt="Tick" className="w-4 h-4" />
+                )}
+              </span>
+              </button>
+            </div>
+
+            {/* Crash recovery */}
+            <div className="flex items-center justify-between text-sm mb-6 pb-6 border-b border-[#EAEAF0]">
+              <div className="flex flex-col">
+              <span className="text-[14px] font-semibold text-[#0B0C19] flex items-center gap-2">
+                <img src="/icons/network.svg" alt="Crash recovery" className="w-11 h-11" />
+                Crash recovery
+              </span>
+                <span className="text-[11px] text-[#62626A] mt-1">
+                Restores VPN if app crashes while connected.
+              </span>
+              </div>
+
+              <button
+                  type="button"
+                  onClick={toggleCrashRecovery}
+                  className={`w-[42px] h-[26px] rounded-full flex items-center px-1 transition-colors ${
+                      crashRecovery ? "bg-[#2761FC]" : "bg-gray-300"
+                  }`}
+              >
+              <span
+                  className={`w-[20px] h-[20px] rounded-full bg-white flex items-center justify-center transition-transform ${
+                      crashRecovery ? "translate-x-4" : "translate-x-0"
+                  }`}
+              >
+                {crashRecovery && (
+                    <img src="/icons/blue-tick.svg" alt="Tick" className="w-4 h-4" />
+                )}
+              </span>
+              </button>
+            </div>
+
+            {/* Logout */}
             <button
                 type="button"
                 onClick={() => setShowLogout(true)}
@@ -228,7 +366,11 @@ export const Profile: React.FC = () => {
         {showLogout && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-50">
               <div className="text-center rounded-2xl pt-12 pb-8 px-6 w-full max-w-[280px] mx-4 logout-screen bg-[#F6F6FD]">
-                <img src="/icons/logout.svg" alt="Logout" className="w-10 h-10 mx-auto mb-4" />
+                <img
+                    src="/icons/logout.svg"
+                    alt="Logout"
+                    className="w-10 h-10 mx-auto mb-4"
+                />
                 <h2 className="text-xl font-bold mb-2">Log out</h2>
                 <p className="text-sm text-[#62626A] pb-4 mb-6 border-b border-[#EAEAF0]">
                   Are you sure you want to log out?
