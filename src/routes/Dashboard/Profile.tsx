@@ -250,12 +250,6 @@ export const Profile: React.FC = () => {
                   </div>
                 </div>
               </div>
-              <Button
-                  className="text-[13px] w-full mt-2 h-[42px]"
-                  onClick={() => navigate("/subscribe")}
-              >
-                Add more days
-              </Button>
             </div>
           </div>
 
