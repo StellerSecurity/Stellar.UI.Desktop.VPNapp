@@ -230,7 +230,7 @@ export const Profile: React.FC = () => {
               </div>
 
               <div className="text-[12px] text-[#62626A] mt-3 pt-3 border-t border-[#EAEAF0]">
-                Available for <span className="text-[#2761FC]">5</span> devices
+                Available for <span className="text-[#2761FC]">6</span> devices
               </div>
             </div>
 

@@ -4,19 +4,13 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="45de0aa4-b568-4cf0-89f1-da837d51870b" name="Changes" comment="Disconnect on signout">
-      <change afterPath="$PROJECT_DIR$/scripts/download-flags.sh" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scripts/linux-dev-root.sh" afterDir="false" />
+    <list default="true" id="45de0aa4-b568-4cf0-89f1-da837d51870b" name="Changes" comment="Added cache">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/japan.ovpn" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/linux-dev-root.sh" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/linux-dev-root.sh" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src-tauri/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/Cargo.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src-tauri/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src-tauri/gen/schemas/acl-manifests.json" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/gen/schemas/acl-manifests.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src-tauri/gen/schemas/desktop-schema.json" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/gen/schemas/desktop-schema.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src-tauri/gen/schemas/linux-schema.json" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/gen/schemas/linux-schema.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src-tauri/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/routes/Dashboard/ChangeLocation.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/routes/Dashboard/ChangeLocation.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/routes/Dashboard/Dashboard.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/routes/Dashboard/Dashboard.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/routes/Dashboard/Profile.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/routes/Dashboard/Profile.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/services/api.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/services/api.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -89,7 +83,7 @@
       <workItem from="1768000805115" duration="6998000" />
       <workItem from="1768049873987" duration="2000" />
       <workItem from="1768067910043" duration="5490000" />
-      <workItem from="1768073487966" duration="5563000" />
+      <workItem from="1768073487966" duration="10579000" />
     </task>
     <task id="LOCAL-00001" summary="Always on VPN">
       <option name="closed" value="true" />
@@ -115,7 +109,39 @@
       <option name="project" value="LOCAL" />
       <updated>1768006852689</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary="Bug fixes, vpn connection etc.">
+      <option name="closed" value="true" />
+      <created>1768082785856</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1768082785856</updated>
+    </task>
+    <task id="LOCAL-00005" summary="Hide add more days for now">
+      <option name="closed" value="true" />
+      <created>1768083145831</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1768083145831</updated>
+    </task>
+    <task id="LOCAL-00006" summary="Added cache">
+      <option name="closed" value="true" />
+      <created>1768084204951</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1768084204951</updated>
+    </task>
+    <task id="LOCAL-00007" summary="Added cache">
+      <option name="closed" value="true" />
+      <created>1768084301211</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1768084301211</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -124,6 +150,9 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="Always on VPN" />
     <MESSAGE value="Disconnect on signout" />
-    <option name="LAST_COMMIT_MESSAGE" value="Disconnect on signout" />
+    <MESSAGE value="Bug fixes, vpn connection etc." />
+    <MESSAGE value="Hide add more days for now" />
+    <MESSAGE value="Added cache" />
+    <option name="LAST_COMMIT_MESSAGE" value="Added cache" />
   </component>
 </project>

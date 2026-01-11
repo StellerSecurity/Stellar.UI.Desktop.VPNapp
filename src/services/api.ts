@@ -427,21 +427,37 @@ export async function getSelectedServer(): Promise<SelectedServer | null> {
 
 /**
  * Get auto connect preference from storage
+ * DEFAULT: true (auto-connect is ON unless user explicitly disables it)
  */
 export async function getAutoConnect(): Promise<boolean> {
+  const parse = (raw: string | null): boolean => {
+    if (raw === null) return true; // DEFAULT ON
+    const v = raw.trim().toLowerCase();
+    if (v === "true" || v === "1" || v === "yes") return true;
+    if (v === "false" || v === "0" || v === "no") return false;
+    return true; // fail-safe: positive default
+  };
+
   if (isTauri) {
     try {
       const store = await getStore();
       const autoConnect = await store.get<boolean>("auto_connect");
-      return autoConnect ?? false;
+
+      // If not set, default ON + persist it
+      if (autoConnect === null || autoConnect === undefined) {
+        await store.set("auto_connect", true);
+        await store.save();
+        return true;
+      }
+
+      return !!autoConnect;
     } catch (error) {
       console.warn("Tauri store not available, using localStorage:", error);
+      return parse(lsGet(LS_KEYS.autoConnect));
     }
-
-    return lsGet(LS_KEYS.autoConnect) === "true";
   }
 
-  return lsGet(LS_KEYS.autoConnect) === "true";
+  return parse(lsGet(LS_KEYS.autoConnect));
 }
 
 /**
