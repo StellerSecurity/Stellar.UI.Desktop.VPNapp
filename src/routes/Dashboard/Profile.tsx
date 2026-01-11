@@ -19,15 +19,48 @@ const isTauri = () =>
 const DEFAULT_OVPN_URL =
     "https://stellarvpnserverstorage.blob.core.windows.net/openvpn/stellar-switzerland.ovpn";
 
+type ExpiresStatus = "ok" | "warning" | "expired" | "unknown";
+
+function formatAccountNumber(account: string | null): string {
+  if (!account) return "N/A";
+  const cleaned = account.replace(/\s/g, "");
+  return cleaned.match(/.{1,4}/g)?.join(" ") || account;
+}
+
+function formatExpirationDate(dateString: string | undefined): string {
+  if (!dateString) return "N/A";
+  try {
+    const date = new Date(dateString.replace(" ", "T"));
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}.${month}.${day}`;
+  } catch {
+    return "N/A";
+  }
+}
+
+const pillClassForStatus = (s: ExpiresStatus) => {
+  switch (s) {
+    case "ok":
+      return "text-emerald-700 bg-emerald-50 border-emerald-200";
+    case "warning":
+      return "text-amber-700 bg-amber-50 border-amber-200";
+    case "expired":
+      return "text-red-600 bg-red-50 border-red-200";
+    default:
+      return "text-[#62626A] bg-[#F6F6FD] border-[#EAEAF0]";
+  }
+};
+
 export const Profile: React.FC = () => {
   const navigate = useNavigate();
   const { subscription } = useSubscription();
 
   const [showLogout, setShowLogout] = useState(false);
 
-  const [autoConnect, setAutoConnectState] = useState(false);
+  const [autoConnect, setAutoConnectState] = useState(true); // default ON
   const [killSwitch, setKillSwitch] = useState(false);
-  const [crashRecovery, setCrashRecovery] = useState(false);
 
   const [accountNumber, setAccountNumber] = useState<string | null>(null);
   const [deviceName, setDeviceName] = useState<string | null>(null);
@@ -41,40 +74,39 @@ export const Profile: React.FC = () => {
 
       setAccountNumber(account);
       setDeviceName(device);
-      setAutoConnectState(autoConnectPref);
+
+      // Default ON unless the user explicitly turned it off before
+      setAutoConnectState(autoConnectPref ?? true);
 
       if (isTauri()) {
         try {
-          const ks = await invoke<boolean>("killswitch_status");
-          const cr = await invoke<boolean>("crashrecovery_status");
+          const ks = await invoke<boolean>("vpn_kill_switch_enabled");
           setKillSwitch(Boolean(ks));
-          setCrashRecovery(Boolean(cr));
         } catch {
           // ignore
         }
       }
     };
+
     loadData();
   }, []);
 
-  const formatAccountNumber = (account: string | null): string => {
-    if (!account) return "N/A";
-    const cleaned = account.replace(/\s/g, "");
-    return cleaned.match(/.{1,4}/g)?.join(" ") || account;
-  };
+  const expiresDays = subscription?.days_remaining;
+  const expiresStatus: ExpiresStatus =
+      expiresDays === undefined || expiresDays === null
+          ? "unknown"
+          : expiresDays <= 0
+              ? "expired"
+              : expiresDays <= 3
+                  ? "warning"
+                  : "ok";
 
-  const formatExpirationDate = (dateString: string | undefined): string => {
-    if (!dateString) return "N/A";
-    try {
-      const date = new Date(dateString.replace(" ", "T"));
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, "0");
-      const day = String(date.getDate()).padStart(2, "0");
-      return `${year}.${month}.${day}`;
-    } catch {
-      return "N/A";
-    }
-  };
+  const expiresLabel =
+      expiresDays === undefined || expiresDays === null
+          ? "N/A"
+          : expiresDays <= 0
+              ? "Expired"
+              : `In ${expiresDays} ${expiresDays === 1 ? "day" : "days"}`;
 
   const handleCopyAccount = async () => {
     if (!accountNumber) return;
@@ -114,18 +146,11 @@ export const Profile: React.FC = () => {
 
       // Optional: disable kill switch on logout to avoid "no internet surprise"
       try {
-        await invoke("killswitch_set", {
+        await invoke("vpn_set_kill_switch", {
           enabled: false,
           configPath: null,
           bearerToken: null,
         });
-      } catch {
-        // ignore
-      }
-
-      // Optional: disable crash recovery on logout
-      try {
-        await invoke("crashrecovery_set", { enabled: false });
       } catch {
         // ignore
       }
@@ -146,13 +171,13 @@ export const Profile: React.FC = () => {
         const server = await getSelectedServer().catch(() => null);
         const cfg = server?.configUrl ? server.configUrl : DEFAULT_OVPN_URL;
 
-        await invoke("killswitch_set", {
+        await invoke("vpn_set_kill_switch", {
           enabled: true,
           configPath: cfg,
           bearerToken: null,
         });
       } else {
-        await invoke("killswitch_set", {
+        await invoke("vpn_set_kill_switch", {
           enabled: false,
           configPath: null,
           bearerToken: null,
@@ -168,26 +193,12 @@ export const Profile: React.FC = () => {
     }
   };
 
-  const toggleCrashRecovery = async () => {
-    const next = !crashRecovery;
-    setCrashRecovery(next);
-
-    if (!isTauri()) return;
-
-    try {
-      await invoke("crashrecovery_set", { enabled: next });
-    } catch (e) {
-      console.error("Crash recovery toggle error:", e);
-      setCrashRecovery(!next);
-      alert("Failed to update crash recovery setting.");
-    }
-  };
-
   return (
       <AuthShell title="Profile" onBack={() => navigate("/dashboard")}>
         <div className="space-y-4 flex-1 flex flex-col">
           <div className="px-6 flex flex-col gap-4">
-            <div className="bg-white rounded-2xl p-4 text-sm">
+            {/* Account card */}
+            <div className="bg-white rounded-2xl p-4 text-sm border border-[#EAEAF0] transition-all duration-200 hover:shadow-[0_10px_30px_rgba(11,12,25,0.06)] hover:-translate-y-[1px]">
               <div className="flex justify-between items-center mb-2">
                 <div>
                   <div className="text-[11px] font-normal text-[#62626A] mb-1">
@@ -197,6 +208,7 @@ export const Profile: React.FC = () => {
                     {formatAccountNumber(accountNumber)}
                   </div>
                 </div>
+
                 {accountNumber && (
                     <div className="relative">
                       <button
@@ -206,9 +218,13 @@ export const Profile: React.FC = () => {
                             e.stopPropagation();
                             handleCopyAccount();
                           }}
-                          className="text-xs flex items-center gap-2 hover:opacity-80 transition-opacity"
+                          className="text-xs flex items-center gap-2 hover:opacity-80 active:scale-[0.98] transition-all"
                       >
-                        <img src="/icons/copy.svg" alt="Copy" className="w-8 h-8" />
+                        <img
+                            src="/icons/copy.svg"
+                            alt="Copy"
+                            className="w-8 h-8"
+                        />
                       </button>
 
                       {showCopiedToast && (
@@ -234,17 +250,30 @@ export const Profile: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl flex-col p-4 text-sm flex items-center justify-between">
+            {/* Expires card (no progress bar) */}
+            <div className="bg-white rounded-2xl flex-col p-4 text-sm flex items-center justify-between border border-[#EAEAF0] transition-all duration-200 hover:shadow-[0_10px_30px_rgba(11,12,25,0.06)] hover:-translate-y-[1px]">
               <div className="w-full">
-                <div className="text-sm text-[#62626A] mb-2">Expires</div>
-                <div className="flex items-center justify-between mb-2 w-full">
-                  <div className="font-medium flex items-center gap-1">
-                    {subscription?.days_remaining !== undefined
-                        ? `In ${subscription.days_remaining} ${
-                            subscription.days_remaining === 1 ? "day" : "days"
-                        }`
-                        : "N/A"}
-                  </div>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-sm text-[#62626A]">Subscription</div>
+                  <span
+                      className={[
+                        "text-[11px] px-2 py-1 rounded-full border",
+                        pillClassForStatus(expiresStatus),
+                        "transition-colors duration-200",
+                      ].join(" ")}
+                  >
+                  {expiresStatus === "ok"
+                      ? "Active"
+                      : expiresStatus === "warning"
+                          ? "Expiring soon"
+                          : expiresStatus === "expired"
+                              ? "Expired"
+                              : "Unknown"}
+                </span>
+                </div>
+
+                <div className="flex items-center justify-between w-full">
+                  <div className="font-semibold text-[#0B0C19]">{expiresLabel}</div>
                   <div className="text-sm text-[#62626A]">
                     {formatExpirationDate(subscription?.expires_at)}
                   </div>
@@ -253,13 +282,15 @@ export const Profile: React.FC = () => {
             </div>
           </div>
 
-          <div className="px-5 mt-10 bg-white rounded-2xl flex-1 pt-6 pb-6">
+          {/* Settings */}
+          <div className="px-5 mt-10 bg-white rounded-2xl flex-1 pt-6 pb-6 border border-[#EAEAF0]">
             {/* Auto connect */}
             <div className="flex items-center justify-between text-sm mb-6 pb-6 border-b border-[#EAEAF0]">
             <span className="text-[14px] font-semibold text-[#0B0C19] flex items-center gap-2">
               <img src="/icons/network.svg" alt="Network" className="w-11 h-11" />
               Auto connect
             </span>
+
               <button
                   type="button"
                   onClick={async () => {
@@ -318,7 +349,7 @@ export const Profile: React.FC = () => {
             <button
                 type="button"
                 onClick={() => setShowLogout(true)}
-                className="text-sm text-[#62626A] flex items-center gap-3 pl-2"
+                className="text-sm text-[#62626A] flex items-center gap-3 pl-2 hover:opacity-90 active:scale-[0.99] transition-all"
             >
               <img src="/icons/logout.svg" alt="Logout" className="w-7 h-7" />
               <span className="text-[14px] font-semibold text-[#62626A]">Logout</span>
@@ -326,9 +357,10 @@ export const Profile: React.FC = () => {
           </div>
         </div>
 
+        {/* Logout modal */}
         {showLogout && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-50">
-              <div className="text-center rounded-2xl pt-12 pb-8 px-6 w-full max-w-[280px] mx-4 logout-screen bg-[#F6F6FD]">
+              <div className="text-center rounded-2xl pt-12 pb-8 px-6 w-full max-w-[280px] mx-4 logout-screen bg-[#F6F6FD] border border-[#EAEAF0] shadow-[0_20px_60px_rgba(0,0,0,0.18)]">
                 <img
                     src="/icons/logout.svg"
                     alt="Logout"
@@ -341,14 +373,14 @@ export const Profile: React.FC = () => {
                 <div className="flex justify-end gap-5">
                   <button
                       type="button"
-                      className="text-sm font-semibold text-[#62626A]"
+                      className="text-sm font-semibold text-[#62626A] hover:opacity-80 transition-opacity"
                       onClick={() => setShowLogout(false)}
                   >
                     Cancel
                   </button>
                   <button
                       type="button"
-                      className="text-sm text-[#2761FC] font-semibold"
+                      className="text-sm text-[#2761FC] font-semibold hover:opacity-80 transition-opacity"
                       onClick={handleLogout}
                   >
                     Log out

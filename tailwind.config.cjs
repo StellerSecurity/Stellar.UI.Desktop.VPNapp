@@ -1,5 +1,5 @@
 /** @type {import('tailwindcss').Config} */
-module.exports = {
+export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
@@ -43,11 +43,20 @@ module.exports = {
           "0%, 100%": { transform: "scale(1)" },
           "50%": { transform: "scale(1.25)" },
         },
+
+        // ✅ Skeleton shimmer for “Loading servers…”
+        shimmer: {
+          "0%": { transform: "translateX(-120%)" },
+          "100%": { transform: "translateX(120%)" },
+        },
       },
       animation: {
         "ring-pulse": "ring-pulse 1.2s ease-in-out infinite",
         "ring-breathe": "ring-breathe 1.6s ease-in-out infinite",
         "dot-beat": "dot-beat 0.9s ease-in-out infinite",
+
+        // ✅ Skeleton shimmer
+        shimmer: "shimmer 1.2s ease-in-out infinite",
       },
     },
   },

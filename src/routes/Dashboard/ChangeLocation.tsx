@@ -1,7 +1,11 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useMemo, useEffect, useRef, useState, useCallback } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { AuthShell } from "../../components/layout/AuthShell";
-import { fetchServerList, type VpnServer, setSelectedServer } from "../../services/api";
+import {
+  fetchServerList,
+  type VpnServer,
+  setSelectedServer,
+} from "../../services/api";
 import { invoke } from "@tauri-apps/api/core";
 
 type ServerItem = {
@@ -19,11 +23,12 @@ type City = {
 type Country = {
   id: string;
   name: string;
-  countryCode?: string; // ISO code like "CH"
+  countryCode?: string; // ISO like "CH"
   cities: City[];
 };
 
-const isTauri = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+const isTauri = () =>
+    typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 // TEMP TEST CREDS (do NOT ship this)
 const DEFAULT_OVPN_USERNAME = "stvpn_eu_test_1";
@@ -41,7 +46,10 @@ const flagSrcForCountry = (code?: string) => {
 
 function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+    const t = setTimeout(
+        () => reject(new Error(`${label} timed out after ${ms}ms`)),
+        ms
+    );
     p.then(
         (v) => {
           clearTimeout(t);
@@ -56,7 +64,7 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
 }
 
 /**
- * Transform flat server list from API into nested Country -> City -> Server structure
+ * Transform flat server list into nested Country -> City -> Server structure
  */
 function transformServerList(servers: VpnServer[]): Country[] {
   const countriesMap = new Map<string, Country>();
@@ -65,7 +73,6 @@ function transformServerList(servers: VpnServer[]): Country[] {
     const nameParts = server.name.split("–").map((s) => s.trim());
     const countryName = nameParts[0] || server.country;
     const cityName = nameParts[1] || "Unknown";
-
     const countryId = countryName.toLowerCase().replace(/\s+/g, "-");
 
     let country = countriesMap.get(countryId);
@@ -77,10 +84,8 @@ function transformServerList(servers: VpnServer[]): Country[] {
         cities: [],
       };
       countriesMap.set(countryId, country);
-    } else {
-      if (!country.countryCode && server.country) {
-        country.countryCode = server.country;
-      }
+    } else if (!country.countryCode && server.country) {
+      country.countryCode = server.country;
     }
 
     let city = country.cities.find((c) => c.name === cityName);
@@ -97,11 +102,22 @@ function transformServerList(servers: VpnServer[]): Country[] {
     });
   });
 
-  return Array.from(countriesMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+  return Array.from(countriesMap.values()).sort((a, b) =>
+      a.name.localeCompare(b.name)
+  );
 }
+
+/** Sexy skeleton row (shimmer) */
+const SkeletonRow: React.FC<{ className?: string }> = ({ className = "" }) => (
+    <div className={`relative overflow-hidden rounded-2xl bg-[#EAEAF0] ${className}`}>
+      <div className="absolute inset-0 -translate-x-[120%] bg-gradient-to-r from-transparent via-white/70 to-transparent animate-shimmer" />
+    </div>
+);
 
 export const ChangeLocation: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
   const [expandedCountry, setExpandedCountry] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
   const [countriesData, setCountriesData] = useState<Country[]>([]);
@@ -111,6 +127,17 @@ export const ChangeLocation: React.FC = () => {
 
   const [connectingServerId, setConnectingServerId] = useState<string | null>(null);
   const FASTEST_ID = "__fastest__";
+
+  // countryId -> ref (for smooth scroll when opening from ?country=CH)
+  const countryRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  const backToDashboardAndFocusMap = useCallback((countryCode?: string | null) => {
+    navigate("/dashboard", {
+      state: {
+        focusCountryCode: (countryCode || "").trim().toUpperCase() || null,
+      },
+    });
+  }, [navigate]);
 
   useEffect(() => {
     const loadServers = async () => {
@@ -127,11 +154,20 @@ export const ChangeLocation: React.FC = () => {
         }
 
         setRawServers(servers);
-
         const transformed = transformServerList(servers);
         setCountriesData(transformed);
 
+        // Default open
         if (transformed.length > 0) setExpandedCountry(transformed[0].id);
+
+        // If we came with ?country=CH (from dashboard map click), open it
+        const q = (searchParams.get("country") || "").trim().toLowerCase();
+        if (q) {
+          const match = transformed.find(
+              (c) => (c.countryCode || "").toLowerCase() === q
+          );
+          if (match) setExpandedCountry(match.id);
+        }
       } catch (err) {
         console.error("Error loading server list:", err);
         setError("Failed to load server list");
@@ -143,17 +179,34 @@ export const ChangeLocation: React.FC = () => {
     };
 
     loadServers();
-  }, []);
+  }, [searchParams]);
 
-  const toggleCountry = (countryId: string) => {
-    setExpandedCountry(expandedCountry === countryId ? "" : countryId);
-  };
+  // Smooth scroll to expanded country (especially when opened from ?country=XX)
+  useEffect(() => {
+    if (!expandedCountry) return;
+    const el = countryRefs.current[expandedCountry];
+    if (!el) return;
+
+    // Let layout settle (expand animation + rendering)
+    const t = window.setTimeout(() => {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 60);
+
+    return () => clearTimeout(t);
+  }, [expandedCountry]);
 
   const normalizedSearch = searchTerm.trim().toLowerCase();
-  const filteredCountries =
-      normalizedSearch.length === 0
-          ? countriesData
-          : countriesData.filter((country) => country.name.toLowerCase().includes(normalizedSearch));
+
+  const filteredCountries = useMemo(() => {
+    if (normalizedSearch.length === 0) return countriesData;
+    return countriesData.filter((country) =>
+        country.name.toLowerCase().includes(normalizedSearch)
+    );
+  }, [countriesData, normalizedSearch]);
+
+  const toggleCountry = (countryId: string) => {
+    setExpandedCountry((prev) => (prev === countryId ? "" : countryId));
+  };
 
   const connectToSelectedServer = async (configUrl: string) => {
     if (!isTauri()) return;
@@ -165,14 +218,12 @@ export const ChangeLocation: React.FC = () => {
       // ignore
     }
 
-    // If VPN is running, disconnect first
     const backendStatus = await invoke<string>("vpn_status").catch(() => "disconnected");
     if (backendStatus === "connected" || backendStatus === "connecting") {
       await invoke("vpn_disconnect").catch(() => {});
       await sleep(250);
     }
 
-    // Connect with timeout to avoid “stuck connecting”
     await withTimeout(
         invoke("vpn_connect", {
           configPath: configUrl,
@@ -187,8 +238,7 @@ export const ChangeLocation: React.FC = () => {
   const pickRandomServer = (): VpnServer | null => {
     const candidates = rawServers.filter((s) => (s.config_url || "").trim().length > 0);
     if (!candidates.length) return null;
-    const i = Math.floor(Math.random() * candidates.length);
-    return candidates[i];
+    return candidates[Math.floor(Math.random() * candidates.length)];
   };
 
   const handleFastestClick = async () => {
@@ -196,7 +246,7 @@ export const ChangeLocation: React.FC = () => {
     if (isLoading || error) return;
 
     const s = pickRandomServer();
-    if (!s) {
+    if (!s || !s.config_url) {
       alert("No server available for Fastest.");
       return;
     }
@@ -204,14 +254,24 @@ export const ChangeLocation: React.FC = () => {
     setConnectingServerId(FASTEST_ID);
 
     try {
-      await setSelectedServer(s.name, s.config_url, (s.country || "").toLowerCase() || undefined);
-      await connectToSelectedServer(s.config_url);
-      navigate("/dashboard");
+      const cfg = s.config_url; // now guaranteed
+      await setSelectedServer(
+          s.name,
+          cfg,
+          (s.country || "").toLowerCase() || undefined
+      );
+
+      await connectToSelectedServer(cfg);
+
+      // Fly-to on dashboard map
+      backToDashboardAndFocusMap(s.country || null);
     } catch (e: any) {
       console.error("Fastest connect failed:", e);
       await invoke("vpn_disconnect").catch(() => {});
 
-      const msg = typeof e === "string" ? e : e?.message ? String(e.message) : "Unknown error";
+      const msg =
+          typeof e === "string" ? e : e?.message ? String(e.message) : "Unknown error";
+
       alert("Fastest server connect failed.\n\n" + msg);
       navigate("/dashboard");
     } finally {
@@ -221,6 +281,7 @@ export const ChangeLocation: React.FC = () => {
 
   return (
       <AuthShell title="Change Location" onBack={() => navigate("/dashboard")}>
+        {/* Search */}
         <div className="mb-4 relative px-0">
           <div className="absolute left-5 top-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none z-10">
             <img src="/icons/search.svg" alt="Search" className="w-5 h-5" />
@@ -234,143 +295,252 @@ export const ChangeLocation: React.FC = () => {
         </div>
 
         <div className="overflow-auto text-sm rounded-2xl custom-scrollbar bg-white">
-          {isLoading && <div className="p-8 text-center text-[#62626A]">Loading servers...</div>}
-          {error && <div className="p-8 text-center text-red-500">{error}</div>}
+          {/* Loading */}
+          {isLoading && (
+              <div className="p-6" role="status" aria-busy="true">
+                <div className="flex items-center gap-3">
+                  <div className="w-6 h-6 rounded-full border-2 border-[#0B0C19]/15 border-t-[#0B0C19] animate-spin" />
+                  <div className="flex flex-col">
+                <span className="text-[13px] font-semibold text-[#0B0C19]">
+                  Loading servers
+                </span>
+                    <span className="text-[11px] text-[#62626A]">Fetching locations…</span>
+                  </div>
+                </div>
+
+                <div className="mt-5">
+                  <SkeletonRow className="h-[52px]" />
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  <SkeletonRow className="h-[56px]" />
+                  <SkeletonRow className="h-[56px]" />
+                  <SkeletonRow className="h-[56px]" />
+                  <SkeletonRow className="h-[56px]" />
+                </div>
+              </div>
+          )}
+
+          {/* Error */}
+          {!isLoading && error && (
+              <div className="p-8 text-center text-red-500">{error}</div>
+          )}
+
+          {/* Empty */}
           {!isLoading && !error && filteredCountries.length === 0 && (
               <div className="p-8 text-center text-[#62626A]">No servers found</div>
           )}
 
-          {/* Fastest (clickable) */}
-          <button
-              type="button"
-              onClick={handleFastestClick}
-              disabled={isLoading || !!error || connectingServerId !== null}
-              className="w-full rounded-2xl py-3 px-8 flex items-center justify-between hover:bg-[#F6F6FD] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <div className="text-[14px] flex items-center gap-3 text-[#0B0C19]">
-              <img src="/icons/world-check.svg" alt="World Check" className="w-[22px] h-[22px]" />
-              <span>Fastest</span>
-              {connectingServerId === FASTEST_ID && (
-                  <span className="ml-2 text-[11px] text-[#62626A]">Connecting...</span>
-              )}
-            </div>
+          {/* Content */}
+          {!isLoading && !error && (
+              <>
+                {/* Fastest */}
+                <button
+                    type="button"
+                    onClick={handleFastestClick}
+                    disabled={connectingServerId !== null}
+                    className={[
+                      "w-full rounded-2xl py-3 px-8 flex items-center justify-between",
+                      "transition-all duration-200",
+                      "hover:bg-[#F6F6FD] hover:shadow-sm hover:-translate-y-[1px]",
+                      "active:translate-y-0 active:scale-[0.995]",
+                      "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none disabled:hover:translate-y-0",
+                    ].join(" ")}
+                >
+                  <div className="text-[14px] flex items-center gap-3 text-[#0B0C19]">
+                    <img
+                        src="/icons/world-check.svg"
+                        alt="World Check"
+                        className="w-[22px] h-[22px]"
+                    />
+                    <span>Fastest</span>
 
-            <img src="/icons/right-arrow.svg" alt="Arrow" className="w-5 h-4" />
-          </button>
-
-          {!isLoading &&
-              !error &&
-              filteredCountries.map((country) => (
-                  <div key={country.id} className={expandedCountry === country.id ? "bg-[#F6F6FD]" : ""}>
-                    <button
-                        type="button"
-                        onClick={() => toggleCountry(country.id)}
-                        className="w-full text-[#0B0C19] py-4 px-8 flex items-center justify-between text-left"
-                        disabled={connectingServerId !== null}
-                    >
-                      <div className="flex items-center gap-3">
-                        <img
-                            src={flagSrcForCountry(country.countryCode)}
-                            onError={(e) => {
-                              (e.currentTarget as HTMLImageElement).src = "/icons/flag.svg";
-                            }}
-                            alt={`${country.name} flag`}
-                            className="w-6 h-6 rounded-full"
-                        />
-                        <span
-                            className={`text-[13px] ${expandedCountry === country.id ? "font-semibold" : "font-normal"}`}
-                        >
-                    {country.name}
+                    {connectingServerId === FASTEST_ID && (
+                        <span className="ml-2 inline-flex items-center gap-2 text-[11px] text-[#62626A]">
+                    <span className="w-3 h-3 rounded-full border-2 border-[#62626A]/20 border-t-[#62626A] animate-spin" />
+                    Connecting…
                   </span>
-                      </div>
-
-                      <div className={`backk-arrow transition-transform ${expandedCountry === country.id ? "rotate-180" : ""}`}>
-                        <img src="/icons/back.svg" alt="Arrow" className="w-4 h-5" />
-                      </div>
-                    </button>
-
-                    {expandedCountry === country.id && (
-                        <div className="bg-[#F6F6FD] px-16">
-                          {country.cities.map((city, cityIndex) => (
-                              <div key={cityIndex}>
-                                <div className="font-semibold text-[#0B0C19] text-[12px] py-4 flex items-center gap-2">
-                                  <div className="w-2 h-2 rounded-full bg-[#00B252]"></div>
-                                  <span>{city.name}</span>
-                                </div>
-
-                                <ul className="text-[#0B0C19] text-[12px] pl-6">
-                                  {city.servers.map((server) => {
-                                    const disabled =
-                                        !server.config_url ||
-                                        (connectingServerId !== null && connectingServerId !== server.id);
-
-                                    return (
-                                        <li
-                                            key={server.id}
-                                            className={`py-4 flex items-center gap-2 transition-opacity ${
-                                                disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:opacity-80"
-                                            }`}
-                                            onClick={async () => {
-                                              if (disabled) return;
-                                              if (!server.config_url) return;
-
-                                              setConnectingServerId(server.id);
-
-                                              try {
-                                                await setSelectedServer(
-                                                    server.name,
-                                                    server.config_url,
-                                                    country.countryCode ? country.countryCode.toLowerCase() : undefined
-                                                );
-
-                                                await connectToSelectedServer(server.config_url);
-                                                navigate("/dashboard");
-                                              } catch (e: any) {
-                                                console.error("Failed to connect on selection:", e);
-                                                await invoke("vpn_disconnect").catch(() => {});
-
-                                                const msg =
-                                                    typeof e === "string"
-                                                        ? e
-                                                        : e?.message
-                                                            ? String(e.message)
-                                                            : "Unknown error";
-
-                                                if (
-                                                    msg.includes("Operation not permitted") ||
-                                                    msg.includes("CAP_NET_ADMIN") ||
-                                                    msg.includes("Kill switch needs root")
-                                                ) {
-                                                  alert(
-                                                      "Could not start VPN because kill switch needs root/CAP_NET_ADMIN.\n\nRun the app with sudo or grant capabilities (dev helper)."
-                                                  );
-                                                } else if (msg.includes("timed out")) {
-                                                  alert("VPN connect timed out.\n\nCheck backend logs and OpenVPN process output.");
-                                                } else {
-                                                  alert("Could not start VPN on the selected server.\n\n" + msg);
-                                                }
-
-                                                navigate("/dashboard");
-                                              } finally {
-                                                setConnectingServerId(null);
-                                              }
-                                            }}
-                                        >
-                                          <div className="w-2 h-2 rounded-full bg-[#00B252]"></div>
-                                          <span className="ml-1">{server.name}</span>
-                                          {connectingServerId === server.id && (
-                                              <span className="ml-2 text-[11px] text-[#62626A]">Connecting...</span>
-                                          )}
-                                        </li>
-                                    );
-                                  })}
-                                </ul>
-                              </div>
-                          ))}
-                        </div>
                     )}
                   </div>
-              ))}
+
+                  <img src="/icons/right-arrow.svg" alt="Arrow" className="w-5 h-4" />
+                </button>
+
+                {/* Countries */}
+                {filteredCountries.map((country) => {
+                  const isOpen = expandedCountry === country.id;
+
+                  return (
+                      <div
+                          key={country.id}
+                          ref={(el) => {
+                            countryRefs.current[country.id] = el;
+                          }}
+                          className={[
+                            "transition-colors duration-200",
+                            isOpen ? "bg-[#F6F6FD]" : "",
+                          ].join(" ")}
+                      >
+                        {/* Country row */}
+                        <button
+                            type="button"
+                            onClick={() => toggleCountry(country.id)}
+                            disabled={connectingServerId !== null}
+                            className={[
+                              "w-full text-[#0B0C19] py-4 px-8 flex items-center justify-between text-left",
+                              "transition-all duration-200",
+                              "hover:bg-[#F0F0FB]",
+                              "active:scale-[0.995]",
+                              "disabled:opacity-60 disabled:cursor-not-allowed",
+                            ].join(" ")}
+                        >
+                          <div className="flex items-center gap-3">
+                            <img
+                                src={flagSrcForCountry(country.countryCode)}
+                                onError={(e) => {
+                                  (e.currentTarget as HTMLImageElement).src = "/icons/flag.svg";
+                                }}
+                                alt={`${country.name} flag`}
+                                className={[
+                                  "w-6 h-6 rounded-full",
+                                  "transition-transform duration-200",
+                                  isOpen ? "scale-[1.05]" : "scale-100",
+                                ].join(" ")}
+                            />
+                            <span
+                                className={[
+                                  "text-[13px] transition-all duration-200",
+                                  isOpen ? "font-semibold" : "font-normal",
+                                ].join(" ")}
+                            >
+                        {country.name}
+                      </span>
+                          </div>
+
+                          <div
+                              className={[
+                                "transition-transform duration-300",
+                                isOpen ? "rotate-180" : "rotate-0",
+                              ].join(" ")}
+                          >
+                            <img src="/icons/back.svg" alt="Arrow" className="w-4 h-5" />
+                          </div>
+                        </button>
+
+                        {/* Expand content with animation */}
+                        <div
+                            className={[
+                              "grid transition-all duration-300 ease-in-out",
+                              isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
+                            ].join(" ")}
+                        >
+                          <div className="overflow-hidden">
+                            <div className="bg-[#F6F6FD] px-16 pb-2">
+                              {country.cities.map((city, cityIndex) => (
+                                  <div key={cityIndex}>
+                                    <div className="font-semibold text-[#0B0C19] text-[12px] py-4 flex items-center gap-2">
+                                      <div className="w-2 h-2 rounded-full bg-[#00B252]"></div>
+                                      <span>{city.name}</span>
+                                    </div>
+
+                                    <ul className="text-[#0B0C19] text-[12px] pl-6">
+                                      {city.servers.map((server) => {
+                                        const disabled =
+                                            !server.config_url ||
+                                            (connectingServerId !== null &&
+                                                connectingServerId !== server.id);
+
+                                        const isConnectingRow = connectingServerId === server.id;
+
+                                        return (
+                                            <li
+                                                key={server.id}
+                                                className={[
+                                                  "py-4 flex items-center gap-2",
+                                                  "transition-all duration-200",
+                                                  disabled
+                                                      ? "opacity-50 cursor-not-allowed"
+                                                      : "cursor-pointer hover:translate-x-[2px] hover:opacity-100",
+                                                  !disabled ? "active:scale-[0.995]" : "",
+                                                ].join(" ")}
+                                                onClick={async () => {
+                                                  if (disabled) return;
+                                                  if (!server.config_url) return;
+
+                                                  const cfg = server.config_url; // now guaranteed
+                                                  setConnectingServerId(server.id);
+
+                                                  try {
+                                                    await setSelectedServer(
+                                                        server.name,
+                                                        cfg,
+                                                        country.countryCode
+                                                            ? country.countryCode.toLowerCase()
+                                                            : undefined
+                                                    );
+
+                                                    await connectToSelectedServer(cfg);
+
+                                                    // Fly-to on dashboard map
+                                                    backToDashboardAndFocusMap(country.countryCode || null);
+                                                  } catch (e: any) {
+                                                    console.error("Failed to connect on selection:", e);
+                                                    await invoke("vpn_disconnect").catch(() => {});
+
+                                                    const msg =
+                                                        typeof e === "string"
+                                                            ? e
+                                                            : e?.message
+                                                                ? String(e.message)
+                                                                : "Unknown error";
+
+                                                    if (
+                                                        msg.includes("Operation not permitted") ||
+                                                        msg.includes("CAP_NET_ADMIN") ||
+                                                        msg.includes("Kill switch needs root")
+                                                    ) {
+                                                      alert(
+                                                          "Could not start VPN because kill switch needs root/CAP_NET_ADMIN.\n\nRun the app with sudo or grant capabilities (dev helper)."
+                                                      );
+                                                    } else if (msg.includes("timed out")) {
+                                                      alert(
+                                                          "VPN connect timed out.\n\nCheck backend logs and OpenVPN process output."
+                                                      );
+                                                    } else {
+                                                      alert(
+                                                          "Could not start VPN on the selected server.\n\n" + msg
+                                                      );
+                                                    }
+
+                                                    navigate("/dashboard");
+                                                  } finally {
+                                                    setConnectingServerId(null);
+                                                  }
+                                                }}
+                                            >
+                                              <div className="w-2 h-2 rounded-full bg-[#00B252]"></div>
+                                              <span className="ml-1">{server.name}</span>
+
+                                              {isConnectingRow && (
+                                                  <span className="ml-2 inline-flex items-center gap-2 text-[11px] text-[#62626A]">
+                                        <span className="w-3 h-3 rounded-full border-2 border-[#62626A]/20 border-t-[#62626A] animate-spin" />
+                                        Connecting…
+                                      </span>
+                                              )}
+                                            </li>
+                                        );
+                                      })}
+                                    </ul>
+                                  </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                  );
+                })}
+              </>
+          )}
         </div>
       </AuthShell>
   );
