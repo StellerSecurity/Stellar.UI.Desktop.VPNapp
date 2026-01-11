@@ -665,29 +665,6 @@ export const Dashboard: React.FC = () => {
             )}
           </Button>
 
-
-
-          {showLogs && (
-              <div className="mt-3 rounded-2xl bg-black/40 p-3 text-[11px] max-h-[180px] overflow-auto">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-white/80">OpenVPN logs</span>
-                  <div className="flex items-center gap-3">
-                    <button
-                        className="text-white/70 hover:text-white"
-                        onClick={() => {
-                          setVpnLogs([]);
-                          setConnectError(null);
-                        }}
-                    >
-                      Clear
-                    </button>
-                  </div>
-                </div>
-                <pre className="whitespace-pre-wrap text-white/80 font-mono">
-              {vpnLogs.length ? vpnLogs.join("\n") : "No logs yet..."}
-            </pre>
-              </div>
-          )}
         </div>
 
         {/* Congrats Modal */}
