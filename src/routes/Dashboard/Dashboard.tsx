@@ -515,6 +515,8 @@ export const Dashboard: React.FC = () => {
                 height={640}
                 focusCountryCode={focusCountryCode}
                 selectedCountryCode={selectedServerCountryCode}
+                animateKey={mapAnimateKey}
+                connectionStatus={status}
             />
           </div>
 

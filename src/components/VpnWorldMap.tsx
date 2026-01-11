@@ -7,12 +7,15 @@ import {
 } from "react-simple-maps";
 import { geoCentroid } from "d3-geo";
 
+type UiStatus = "disconnected" | "connecting" | "connected";
+
 type Props = {
     focusCountryCode?: string | null;
     selectedCountryCode?: string | null;
     onCountryClick?: (countryCode: string) => void;
     height?: number;
     animateKey?: number; // bump this to force re-fly even to same country
+    connectionStatus?: UiStatus; // 👈 NEW: pass status from Dashboard
 };
 
 type Feature = {
@@ -42,12 +45,16 @@ export const VpnWorldMap: React.FC<Props> = ({
                                                  onCountryClick,
                                                  height = 640,
                                                  animateKey = 0,
+                                                 connectionStatus = "disconnected",
                                              }) => {
     const [geo, setGeo] = useState<{ type: string; features: Feature[] } | null>(null);
     const [loadErr, setLoadErr] = useState<string | null>(null);
 
     const focusCC = upper(focusCountryCode);
     const selectedCC = upper(selectedCountryCode);
+
+    const isConnected = connectionStatus === "connected";
+    const isConnecting = connectionStatus === "connecting";
 
     // Default view (world-ish)
     const defaultCenter: [number, number] = [0, 20];
@@ -166,9 +173,7 @@ export const VpnWorldMap: React.FC<Props> = ({
     useEffect(() => {
         if (!geo) return;
 
-        // If focus exists, make it a bit more dramatic
         const dur = focusCC ? 900 : selectedCC ? 700 : 450;
-
         flyTo(targetCenter, targetZoom, dur);
 
         return () => cancelAnim();
@@ -176,11 +181,7 @@ export const VpnWorldMap: React.FC<Props> = ({
     }, [geo, targetCenter[0], targetCenter[1], targetZoom, animateKey, focusCC, selectedCC]);
 
     if (loadErr) {
-        return (
-            <div className="text-[11px] text-white/70">
-                Map failed to load: {loadErr}
-            </div>
-        );
+        return <div className="text-[11px] text-white/70">Map failed to load: {loadErr}</div>;
     }
 
     if (!geo) {
@@ -202,8 +203,7 @@ export const VpnWorldMap: React.FC<Props> = ({
                 <ZoomableGroup
                     center={viewCenter}
                     zoom={viewZoom}
-                    // Background map: no dragging/zooming. Clicking still works on geographies.
-                    disablePanning
+                    disablePanning={!onCountryClick}
                     disableZooming
                 >
                     <Geographies geography={geo}>
@@ -213,13 +213,22 @@ export const VpnWorldMap: React.FC<Props> = ({
                                 const isFocus = !!focusCC && cc === focusCC;
                                 const isSelected = !!selectedCC && cc === selectedCC;
 
-                                // Sexy blue baseline like your screenshot
-                                const fill = isFocus
-                                    ? "rgba(39,97,252,0.92)" // Stellar blue focus
-                                    : isSelected
-                                        ? "rgba(0,178,82,0.90)" // green selected
-                                        : "rgba(39,97,252,0.22)"; // blue land
+                                // Base: sexy blue land
+                                const baseFill = "rgba(39,97,252,0.22)";
 
+                                // Focus is always Stellar blue (it’s just “focus”, not “connected”)
+                                const focusFill = "rgba(39,97,252,0.92)";
+
+                                // Selected ONLY turns green when connected
+                                const selectedFill = isConnected
+                                    ? "rgba(0,178,82,0.90)"
+                                    : isConnecting
+                                        ? "rgba(39,97,252,0.55)" // subtle “working on it” highlight
+                                        : "rgba(39,97,252,0.40)"; // selected but not connected
+
+                                const fill = isFocus ? focusFill : isSelected ? selectedFill : baseFill;
+
+                                // Stroke: keep it readable without turning everything into mud
                                 const stroke = "rgba(0,0,0,0.22)";
 
                                 return (
@@ -237,7 +246,11 @@ export const VpnWorldMap: React.FC<Props> = ({
                                                 fill: isFocus
                                                     ? "rgba(39,97,252,0.95)"
                                                     : isSelected
-                                                        ? "rgba(0,178,82,0.95)"
+                                                        ? (isConnected
+                                                            ? "rgba(0,178,82,0.95)"
+                                                            : isConnecting
+                                                                ? "rgba(39,97,252,0.62)"
+                                                                : "rgba(39,97,252,0.48)")
                                                         : "rgba(39,97,252,0.32)",
                                                 stroke: "rgba(0,0,0,0.28)",
                                                 outline: "none",
