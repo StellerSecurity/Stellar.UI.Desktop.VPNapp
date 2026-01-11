@@ -28,6 +28,27 @@ module.exports = {
           "sans-serif",
         ],
       },
+
+      // ✅ Animations for VPN status glow/pulse
+      keyframes: {
+        "ring-pulse": {
+          "0%, 100%": { transform: "scale(1)", opacity: "0.65" },
+          "50%": { transform: "scale(1.12)", opacity: "1" },
+        },
+        "ring-breathe": {
+          "0%, 100%": { transform: "scale(1)", opacity: "0.45" },
+          "50%": { transform: "scale(1.06)", opacity: "0.85" },
+        },
+        "dot-beat": {
+          "0%, 100%": { transform: "scale(1)" },
+          "50%": { transform: "scale(1.25)" },
+        },
+      },
+      animation: {
+        "ring-pulse": "ring-pulse 1.2s ease-in-out infinite",
+        "ring-breathe": "ring-breathe 1.6s ease-in-out infinite",
+        "dot-beat": "dot-beat 0.9s ease-in-out infinite",
+      },
     },
   },
   plugins: [],

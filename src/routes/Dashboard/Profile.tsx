@@ -314,37 +314,6 @@ export const Profile: React.FC = () => {
               </button>
             </div>
 
-            {/* Crash recovery */}
-            <div className="flex items-center justify-between text-sm mb-6 pb-6 border-b border-[#EAEAF0]">
-              <div className="flex flex-col">
-              <span className="text-[14px] font-semibold text-[#0B0C19] flex items-center gap-2">
-                <img src="/icons/network.svg" alt="Crash recovery" className="w-11 h-11" />
-                Crash recovery
-              </span>
-                <span className="text-[11px] text-[#62626A] mt-1">
-                Restores VPN if app crashes while connected.
-              </span>
-              </div>
-
-              <button
-                  type="button"
-                  onClick={toggleCrashRecovery}
-                  className={`w-[42px] h-[26px] rounded-full flex items-center px-1 transition-colors ${
-                      crashRecovery ? "bg-[#2761FC]" : "bg-gray-300"
-                  }`}
-              >
-              <span
-                  className={`w-[20px] h-[20px] rounded-full bg-white flex items-center justify-center transition-transform ${
-                      crashRecovery ? "translate-x-4" : "translate-x-0"
-                  }`}
-              >
-                {crashRecovery && (
-                    <img src="/icons/blue-tick.svg" alt="Tick" className="w-4 h-4" />
-                )}
-              </span>
-              </button>
-            </div>
-
             {/* Logout */}
             <button
                 type="button"

@@ -47,6 +47,30 @@ const lsSetBool = (key: string, v: boolean) => {
   window.localStorage.setItem(key, v ? "1" : "0");
 };
 
+const Spinner: React.FC<{ className?: string }> = ({ className = "" }) => (
+    <svg
+        className={`animate-spin ${className}`}
+        viewBox="0 0 24 24"
+        aria-label="Loading"
+    >
+      <circle
+          className="opacity-20"
+          cx="12"
+          cy="12"
+          r="10"
+          stroke="currentColor"
+          strokeWidth="4"
+          fill="none"
+      />
+      <path
+          className="opacity-80"
+          fill="currentColor"
+          d="M12 2a10 10 0 0 1 10 10h-4a6 6 0 0 0-6-6V2z"
+      />
+    </svg>
+);
+
+
 // Flag helper
 const flagSrcForCountryCode = (cc?: string | null) => {
   const raw = (cc || "").trim().toLowerCase();
@@ -555,28 +579,43 @@ export const Dashboard: React.FC = () => {
 
         {/* Center circle */}
         <div className="flex-1 flex items-center justify-center">
-          <div
-              className={`h-16 w-16 rounded-full flex items-center justify-center ${
-                  isConnected
-                      ? "bg-[radial-gradient(circle,rgba(0,178,82,0)_0%,rgba(0,178,82,0)_40%,rgba(0,178,82,0.6)_100%)]"
-                      : isConnecting
-                          ? "bg-[radial-gradient(circle,rgba(98,98,106,0)_0%,rgba(98,98,106,0)_40%,rgba(98,98,106,1)_100%)]"
-                          : "bg-[radial-gradient(circle,rgba(225,0,0,0)_0%,rgba(225,0,0,0)_40%,rgba(225,0,0,0.6)_100%)]"
-              }`}
-          >
-            <div className="h-7 w-7 rounded-full flex items-center justify-center bg-white">
-              <div
-                  className={`h-4 w-4 rounded-full ${
-                      isConnected
-                          ? "bg-emerald-400"
-                          : isConnecting
-                              ? "bg-[#62626A]"
-                              : "bg-[#E10000]"
-                  }`}
-              />
+          <div className="relative h-24 w-24 flex items-center justify-center">
+            {/* Glow ring layer (animated) */}
+            <div
+                className={`absolute inset-0 rounded-full blur-md ${
+                    isConnected
+                        ? "bg-emerald-400/25 animate-ring-pulse motion-reduce:animate-none"
+                        : isConnecting
+                            ? "bg-[#62626A]/25 animate-ring-breathe motion-reduce:animate-none"
+                            : "bg-[#E10000]/20"
+                }`}
+            />
+
+            {/* Main ring */}
+            <div
+                className={`relative h-20 w-20 rounded-full flex items-center justify-center ${
+                    isConnected
+                        ? "bg-[radial-gradient(circle,rgba(0,178,82,0)_0%,rgba(0,178,82,0)_40%,rgba(0,178,82,0.6)_100%)] animate-ring-pulse motion-reduce:animate-none"
+                        : isConnecting
+                            ? "bg-[radial-gradient(circle,rgba(98,98,106,0)_0%,rgba(98,98,106,0)_40%,rgba(98,98,106,1)_100%)] animate-ring-breathe motion-reduce:animate-none"
+                            : "bg-[radial-gradient(circle,rgba(225,0,0,0)_0%,rgba(225,0,0,0)_40%,rgba(225,0,0,0.6)_100%)]"
+                }`}
+            >
+              <div className="h-9 w-9 rounded-full flex items-center justify-center bg-white">
+                <div
+                    className={`h-5 w-5 rounded-full ${
+                        isConnected
+                            ? "bg-emerald-400 animate-dot-beat motion-reduce:animate-none"
+                            : isConnecting
+                                ? "bg-[#62626A] animate-dot-beat motion-reduce:animate-none"
+                                : "bg-[#E10000]"
+                    }`}
+                />
+              </div>
             </div>
           </div>
         </div>
+
 
         {/* Fastest server card + connect button */}
         <div className="px-6 pb-10">
@@ -614,7 +653,16 @@ export const Dashboard: React.FC = () => {
               onClick={handleConnectToggle}
               disabled={isConnecting}
           >
-            {isConnected ? "Disconnect" : isConnecting ? "Connecting..." : "Connect"}
+            {isConnected ? (
+                "Disconnect"
+            ) : isConnecting ? (
+                <span className="inline-flex items-center justify-center gap-2">
+    <Spinner className="w-4 h-4" />
+    <span>Connecting</span>
+  </span>
+            ) : (
+                "Connect"
+            )}
           </Button>
 
 

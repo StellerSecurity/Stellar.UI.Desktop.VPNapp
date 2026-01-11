@@ -73,7 +73,7 @@ function transformServerList(servers: VpnServer[]): Country[] {
       country = {
         id: countryId,
         name: countryName,
-        countryCode: server.country || undefined, // "CH", "US", etc.
+        countryCode: server.country || undefined,
         cities: [],
       };
       countriesMap.set(countryId, country);
@@ -105,11 +105,12 @@ export const ChangeLocation: React.FC = () => {
   const [expandedCountry, setExpandedCountry] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
   const [countriesData, setCountriesData] = useState<Country[]>([]);
+  const [rawServers, setRawServers] = useState<VpnServer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Lock UI while connecting
   const [connectingServerId, setConnectingServerId] = useState<string | null>(null);
+  const FASTEST_ID = "__fastest__";
 
   useEffect(() => {
     const loadServers = async () => {
@@ -118,12 +119,14 @@ export const ChangeLocation: React.FC = () => {
 
       try {
         const servers = await fetchServerList();
-
         if (!servers || servers.length === 0) {
           setError("No servers available");
           setCountriesData([]);
+          setRawServers([]);
           return;
         }
+
+        setRawServers(servers);
 
         const transformed = transformServerList(servers);
         setCountriesData(transformed);
@@ -133,6 +136,7 @@ export const ChangeLocation: React.FC = () => {
         console.error("Error loading server list:", err);
         setError("Failed to load server list");
         setCountriesData([]);
+        setRawServers([]);
       } finally {
         setIsLoading(false);
       }
@@ -154,7 +158,7 @@ export const ChangeLocation: React.FC = () => {
   const connectToSelectedServer = async (configUrl: string) => {
     if (!isTauri()) return;
 
-    // This is a manual user action. Ensure Dashboard won't block it.
+    // Manual action: ensure Dashboard won't block it
     try {
       window.localStorage.setItem(LS_MANUAL_DISABLED, "0");
     } catch {
@@ -168,7 +172,7 @@ export const ChangeLocation: React.FC = () => {
       await sleep(250);
     }
 
-    // Connect to the chosen server (10s timeout to avoid infinite "Connecting...")
+    // Connect with timeout to avoid “stuck connecting”
     await withTimeout(
         invoke("vpn_connect", {
           configPath: configUrl,
@@ -178,6 +182,41 @@ export const ChangeLocation: React.FC = () => {
         10_000,
         "VPN connect"
     );
+  };
+
+  const pickRandomServer = (): VpnServer | null => {
+    const candidates = rawServers.filter((s) => (s.config_url || "").trim().length > 0);
+    if (!candidates.length) return null;
+    const i = Math.floor(Math.random() * candidates.length);
+    return candidates[i];
+  };
+
+  const handleFastestClick = async () => {
+    if (connectingServerId !== null) return;
+    if (isLoading || error) return;
+
+    const s = pickRandomServer();
+    if (!s) {
+      alert("No server available for Fastest.");
+      return;
+    }
+
+    setConnectingServerId(FASTEST_ID);
+
+    try {
+      await setSelectedServer(s.name, s.config_url, (s.country || "").toLowerCase() || undefined);
+      await connectToSelectedServer(s.config_url);
+      navigate("/dashboard");
+    } catch (e: any) {
+      console.error("Fastest connect failed:", e);
+      await invoke("vpn_disconnect").catch(() => {});
+
+      const msg = typeof e === "string" ? e : e?.message ? String(e.message) : "Unknown error";
+      alert("Fastest server connect failed.\n\n" + msg);
+      navigate("/dashboard");
+    } finally {
+      setConnectingServerId(null);
+    }
   };
 
   return (
@@ -201,12 +240,23 @@ export const ChangeLocation: React.FC = () => {
               <div className="p-8 text-center text-[#62626A]">No servers found</div>
           )}
 
-          <div className="rounded-2xl py-3 px-8">
+          {/* Fastest (clickable) */}
+          <button
+              type="button"
+              onClick={handleFastestClick}
+              disabled={isLoading || !!error || connectingServerId !== null}
+              className="w-full rounded-2xl py-3 px-8 flex items-center justify-between hover:bg-[#F6F6FD] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             <div className="text-[14px] flex items-center gap-3 text-[#0B0C19]">
-              <img src="/icons/world-check.svg" alt="World Check" className="w-[22px] h-[22px] font-regular" />
+              <img src="/icons/world-check.svg" alt="World Check" className="w-[22px] h-[22px]" />
               <span>Fastest</span>
+              {connectingServerId === FASTEST_ID && (
+                  <span className="ml-2 text-[11px] text-[#62626A]">Connecting...</span>
+              )}
             </div>
-          </div>
+
+            <img src="/icons/right-arrow.svg" alt="Arrow" className="w-5 h-4" />
+          </button>
 
           {!isLoading &&
               !error &&
@@ -216,6 +266,7 @@ export const ChangeLocation: React.FC = () => {
                         type="button"
                         onClick={() => toggleCountry(country.id)}
                         className="w-full text-[#0B0C19] py-4 px-8 flex items-center justify-between text-left"
+                        disabled={connectingServerId !== null}
                     >
                       <div className="flex items-center gap-3">
                         <img
@@ -226,10 +277,13 @@ export const ChangeLocation: React.FC = () => {
                             alt={`${country.name} flag`}
                             className="w-6 h-6 rounded-full"
                         />
-                        <span className={`text-[13px] ${expandedCountry === country.id ? "font-semibold" : "font-normal"}`}>
+                        <span
+                            className={`text-[13px] ${expandedCountry === country.id ? "font-semibold" : "font-normal"}`}
+                        >
                     {country.name}
                   </span>
                       </div>
+
                       <div className={`backk-arrow transition-transform ${expandedCountry === country.id ? "rotate-180" : ""}`}>
                         <img src="/icons/back.svg" alt="Arrow" className="w-4 h-5" />
                       </div>
@@ -247,7 +301,8 @@ export const ChangeLocation: React.FC = () => {
                                 <ul className="text-[#0B0C19] text-[12px] pl-6">
                                   {city.servers.map((server) => {
                                     const disabled =
-                                        !server.config_url || (connectingServerId !== null && connectingServerId !== server.id);
+                                        !server.config_url ||
+                                        (connectingServerId !== null && connectingServerId !== server.id);
 
                                     return (
                                         <li
@@ -262,22 +317,24 @@ export const ChangeLocation: React.FC = () => {
                                               setConnectingServerId(server.id);
 
                                               try {
-                                                // Save selection (PASS COUNTRY CODE HERE)
-                                                await setSelectedServer(server.name, server.config_url, country.countryCode ?? null);
+                                                await setSelectedServer(
+                                                    server.name,
+                                                    server.config_url,
+                                                    country.countryCode ? country.countryCode.toLowerCase() : undefined
+                                                );
 
-                                                // Connect immediately
                                                 await connectToSelectedServer(server.config_url);
-
-                                                // Back to dashboard
                                                 navigate("/dashboard");
                                               } catch (e: any) {
                                                 console.error("Failed to connect on selection:", e);
-
-                                                // best effort: stop “stuck connecting”
                                                 await invoke("vpn_disconnect").catch(() => {});
 
                                                 const msg =
-                                                    typeof e === "string" ? e : e?.message ? String(e.message) : "Unknown error";
+                                                    typeof e === "string"
+                                                        ? e
+                                                        : e?.message
+                                                            ? String(e.message)
+                                                            : "Unknown error";
 
                                                 if (
                                                     msg.includes("Operation not permitted") ||
