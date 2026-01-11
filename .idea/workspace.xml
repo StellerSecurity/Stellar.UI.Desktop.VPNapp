@@ -4,14 +4,27 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="45de0aa4-b568-4cf0-89f1-da837d51870b" name="Changes" comment="Added cache">
+    <list default="true" id="45de0aa4-b568-4cf0-89f1-da837d51870b" name="Changes" comment="Added flyover + animation">
+      <change afterPath="$PROJECT_DIR$/app-icon.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src-tauri/scripts/linux/postinst.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src-tauri/scripts/linux/prerm.sh" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/japan.ovpn" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/linux-dev-root.sh" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/linux-dev-root.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dist/assets/index-BU7pNLGv.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dist/assets/index-BzpDE0qr.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dist/assets/index-DBJj6pXb.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dist/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/dist/index.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src-tauri/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/Cargo.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src-tauri/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src-tauri/gen/schemas/acl-manifests.json" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/gen/schemas/acl-manifests.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src-tauri/gen/schemas/desktop-schema.json" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/gen/schemas/desktop-schema.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src-tauri/gen/schemas/linux-schema.json" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/gen/schemas/linux-schema.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src-tauri/icons/icon.png" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/icons/icon.png" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src-tauri/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/services/api.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/services/api.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src-tauri/tauri.conf.json" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/tauri.conf.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/routes/Dashboard/ChangeLocation.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/routes/Dashboard/ChangeLocation.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/styles.css" beforeDir="false" afterPath="$PROJECT_DIR$/src/styles.css" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -41,28 +54,33 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;design&quot;,
-    &quot;javascript.preferred.runtime.type.id&quot;: &quot;node&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/home/bb/Hentet/stellar-vpn-desktop&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;ts.external.directory.path&quot;: &quot;/home/bb/WebstormProjects/a/Stellar.UI.Desktop.VPNapp/node_modules/typescript/lib&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "git-widget-placeholder": "design",
+    "javascript.preferred.runtime.type.id": "node",
+    "last_opened_file_path": "/home/bb/WebstormProjects/a/Stellar.UI.Desktop.VPNapp/src-tauri",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "ts.external.directory.path": "/home/bb/WebstormProjects/a/Stellar.UI.Desktop.VPNapp/node_modules/typescript/lib",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/src-tauri" />
       <recent name="$PROJECT_DIR$" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$" />
+      <recent name="$PROJECT_DIR$/src-tauri/scripts/linux" />
     </key>
   </component>
   <component name="SharedIndexes">
@@ -84,6 +102,7 @@
       <workItem from="1768049873987" duration="2000" />
       <workItem from="1768067910043" duration="5490000" />
       <workItem from="1768073487966" duration="10579000" />
+      <workItem from="1768140500006" duration="21438000" />
     </task>
     <task id="LOCAL-00001" summary="Always on VPN">
       <option name="closed" value="true" />
@@ -141,7 +160,47 @@
       <option name="project" value="LOCAL" />
       <updated>1768084301211</updated>
     </task>
-    <option name="localTasksCounter" value="8" />
+    <task id="LOCAL-00008" summary="6 devices">
+      <option name="closed" value="true" />
+      <created>1768140581230</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1768140581230</updated>
+    </task>
+    <task id="LOCAL-00009" summary="Bug fixes, animations and more.">
+      <option name="closed" value="true" />
+      <created>1768142199816</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1768142199816</updated>
+    </task>
+    <task id="LOCAL-00010" summary="Bug fixes, animations and more.">
+      <option name="closed" value="true" />
+      <created>1768143975067</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1768143975067</updated>
+    </task>
+    <task id="LOCAL-00011" summary="Added flyover + animation">
+      <option name="closed" value="true" />
+      <created>1768162765616</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1768162765616</updated>
+    </task>
+    <task id="LOCAL-00012" summary="Added flyover + animation">
+      <option name="closed" value="true" />
+      <created>1768164187704</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1768164187704</updated>
+    </task>
+    <option name="localTasksCounter" value="13" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -153,6 +212,9 @@
     <MESSAGE value="Bug fixes, vpn connection etc." />
     <MESSAGE value="Hide add more days for now" />
     <MESSAGE value="Added cache" />
-    <option name="LAST_COMMIT_MESSAGE" value="Added cache" />
+    <MESSAGE value="6 devices" />
+    <MESSAGE value="Bug fixes, animations and more." />
+    <MESSAGE value="Added flyover + animation" />
+    <option name="LAST_COMMIT_MESSAGE" value="Added flyover + animation" />
   </component>
 </project>

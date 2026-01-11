@@ -11,13 +11,7 @@
   },
   "app": {
     "windows": [
-      {
-        "title": "Stellar VPN",
-        "width": 312,
-        "height": 640,
-        "resizable": false,
-        "fullscreen": false
-      }
+      { "title": "Stellar VPN", "width": 312, "height": 640, "resizable": false, "fullscreen": false }
     ],
     "security": {
       "csp": null,
@@ -25,6 +19,33 @@
     }
   },
   "bundle": {
-    "active": true
+    "active": true,
+    "targets": ["deb", "rpm"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "linux": {
+      "deb": {
+        "files": {
+          "/usr/lib/stellar-vpn/openvpn": "bin/openvpn-x86_64-unknown-linux-gnu"
+        },
+        "depends": ["libcap2-bin"],
+        "postInstallScript": "scripts/linux/postinst.sh",
+        "preRemoveScript": "scripts/linux/prerm.sh"
+      },
+      "rpm": {
+        "files": {
+          "/usr/lib/stellar-vpn/openvpn": "bin/openvpn-x86_64-unknown-linux-gnu"
+        },
+        "depends": ["libcap"],
+        "postInstallScript": "scripts/linux/postinst.sh",
+        "preRemoveScript": "scripts/linux/prerm.sh"
+      }
+    }
+
   }
 }

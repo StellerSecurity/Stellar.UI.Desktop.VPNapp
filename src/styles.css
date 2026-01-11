@@ -21,6 +21,17 @@ body {
   font-family: "Poppins", system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", sans-serif;
 }
 
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  overflow: hidden; /* <- stopper hele app’en i at scrolle */
+  overscroll-behavior: none;
+}
+
+
 /* Scale down all icons - reduce by 40% (0.6 scale) to make them appropriately sized */
 img[src*="icons"] {
   transform: scale(0.6) !important;

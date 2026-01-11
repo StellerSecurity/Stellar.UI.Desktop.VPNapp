@@ -9,10 +9,11 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 use tauri::{AppHandle, Emitter, Manager};
+use tauri::path::BaseDirectory;
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
     process::Command,
-    sync::{Mutex, OnceCell},
+    sync::Mutex,
     time,
 };
 
@@ -38,13 +39,6 @@ impl UiStatus {
     }
 }
 
-#[derive(Debug, Clone)]
-struct ConnectParams {
-    config_path: String,
-    username: String,
-    password: String,
-}
-
 #[derive(Debug)]
 struct Session {
     sid: u64,
@@ -58,10 +52,6 @@ struct VpnInner {
 
     // Settings toggles
     kill_switch_enabled: bool,
-    crash_recovery_enabled: bool,
-
-    // For crash recovery
-    last_connect: Option<ConnectParams>,
 
     // Used to avoid reconnect loops after manual disconnect
     disconnect_requested: bool,
@@ -76,15 +66,11 @@ impl Default for VpnInner {
             status: UiStatus::Disconnected,
             session: None,
             kill_switch_enabled: false,
-            crash_recovery_enabled: true,
-            last_connect: None,
             disconnect_requested: false,
             next_sid: 1,
         }
     }
 }
-
-static APP_HANDLE: OnceCell<AppHandle> = OnceCell::const_new();
 
 fn emit_status(app: &AppHandle, s: &str) {
     let _ = app.emit("vpn-status", s.to_string());
@@ -135,7 +121,6 @@ async fn download_to_file(url: &str, sid: u64) -> Result<PathBuf, String> {
     ensure_temp_dir()?;
     let out = temp_dir().join(format!("config-{sid}.ovpn"));
 
-    // Tight timeouts so "no internet" doesn't feel like a freeze.
     let client = reqwest::Client::builder()
         .connect_timeout(Duration::from_secs(4))
         .timeout(Duration::from_secs(8))
@@ -149,10 +134,7 @@ async fn download_to_file(url: &str, sid: u64) -> Result<PathBuf, String> {
         .map_err(|e| format!("Failed to download config: {e}"))?;
 
     if !resp.status().is_success() {
-        return Err(format!(
-            "Failed to download config: HTTP {}",
-            resp.status()
-        ));
+        return Err(format!("Failed to download config: HTTP {}", resp.status()));
     }
 
     let bytes = resp
@@ -183,11 +165,69 @@ async fn prepare_config(config_path: &str, sid: u64) -> Result<PathBuf, String> 
     }
 }
 
+// -------- OpenVPN binary resolution --------
+//
+// Dev binary path:
+//   src-tauri/bin/openvpn-x86_64-unknown-linux-gnu
+//
+// Installer path (deb/rpm):
+//   /usr/lib/stellar-vpn/openvpn
+
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+const OPENVPN_REL: &str = "bin/openvpn-x86_64-unknown-linux-gnu";
+#[cfg(all(target_os = "windows", target_arch = "x86_64"))]
+const OPENVPN_REL: &str = "bin/openvpn-x86_64-pc-windows-msvc.exe";
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+const OPENVPN_REL: &str = "bin/openvpn-aarch64-apple-darwin";
+#[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+const OPENVPN_REL: &str = "bin/openvpn-x86_64-apple-darwin";
+
+#[cfg(not(any(
+    all(target_os = "linux", target_arch = "x86_64"),
+    all(target_os = "windows", target_arch = "x86_64"),
+    all(target_os = "macos", target_arch = "aarch64"),
+    all(target_os = "macos", target_arch = "x86_64"),
+)))]
+const OPENVPN_REL: &str = "openvpn";
+
+fn resolve_openvpn_binary(app: &AppHandle) -> Result<PathBuf, String> {
+    // Linux: prefer the known installer location first.
+    #[cfg(target_os = "linux")]
+    {
+        let installed = PathBuf::from("/usr/lib/stellar-vpn/openvpn");
+        if installed.exists() {
+            return Ok(installed);
+        }
+    }
+
+    // If we're in generic fallback mode, just use PATH
+    if OPENVPN_REL == "openvpn" {
+        return Ok(PathBuf::from("openvpn"));
+    }
+
+    // 1) Release: bundled resource dir
+    if let Ok(p) = app.path().resolve(OPENVPN_REL, BaseDirectory::Resource) {
+        if p.exists() {
+            return Ok(p);
+        }
+    }
+
+    // 2) Dev: src-tauri/bin/...
+    let dev = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(OPENVPN_REL);
+    if dev.exists() {
+        return Ok(dev);
+    }
+
+    // 3) Last resort: PATH
+    Ok(PathBuf::from("openvpn"))
+}
+
+// -------- Kill switch (linux nftables) --------
+
 #[cfg(target_os = "linux")]
 fn linux_has_cap_net_admin() -> bool {
     const CAP_NET_ADMIN_BIT: u32 = 12;
 
-    // root is always fine
     let is_root = unsafe { libc::geteuid() == 0 };
     if is_root {
         return true;
@@ -238,16 +278,8 @@ async fn run_cmd(cmd: &str, args: &[&str]) -> Result<(), String> {
         return Err(format!(
             "Command failed: {cmd} {:?}\n{}{}",
             args,
-            if !stdout.is_empty() {
-                format!("stdout:\n{stdout}\n")
-            } else {
-                "".into()
-            },
-            if !stderr.is_empty() {
-                format!("stderr:\n{stderr}\n")
-            } else {
-                "".into()
-            }
+            if !stdout.is_empty() { format!("stdout:\n{stdout}\n") } else { "".into() },
+            if !stderr.is_empty() { format!("stderr:\n{stderr}\n") } else { "".into() }
         ));
     }
 
@@ -256,7 +288,7 @@ async fn run_cmd(cmd: &str, args: &[&str]) -> Result<(), String> {
 
 #[cfg(target_os = "linux")]
 fn parse_openvpn_remotes(config_text: &str) -> Vec<(String, u16, String)> {
-    let mut proto = "udp".to_string(); // default
+    let mut proto = "udp".to_string();
     for line in config_text.lines() {
         let l = line.trim();
         if l.starts_with('#') || l.starts_with(';') || l.is_empty() {
@@ -329,27 +361,12 @@ async fn apply_kill_switch(enable: bool, config_path: Option<&str>) -> Result<()
 
     let _ = run_cmd("nft", &["flush", "chain", "inet", "stellarkillswitch", "output"]).await;
 
-    run_cmd(
-        "nft",
-        &["add","rule","inet","stellarkillswitch","output","oifname","\"lo\"","accept"],
-    )
-    .await?;
-    run_cmd(
-        "nft",
-        &["add","rule","inet","stellarkillswitch","output","oifname","\"tun0\"","accept"],
-    )
-    .await?;
+    run_cmd("nft", &["add","rule","inet","stellarkillswitch","output","oifname","\"lo\"","accept"]).await?;
+    run_cmd("nft", &["add","rule","inet","stellarkillswitch","output","oifname","\"tun0\"","accept"]).await?;
 
-    run_cmd(
-        "nft",
-        &["add","rule","inet","stellarkillswitch","output","udp","dport","53","accept"],
-    )
-    .await?;
-    run_cmd(
-        "nft",
-        &["add","rule","inet","stellarkillswitch","output","tcp","dport","53","accept"],
-    )
-    .await?;
+    // DNS
+    run_cmd("nft", &["add","rule","inet","stellarkillswitch","output","udp","dport","53","accept"]).await?;
+    run_cmd("nft", &["add","rule","inet","stellarkillswitch","output","tcp","dport","53","accept"]).await?;
 
     if let Some(cfg) = config_path {
         let cfg_text = if looks_like_url(cfg) {
@@ -370,34 +387,19 @@ async fn apply_kill_switch(enable: bool, config_path: Option<&str>) -> Result<()
             let ips = resolve_host(&host, port).await;
             for ip in ips {
                 let ip_s = ip.to_string();
+                let port_s = port.to_string();
 
                 if proto.contains("tcp") {
                     if ip.is_ipv4() {
-                        let _ = run_cmd(
-                            "nft",
-                            &["add","rule","inet","stellarkillswitch","output","ip","daddr",&ip_s,"tcp","dport",&port.to_string(),"accept"],
-                        )
-                        .await;
+                        let _ = run_cmd("nft", &["add","rule","inet","stellarkillswitch","output","ip","daddr",&ip_s,"tcp","dport",&port_s,"accept"]).await;
                     } else {
-                        let _ = run_cmd(
-                            "nft",
-                            &["add","rule","inet","stellarkillswitch","output","ip6","daddr",&ip_s,"tcp","dport",&port.to_string(),"accept"],
-                        )
-                        .await;
+                        let _ = run_cmd("nft", &["add","rule","inet","stellarkillswitch","output","ip6","daddr",&ip_s,"tcp","dport",&port_s,"accept"]).await;
                     }
                 } else {
                     if ip.is_ipv4() {
-                        let _ = run_cmd(
-                            "nft",
-                            &["add","rule","inet","stellarkillswitch","output","ip","daddr",&ip_s,"udp","dport",&port.to_string(),"accept"],
-                        )
-                        .await;
+                        let _ = run_cmd("nft", &["add","rule","inet","stellarkillswitch","output","ip","daddr",&ip_s,"udp","dport",&port_s,"accept"]).await;
                     } else {
-                        let _ = run_cmd(
-                            "nft",
-                            &["add","rule","inet","stellarkillswitch","output","ip6","daddr",&ip_s,"udp","dport",&port.to_string(),"accept"],
-                        )
-                        .await;
+                        let _ = run_cmd("nft", &["add","rule","inet","stellarkillswitch","output","ip6","daddr",&ip_s,"udp","dport",&port_s,"accept"]).await;
                     }
                 }
             }
@@ -412,6 +414,8 @@ async fn apply_kill_switch(enable: bool, config_path: Option<&str>) -> Result<()
 async fn apply_kill_switch(_enable: bool, _config_path: Option<&str>) -> Result<(), String> {
     Err("Kill switch requires admin/root on this platform.".to_string())
 }
+
+// -------- Session lifecycle --------
 
 async fn stop_current_session(app: &AppHandle, state: &SharedState) {
     let mut g = state.lock().await;
@@ -441,33 +445,7 @@ async fn set_error_and_disconnect(state: &SharedState, app: &AppHandle, msg: Str
     emit_status(app, UiStatus::Disconnected.as_str());
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum SessionOutcome {
-    ManualStop,
-    ConnectedThenExited,
-    ExitedBeforeInit,
-    TimedOut,
-    AuthFailed,
-    SpawnFailed,
-}
-
-impl SessionOutcome {
-    fn ever_connected(&self) -> bool {
-        matches!(self, SessionOutcome::ConnectedThenExited)
-    }
-
-    fn is_failure_before_connect(&self) -> bool {
-        matches!(
-            self,
-            SessionOutcome::ExitedBeforeInit
-                | SessionOutcome::TimedOut
-                | SessionOutcome::AuthFailed
-                | SessionOutcome::SpawnFailed
-        )
-    }
-}
-
-async fn run_openvpn_session_inner(
+async fn run_openvpn_session(
     app: AppHandle,
     state: SharedState,
     sid: u64,
@@ -475,18 +453,28 @@ async fn run_openvpn_session_inner(
     auth_path: PathBuf,
     mut stop_rx: tokio::sync::watch::Receiver<bool>,
     watchdog_ms: u64,
-) -> SessionOutcome {
+) {
     emit_log(&app, &format!("[ui] Starting OpenVPN (sid={sid})"));
-    emit_log(
-        &app,
-        &format!("[ui] Using config file: {}", cfg_path.to_string_lossy()),
-    );
+    emit_log(&app, &format!("[ui] Using config file: {}", cfg_path.display()));
 
-    let mut cmd = Command::new("openvpn");
-    cmd.arg("--config")
+    let openvpn_bin = match resolve_openvpn_binary(&app) {
+        Ok(p) => p,
+        Err(e) => {
+            let _ = fs::remove_file(&auth_path);
+            set_error_and_disconnect(&state, &app, e).await;
+            return;
+        }
+    };
+
+    emit_log(&app, &format!("[ui] OpenVPN binary: {}", openvpn_bin.display()));
+
+    let mut cmd = Command::new(&openvpn_bin);
+    cmd.kill_on_drop(true)
+        .arg("--config")
         .arg(&cfg_path)
         .arg("--auth-user-pass")
         .arg(&auth_path)
+        .arg("--auth-nocache")
         .arg("--verb")
         .arg("3")
         .stdout(std::process::Stdio::piped())
@@ -497,7 +485,7 @@ async fn run_openvpn_session_inner(
         Err(e) => {
             let _ = fs::remove_file(&auth_path);
             set_error_and_disconnect(&state, &app, format!("Failed to start openvpn: {e}")).await;
-            return SessionOutcome::SpawnFailed;
+            return;
         }
     };
 
@@ -533,8 +521,6 @@ async fn run_openvpn_session_inner(
     let watchdog_deadline = time::Instant::now() + Duration::from_millis(watchdog_ms);
     let mut init_done = false;
 
-    let outcome: SessionOutcome;
-
     loop {
         tokio::select! {
             _ = stop_rx.changed() => {
@@ -543,7 +529,6 @@ async fn run_openvpn_session_inner(
                     let _ = child.kill().await;
                     let _ = child.wait().await;
                     set_status(&state, &app, UiStatus::Disconnected).await;
-                    outcome = SessionOutcome::ManualStop;
                     break;
                 }
             }
@@ -562,12 +547,7 @@ async fn run_openvpn_session_inner(
                     let _ = child.kill().await;
                     let _ = child.wait().await;
                     set_error_and_disconnect(&state, &app, "OpenVPN authentication failed (AUTH_FAILED).".to_string()).await;
-                    outcome = SessionOutcome::AuthFailed;
                     break;
-                }
-
-                if line.contains("TLS Error") && !init_done {
-                    emit_log(&app, "[ui] TLS Error detected while connecting");
                 }
             }
 
@@ -575,12 +555,7 @@ async fn run_openvpn_session_inner(
                 emit_log(&app, &format!("[ui] Connect watchdog fired after {watchdog_ms}ms"));
                 let _ = child.kill().await;
                 let _ = child.wait().await;
-                set_error_and_disconnect(
-                    &state,
-                    &app,
-                    format!("Connect timed out after {watchdog_ms}ms (no Initialization Sequence Completed).")
-                ).await;
-                outcome = SessionOutcome::TimedOut;
+                set_error_and_disconnect(&state, &app, format!("Connect timed out after {watchdog_ms}ms (no Initialization Sequence Completed).")).await;
                 break;
             }
 
@@ -598,19 +573,9 @@ async fn run_openvpn_session_inner(
                 };
 
                 if !manual && !init_done {
-                    set_error_and_disconnect(
-                        &state,
-                        &app,
-                        format!("OpenVPN exited before connection was established (code={code}).")
-                    ).await;
-                    outcome = SessionOutcome::ExitedBeforeInit;
+                    set_error_and_disconnect(&state, &app, format!("OpenVPN exited before connection was established (code={code}).")).await;
                 } else {
                     set_status(&state, &app, UiStatus::Disconnected).await;
-                    outcome = if init_done {
-                        SessionOutcome::ConnectedThenExited
-                    } else {
-                        SessionOutcome::ManualStop
-                    };
                 }
 
                 break;
@@ -627,133 +592,13 @@ async fn run_openvpn_session_inner(
         let _ = tokio::fs::remove_file(&cfg_path).await;
     }
 
+    // Clear session if still current
     let mut g = state.lock().await;
     if let Some(sess) = &g.session {
         if sess.sid == sid {
             g.session = None;
         }
     }
-
-    outcome
-}
-
-async fn connect_supervisor(app: AppHandle, state: SharedState, params: ConnectParams) {
-    let mut failures_before_connect: u32 = 0;
-    let mut current_params = params;
-
-    loop {
-        let sid = {
-            let mut g = state.lock().await;
-            let sid = g.next_sid;
-            g.next_sid += 1;
-
-            g.last_connect = Some(current_params.clone());
-            g.disconnect_requested = false;
-
-            sid
-        };
-
-        set_status(&state, &app, UiStatus::Connecting).await;
-        emit_log(&app, &format!("[ui] Connecting using config: {}", current_params.config_path));
-
-        let cfg_path = match prepare_config(&current_params.config_path, sid).await {
-            Ok(p) => p,
-            Err(e) => {
-                emit_log(&app, &format!("[ui] vpn_connect failed: {e}"));
-                set_error_and_disconnect(&state, &app, e).await;
-
-                failures_before_connect += 1;
-                if failures_before_connect >= 3 {
-                    emit_log(&app, "[ui] Giving up after 3 failed attempts before connection.");
-                    break;
-                }
-
-                let should_retry = {
-                    let g = state.lock().await;
-                    g.crash_recovery_enabled && !g.disconnect_requested
-                };
-
-                if should_retry {
-                    emit_log(&app, "[ui] Crash recovery retry in 1s...");
-                    time::sleep(Duration::from_millis(1000)).await;
-                    continue;
-                } else {
-                    break;
-                }
-            }
-        };
-
-        let auth_path = match write_auth_file(&current_params.username, &current_params.password, sid) {
-            Ok(p) => p,
-            Err(e) => {
-                emit_log(&app, &format!("[ui] vpn_connect failed: {e}"));
-                set_error_and_disconnect(&state, &app, e).await;
-                break;
-            }
-        };
-
-        let (stop_tx, stop_rx) = tokio::sync::watch::channel(false);
-        {
-            let mut g = state.lock().await;
-            g.session = Some(Session { sid, stop_tx });
-        }
-
-        let outcome = run_openvpn_session_inner(
-            app.clone(),
-            state.clone(),
-            sid,
-            cfg_path,
-            auth_path,
-            stop_rx,
-            CONNECT_WATCHDOG_MS,
-        )
-        .await;
-
-        if outcome.ever_connected() {
-            failures_before_connect = 0;
-        } else if outcome.is_failure_before_connect() {
-            failures_before_connect += 1;
-        }
-
-        let (should_recover, last_params, kill_switch_enabled) = {
-            let g = state.lock().await;
-            (
-                g.crash_recovery_enabled && !g.disconnect_requested,
-                g.last_connect.clone(),
-                g.kill_switch_enabled,
-            )
-        };
-
-        if !should_recover {
-            break;
-        }
-
-        if failures_before_connect >= 3 {
-            emit_log(&app, "[ui] Crash recovery stopped: too many failures before connection.");
-            break;
-        }
-
-        if let Some(p) = last_params {
-            emit_log(&app, "[ui] Crash recovery enabled: attempting reconnect in 1s...");
-            time::sleep(Duration::from_millis(1000)).await;
-
-            if kill_switch_enabled {
-                let _ = apply_kill_switch(true, Some(&p.config_path)).await;
-            }
-
-            current_params = p;
-            continue;
-        } else {
-            break;
-        }
-    }
-
-    set_status(&state, &app, UiStatus::Disconnected).await;
-}
-
-async fn vpn_connect_internal(app: AppHandle, state: SharedState, params: ConnectParams) -> Result<(), String> {
-    tokio::spawn(connect_supervisor(app, state, params));
-    Ok(())
 }
 
 #[tauri::command]
@@ -778,16 +623,36 @@ async fn vpn_connect(
         return Err("username/password are required".to_string());
     }
 
-    vpn_connect_internal(
+    let sid = {
+        let mut g = state.lock().await;
+        let sid = g.next_sid;
+        g.next_sid += 1;
+        sid
+    };
+
+    set_status(state.inner(), &app, UiStatus::Connecting).await;
+    emit_log(&app, &format!("[ui] Connecting using config: {}", config_path));
+
+    let cfg_path = prepare_config(&config_path, sid).await?;
+    let auth_path = write_auth_file(&username, &password, sid)?;
+
+    let (stop_tx, stop_rx) = tokio::sync::watch::channel(false);
+    {
+        let mut g = state.lock().await;
+        g.session = Some(Session { sid, stop_tx });
+    }
+
+    tokio::spawn(run_openvpn_session(
         app,
         state.inner().clone(),
-        ConnectParams {
-            config_path,
-            username,
-            password,
-        },
-    )
-    .await
+        sid,
+        cfg_path,
+        auth_path,
+        stop_rx,
+        CONNECT_WATCHDOG_MS,
+    ));
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -834,35 +699,13 @@ async fn vpn_kill_switch_enabled(state: tauri::State<'_, SharedState>) -> Result
     Ok(g.kill_switch_enabled)
 }
 
-#[tauri::command]
-async fn vpn_set_crash_recovery(
-    app: AppHandle,
-    state: tauri::State<'_, SharedState>,
-    enabled: bool,
-) -> Result<(), String> {
-    let mut g = state.lock().await;
-    g.crash_recovery_enabled = enabled;
-    emit_log(&app, &format!("[ui] Crash recovery set: {enabled}"));
-    Ok(())
-}
-
-#[tauri::command]
-async fn vpn_crash_recovery_enabled(state: tauri::State<'_, SharedState>) -> Result<bool, String> {
-    let g = state.lock().await;
-    Ok(g.crash_recovery_enabled)
-}
-
 fn main() {
     let _ = fix_path_env::fix();
 
     tauri::Builder::default()
         .setup(|app| {
-            let handle = app.handle().clone();
-            APP_HANDLE.set(handle).ok();
-
             let state: SharedState = std::sync::Arc::new(Mutex::new(VpnInner::default()));
             app.manage(state);
-
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -870,9 +713,7 @@ fn main() {
             vpn_disconnect,
             vpn_status,
             vpn_set_kill_switch,
-            vpn_kill_switch_enabled,
-            vpn_set_crash_recovery,
-            vpn_crash_recovery_enabled
+            vpn_kill_switch_enabled
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
