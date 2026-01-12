@@ -101,8 +101,15 @@ export const Dashboard: React.FC = () => {
   const [connectError, setConnectError] = useState<string | null>(null);
   const [listenersReady, setListenersReady] = useState(false);
 
+  const [showExpiredModal, setShowExpiredModal] = useState(false);
+
   const isConnected = status === "connected";
   const isConnecting = status === "connecting";
+
+  // Treat expired as either explicit `expired === true` OR days_remaining <= 0
+  const isExpired =
+      (subscription as any)?.expired === true ||
+      (subscription?.days_remaining ?? 0) <= 0;
 
   // Focus country (temporary animation target when returning from ChangeLocation)
   const [focusCountryCode, setFocusCountryCode] = useState<string | null>(null);
@@ -124,7 +131,6 @@ export const Dashboard: React.FC = () => {
     return () => clearTimeout(t);
   }, [location.key]);
 
-
   // Keep latest status in a ref (avoids stale closure problems)
   const statusRef = useRef<UiStatus>("disconnected");
   useEffect(() => {
@@ -135,15 +141,15 @@ export const Dashboard: React.FC = () => {
   const manualDisabledRef = useRef<boolean>(lsGetBool(LS_MANUAL_DISABLED));
   const hasConnectedOnceRef = useRef<boolean>(lsGetBool(LS_HAS_CONNECTED_ONCE));
 
-  const setManualDisabled = (v: boolean) => {
+  const setManualDisabled = useCallback((v: boolean) => {
     manualDisabledRef.current = v;
     lsSetBool(LS_MANUAL_DISABLED, v);
-  };
+  }, []);
 
-  const setHasConnectedOnce = (v: boolean) => {
+  const setHasConnectedOnce = useCallback((v: boolean) => {
     hasConnectedOnceRef.current = v;
     lsSetBool(LS_HAS_CONNECTED_ONCE, v);
-  };
+  }, []);
 
   const appendLog = useCallback((line: string) => {
     setVpnLogs((prev) => {
@@ -172,7 +178,6 @@ export const Dashboard: React.FC = () => {
     if (typeof st === "string" && st.trim().length > 0) {
       setFocusCountryCode(st.trim());
 
-      // Clear after a bit so it feels like a “fly-to” moment, not a permanent mode
       const t = window.setTimeout(() => setFocusCountryCode(null), 1400);
       return () => clearTimeout(t);
     }
@@ -236,7 +241,7 @@ export const Dashboard: React.FC = () => {
     };
 
     loadData();
-  }, [searchParams, setSearchParams, setStatus]);
+  }, [searchParams, setSearchParams, setStatus, setHasConnectedOnce, setManualDisabled]);
 
   // Prefetch server list
   useEffect(() => {
@@ -244,6 +249,62 @@ export const Dashboard: React.FC = () => {
       console.warn("Failed to prefetch server list:", err);
     });
   }, []);
+
+  // ---- Connect attempt tracking + watchdog (prevents infinite "Connecting...") ----
+  const connectAttemptIdRef = useRef<number>(0);
+
+  const startConnectWatchdog = useCallback(
+      (attemptId: number) => {
+        window.setTimeout(async () => {
+          if (connectAttemptIdRef.current !== attemptId) return;
+          if (statusRef.current !== "connecting") return;
+
+          try {
+            appendLog(`[ui] Connect watchdog fired after ${CONNECT_TIMEOUT_MS}ms`);
+            await invoke("vpn_disconnect").catch(() => {});
+          } finally {
+            setConnectError("VPN connect timed out. Check OpenVPN logs and kill switch permissions.");
+            setShowLogs(true);
+            setStatus("disconnected");
+            setManualDisabled(true);
+          }
+        }, CONNECT_TIMEOUT_MS);
+      },
+      [appendLog, setStatus, setManualDisabled]
+  );
+
+  const startConnect = useCallback(
+      async (configPath: string) => {
+        if (!isTauri()) return;
+
+        connectAttemptIdRef.current += 1;
+        const attemptId = connectAttemptIdRef.current;
+
+        setConnectError(null);
+        setStatus("connecting");
+        startConnectWatchdog(attemptId);
+
+        appendLog(`[ui] Connecting using config: ${configPath}`);
+
+        try {
+          await invoke("vpn_connect", {
+            configPath,
+            username: DEFAULT_OVPN_USERNAME,
+            password: DEFAULT_OVPN_PASSWORD,
+          });
+        } catch (e: any) {
+          const msg =
+              typeof e === "string" ? e : e?.message ? String(e.message) : "Unknown error";
+
+          appendLog(`[ui] vpn_connect failed: ${msg}`);
+          setConnectError(msg);
+          setShowLogs(true);
+          setStatus("disconnected");
+          setManualDisabled(true);
+        }
+      },
+      [appendLog, setStatus, startConnectWatchdog, setManualDisabled]
+  );
 
   // Register listeners FIRST, then sync backend status
   useEffect(() => {
@@ -293,65 +354,124 @@ export const Dashboard: React.FC = () => {
       if (unlistenStatus) unlistenStatus();
       if (unlistenLog) unlistenLog();
     };
-  }, [appendLog, setStatus, syncBackendStatus]);
+  }, [appendLog, setStatus, syncBackendStatus, setHasConnectedOnce, setManualDisabled]);
 
-  // ---- Connect attempt tracking + watchdog (prevents infinite "Connecting...") ----
-  const connectAttemptIdRef = useRef<number>(0);
+  // ===== TRAY EVENTS (Mullvad-style menu) =====
+  const trayConnect = useCallback(async () => {
+    if (!isTauri()) return;
 
-  const startConnectWatchdog = useCallback(
-      (attemptId: number) => {
-        window.setTimeout(async () => {
-          if (connectAttemptIdRef.current !== attemptId) return;
-          if (statusRef.current !== "connecting") return;
+    // Manual action: allow auto-connect logic again
+    setManualDisabled(false);
 
-          try {
-            appendLog(`[ui] Connect watchdog fired after ${CONNECT_TIMEOUT_MS}ms`);
-            await invoke("vpn_disconnect").catch(() => {});
-          } finally {
-            setConnectError(
-                "VPN connect timed out. Check OpenVPN logs and kill switch permissions."
-            );
-            setShowLogs(true);
-            setStatus("disconnected");
-            setManualDisabled(true);
-          }
-        }, CONNECT_TIMEOUT_MS);
-      },
-      [appendLog, setStatus]
-  );
+    await syncBackendStatus();
+    const current = statusRef.current;
+    if (current === "connected" || current === "connecting") return;
 
-  const startConnect = useCallback(
-      async (configPath: string) => {
-        if (!isTauri()) return;
+    if (isExpired) {
+      setShowExpiredModal(true);
+      return;
+    }
 
-        connectAttemptIdRef.current += 1;
-        const attemptId = connectAttemptIdRef.current;
+    const selectedServer = await getSelectedServer();
+    const configPath =
+        (selectedServer?.configUrl && selectedServer.configUrl.trim()) || DEFAULT_OVPN_URL;
 
-        setConnectError(null);
-        setStatus("connecting");
-        startConnectWatchdog(attemptId);
+    await startConnect(configPath);
+  }, [startConnect, syncBackendStatus, setManualDisabled, isExpired]);
 
-        appendLog(`[ui] Connecting using config: ${configPath}`);
+  const trayDisconnect = useCallback(async () => {
+    if (!isTauri()) return;
 
-        try {
-          await invoke("vpn_connect", {
-            configPath,
-            username: DEFAULT_OVPN_USERNAME,
-            password: DEFAULT_OVPN_PASSWORD,
-          });
-        } catch (e: any) {
-          const msg =
-              typeof e === "string" ? e : e?.message ? String(e.message) : "Unknown error";
+    // Manual disconnect: block auto reconnect loops
+    setManualDisabled(true);
 
-          appendLog(`[ui] vpn_connect failed: ${msg}`);
-          setConnectError(msg);
-          setShowLogs(true);
-          setStatus("disconnected");
-          setManualDisabled(true);
-        }
-      },
-      [appendLog, setStatus, startConnectWatchdog]
-  );
+    await invoke("vpn_disconnect").catch(() => {});
+    setStatus("disconnected");
+  }, [setStatus, setManualDisabled]);
+
+  const trayReconnect = useCallback(async () => {
+    if (!isTauri()) return;
+
+    setManualDisabled(false);
+
+    if (isExpired) {
+      setShowExpiredModal(true);
+      return;
+    }
+
+    await invoke("vpn_disconnect").catch(() => {});
+    await new Promise((r) => setTimeout(r, 250));
+
+    const selectedServer = await getSelectedServer();
+    const configPath =
+        (selectedServer?.configUrl && selectedServer.configUrl.trim()) || DEFAULT_OVPN_URL;
+
+    await startConnect(configPath);
+  }, [startConnect, setManualDisabled, isExpired]);
+
+  useEffect(() => {
+    if (!isTauri()) return;
+
+    let unlistenConnect: (() => void) | undefined;
+    let unlistenDisconnect: (() => void) | undefined;
+    let unlistenReconnect: (() => void) | undefined;
+
+    (async () => {
+      unlistenConnect = await listen("tray-connect", () => {
+        trayConnect().catch((e) => console.error("tray-connect failed:", e));
+      });
+
+      unlistenDisconnect = await listen("tray-disconnect", () => {
+        trayDisconnect().catch((e) => console.error("tray-disconnect failed:", e));
+      });
+
+      unlistenReconnect = await listen("tray-reconnect", () => {
+        trayReconnect().catch((e) => console.error("tray-reconnect failed:", e));
+      });
+    })();
+
+    return () => {
+      if (unlistenConnect) unlistenConnect();
+      if (unlistenDisconnect) unlistenDisconnect();
+      if (unlistenReconnect) unlistenReconnect();
+    };
+  }, [trayConnect, trayDisconnect, trayReconnect]);
+  // ===========================================
+
+  // === CONNECT NOW (from ChangeLocation) ===
+  const connectNowHandledKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isTauri()) return;
+    if (!listenersReady) return;
+
+    const st = (location.state as any) || {};
+    if (st?.connectNow !== true) return;
+
+    // only once per navigation entry
+    if (connectNowHandledKeyRef.current === location.key) return;
+    connectNowHandledKeyRef.current = location.key;
+
+    (async () => {
+      await syncBackendStatus();
+
+      const current = statusRef.current;
+      if (current === "connected" || current === "connecting") return;
+
+      if (isExpired) {
+        setShowExpiredModal(true);
+        return;
+      }
+
+      setManualDisabled(false);
+
+      const selectedServer = await getSelectedServer();
+      const configPath =
+          (selectedServer?.configUrl && selectedServer.configUrl.trim()) || DEFAULT_OVPN_URL;
+
+      await startConnect(configPath);
+    })().catch((e) => console.error("connectNow failed:", e));
+  }, [location.key, listenersReady, syncBackendStatus, startConnect, setManualDisabled, isExpired]);
+  // ========================================
 
   // Auto-connect ONLY when allowed
   useEffect(() => {
@@ -371,6 +491,8 @@ export const Dashboard: React.FC = () => {
         if (manualDisabledRef.current) return;
         if (!hasConnectedOnceRef.current) return;
 
+        if (isExpired) return;
+
         const backend = await invoke<string>("vpn_status").catch(() => "");
         const backendUi = normalizeStatus(backend);
         const current = backendUi ?? statusRef.current;
@@ -379,8 +501,7 @@ export const Dashboard: React.FC = () => {
 
         const selectedServer = await getSelectedServer();
         const configPath =
-            (selectedServer?.configUrl && selectedServer.configUrl.trim()) ||
-            DEFAULT_OVPN_URL;
+            (selectedServer?.configUrl && selectedServer.configUrl.trim()) || DEFAULT_OVPN_URL;
 
         await startConnect(configPath);
       } catch (error) {
@@ -392,7 +513,7 @@ export const Dashboard: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [listenersReady, searchParams, setStatus, startConnect]);
+  }, [listenersReady, searchParams, setStatus, startConnect, isExpired]);
 
   // Reconnect on unexpected drops, but never after manual disconnect
   useEffect(() => {
@@ -413,14 +534,15 @@ export const Dashboard: React.FC = () => {
         if (manualDisabledRef.current) return;
         if (!hasConnectedOnceRef.current) return;
 
+        if (isExpired) return;
+
         const backend = await invoke<string>("vpn_status").catch(() => "");
         const backendUi = normalizeStatus(backend) ?? statusRef.current;
         if (backendUi !== "disconnected") return;
 
         const selectedServer = await getSelectedServer();
         const configPath =
-            (selectedServer?.configUrl && selectedServer.configUrl.trim()) ||
-            DEFAULT_OVPN_URL;
+            (selectedServer?.configUrl && selectedServer.configUrl.trim()) || DEFAULT_OVPN_URL;
 
         await startConnect(configPath);
       } catch {
@@ -432,7 +554,7 @@ export const Dashboard: React.FC = () => {
       cancelled = true;
       clearTimeout(t);
     };
-  }, [status, listenersReady, searchParams, startConnect]);
+  }, [status, listenersReady, searchParams, startConnect, isExpired]);
 
   const formatAccountNumber = (account: string | null): string => {
     if (!account) return "N/A";
@@ -470,6 +592,10 @@ export const Dashboard: React.FC = () => {
   const handleConnectToggle = async () => {
     if (!isTauri()) {
       if (status === "disconnected") {
+        if (isExpired) {
+          setShowExpiredModal(true);
+          return;
+        }
         setStatus("connecting");
         setTimeout(() => setStatus("connected"), 1500);
       } else {
@@ -483,12 +609,17 @@ export const Dashboard: React.FC = () => {
       const current = statusRef.current;
 
       if (current === "disconnected") {
+        // ✅ ONLY CHANGE: block connect when expired + show modal
+        if (isExpired) {
+          setShowExpiredModal(true);
+          return;
+        }
+
         setManualDisabled(false);
 
         const selectedServer = await getSelectedServer();
         const configPath =
-            (selectedServer?.configUrl && selectedServer.configUrl.trim()) ||
-            DEFAULT_OVPN_URL;
+            (selectedServer?.configUrl && selectedServer.configUrl.trim()) || DEFAULT_OVPN_URL;
 
         await startConnect(configPath);
       } else {
@@ -506,7 +637,7 @@ export const Dashboard: React.FC = () => {
       <div className="w-[312px] h-[640px] overflow-hidden relative bg-[#0037A3]">
         {/* Map background (full height, sexy blue) */}
         <div className="absolute inset-0 z-0">
-          {/* Base blue wash (matches your screenshot vibe) */}
+          {/* Base blue wash */}
           <div className="absolute inset-0 bg-[#0037A3]" />
 
           {/* Map */}
@@ -520,7 +651,7 @@ export const Dashboard: React.FC = () => {
             />
           </div>
 
-          {/* Subtle readability overlay (NOT blacking it out) */}
+          {/* Subtle readability overlay */}
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_28%,rgba(255,255,255,0.08),rgba(0,0,0,0.22)_58%,rgba(0,0,0,0.45)_100%)]" />
         </div>
 
@@ -555,9 +686,7 @@ export const Dashboard: React.FC = () => {
               >
               <span
                   className={`font-semibold flex items-center gap-1 ${
-                      (subscription?.days_remaining ?? 0) === 0
-                          ? "!text-red-500"
-                          : "text-[#00B252]"
+                      (subscription?.days_remaining ?? 0) === 0 ? "!text-red-500" : "text-[#00B252]"
                   }`}
               >
                 {subscription?.days_remaining !== undefined
@@ -637,7 +766,7 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* Fastest server card + connect button */}
-          <div className="px-6 pb-10">
+          <div className="px-6 pb-15">
             <button
                 type="button"
                 onClick={() => navigate("/change-location")}
@@ -688,7 +817,7 @@ export const Dashboard: React.FC = () => {
           {/* Congrats Modal */}
           {showCongrats && (
               <div className="absolute inset-0 flex items-end justify-center bg-black/40 z-50">
-                <div className="w-full bg-white rounded-t-3xl px-6 pt-6 pb-7 animate-slide-up">
+                <div className="w-full bg-white rounded-t-3xl px-6 pt-6 pb-12 animate-slide-up">
                   <div className="flex flex-col items-center">
                     <img src="/icons/green-tick.svg" alt="Success" className="w-12 h-12 mb-2" />
 
@@ -743,6 +872,43 @@ export const Dashboard: React.FC = () => {
                         className="h-[42px] text-base font-poppins"
                     >
                       Got It
+                    </Button>
+                  </div>
+                </div>
+              </div>
+          )}
+
+          {/* Expired Modal */}
+          {showExpiredModal && (
+              <div className="absolute inset-0 flex items-end justify-center bg-black/40 z-50">
+                <div className="w-full bg-white rounded-t-3xl px-6 pt-6 pb-12 animate-slide-up">
+                  <div className="flex flex-col items-center text-center">
+                    <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mb-3">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="text-red-500">
+                        <path
+                            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10
+                         10-4.48 10-10S17.52 2 12 2Zm3.54 13.54-1.41 1.41L12 13.41
+                         9.88 16.95l-1.41-1.41L10.59 12 8.47 9.88l1.41-1.41L12 10.59
+                         l2.12-2.12 1.41 1.41L13.41 12l2.13 3.54Z"
+                            fill="currentColor"
+                        />
+                      </svg>
+                    </div>
+
+                    <h2 className="text-xl font-bold text-[#0B0C19] mb-2 font-poppins">
+                      Subscription expired
+                    </h2>
+
+                    <p className="text-sm text-[#62626A] mb-6 font-poppins">
+                      No time available. Renew your plan to connect.
+                    </p>
+
+                    <Button
+                        fullWidth
+                        onClick={() => setShowExpiredModal(false)}
+                        className="h-[42px] text-base font-poppins"
+                    >
+                      OK
                     </Button>
                   </div>
                 </div>

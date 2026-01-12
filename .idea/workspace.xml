@@ -4,26 +4,20 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="45de0aa4-b568-4cf0-89f1-da837d51870b" name="Changes" comment="Added flyover + animation">
-      <change afterPath="$PROJECT_DIR$/app-icon.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src-tauri/scripts/linux/postinst.sh" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src-tauri/scripts/linux/prerm.sh" afterDir="false" />
+    <list default="true" id="45de0aa4-b568-4cf0-89f1-da837d51870b" name="Changes" comment="Updates">
+      <change afterPath="$PROJECT_DIR$/src-tauri/icons/tray-offline.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src-tauri/icons/tray-online.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src-tauri/tray.png" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dist/assets/index-BU7pNLGv.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/dist/assets/index-BzpDE0qr.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/dist/assets/index-DBJj6pXb.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dist/assets/index-BVGzl0kp.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dist/assets/index-a4rHIE36.js" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/dist/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/dist/index.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/package-lock.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src-tauri/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/Cargo.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src-tauri/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src-tauri/gen/schemas/acl-manifests.json" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/gen/schemas/acl-manifests.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src-tauri/gen/schemas/desktop-schema.json" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/gen/schemas/desktop-schema.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src-tauri/gen/schemas/linux-schema.json" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/gen/schemas/linux-schema.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src-tauri/icons/icon.png" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/icons/icon.png" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src-tauri/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src-tauri/tauri.conf.json" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/tauri.conf.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/layout/AuthShell.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/layout/AuthShell.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/routes/Dashboard/ChangeLocation.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/routes/Dashboard/ChangeLocation.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/routes/Dashboard/Dashboard.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/routes/Dashboard/Dashboard.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/styles.css" beforeDir="false" afterPath="$PROJECT_DIR$/src/styles.css" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -63,7 +57,7 @@
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
     "git-widget-placeholder": "design",
     "javascript.preferred.runtime.type.id": "node",
-    "last_opened_file_path": "/home/bb/WebstormProjects/a/Stellar.UI.Desktop.VPNapp/src-tauri",
+    "last_opened_file_path": "/home/bb/WebstormProjects/a/Stellar.UI.Desktop.VPNapp/src-tauri/icons",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -75,6 +69,7 @@
 }]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/src-tauri/icons" />
       <recent name="$PROJECT_DIR$/src-tauri" />
       <recent name="$PROJECT_DIR$" />
     </key>
@@ -102,7 +97,7 @@
       <workItem from="1768049873987" duration="2000" />
       <workItem from="1768067910043" duration="5490000" />
       <workItem from="1768073487966" duration="10579000" />
-      <workItem from="1768140500006" duration="21438000" />
+      <workItem from="1768140500006" duration="28000000" />
     </task>
     <task id="LOCAL-00001" summary="Always on VPN">
       <option name="closed" value="true" />
@@ -200,7 +195,15 @@
       <option name="project" value="LOCAL" />
       <updated>1768164187704</updated>
     </task>
-    <option name="localTasksCounter" value="13" />
+    <task id="LOCAL-00013" summary="Updates">
+      <option name="closed" value="true" />
+      <created>1768174525527</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1768174525527</updated>
+    </task>
+    <option name="localTasksCounter" value="14" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -215,6 +218,7 @@
     <MESSAGE value="6 devices" />
     <MESSAGE value="Bug fixes, animations and more." />
     <MESSAGE value="Added flyover + animation" />
-    <option name="LAST_COMMIT_MESSAGE" value="Added flyover + animation" />
+    <MESSAGE value="Updates" />
+    <option name="LAST_COMMIT_MESSAGE" value="Updates" />
   </component>
 </project>

@@ -98,19 +98,19 @@ export const AuthShell: React.FC<Props> = ({
 
       <div
         className={`mt-auto relative bg-white rounded-t-[32px] px-6 pb-14 pt-10 ${
-          isChangeLocation ? "change-location-special" : ""
+          isChangeLocation ? "profile-special" : ""
         } ${isProfile ? "profile-special" : ""} ${
           isSubscribe ? "subscribe-special" : ""
         }`}
       >
-        <div className="mb-6 relative back-btn">
+        <div className="mb-6  relative back-btn">
           {onBack && (
             <button
               type="button"
               onClick={onBack}
-              className={`mr-2 flex items-center justify-center absolute ${
-                isChangeLocation
-                  ? "left-1 top-[4px]"
+              className={`mr-2s flexa items-centera justify-center absolute ${
+                isProfile
+                  ? "left-1 top-[0px]"
                   : isProfile
                   ? "left-5 top-[4px]"
                   : isSubscribe
@@ -141,7 +141,7 @@ export const AuthShell: React.FC<Props> = ({
               <h1
                 className={`text-xl ${
                   isChangeLocation
-                    ? "font-normal pl-4"
+                    ? "font-normal pl-[1.8rem]"
                     : isProfile
                     ? "font-normal pl-[1.8rem]"
                     : isSubscribe

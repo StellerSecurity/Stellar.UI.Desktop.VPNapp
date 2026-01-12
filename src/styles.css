@@ -26,9 +26,13 @@ html, body, #root {
 }
 
 body {
-  margin: 0;
+  margin-top: 5px;
   overflow: hidden; /* <- stopper hele app’en i at scrolle */
   overscroll-behavior: none;
+}
+
+.pb-15 {
+  padding-bottom: 3.5rem;
 }
 
 
@@ -54,6 +58,7 @@ img[src*="icons"] {
   position: absolute;
   width: 100%;
   border-radius: 0;
+  top: 20px;
   height: 100%;
   overflow-y: auto;
   text-align: left;
@@ -285,3 +290,4 @@ img[src*="icons"] {
 .backk-arrow {
   transform: rotate(-90deg);
 }
+
