@@ -4,7 +4,6 @@
 use tauri::Wry;
 type RT = Wry;
 
-
 use std::{
     fs,
     net::{IpAddr, ToSocketAddrs},
@@ -37,6 +36,10 @@ const TRAY_ID: &str = "stellar-vpn-tray";
 // - src-tauri/icons/tray-online.png
 const TRAY_ICON_OFFLINE_BYTES: &[u8] = include_bytes!("../icons/tray-offline.png");
 const TRAY_ICON_ONLINE_BYTES: &[u8] = include_bytes!("../icons/tray-online.png");
+
+// Linux privileged helper (packaged to this path)
+#[cfg(target_os = "linux")]
+const LINUX_HELPER_PATH: &str = "/usr/libexec/stellar-vpn/stellar-vpn-helper";
 
 // --- Status exposed to UI ---
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -118,21 +121,54 @@ fn tray_icon_for_status(st: UiStatus) -> Option<Image<'static>> {
     Image::from_bytes(bytes).ok()
 }
 
-fn update_tray_ui(app: &AppHandle<RT>, st: UiStatus) {
-    // Enable/disable menu items
-    let handles: tauri::State<TrayHandles> = app.state();
+fn update_tray_ui_inner(app: &AppHandle<RT>, st: UiStatus) {
+    let handles = app.state::<TrayHandles>();
+
     let can_connect = st == UiStatus::Disconnected;
     let can_disconnect = st != UiStatus::Disconnected;
 
-    let _ = handles.connect.set_enabled(can_connect);
-    let _ = handles.reconnect.set_enabled(can_connect);
-    let _ = handles.disconnect.set_enabled(can_disconnect);
+    if let Err(e) = handles.connect.set_enabled(can_connect) {
+        eprintln!("[tray] set_enabled(connect) failed: {e}");
+    }
+    if let Err(e) = handles.reconnect.set_enabled(can_connect) {
+        eprintln!("[tray] set_enabled(reconnect) failed: {e}");
+    }
+    if let Err(e) = handles.disconnect.set_enabled(can_disconnect) {
+        eprintln!("[tray] set_enabled(disconnect) failed: {e}");
+    }
 
-    // Swap tray icon
     if let Some(tray) = app.tray_by_id(TRAY_ID) {
         if let Some(img) = tray_icon_for_status(st) {
-            let _ = tray.set_icon(Some(img));
+            // Linux tray caching is a special kind of annoying.
+            // The None -> Some poke makes updates more reliable.
+            let _ = tray.set_icon(None);
+            if let Err(e) = tray.set_icon(Some(img)) {
+                eprintln!("[tray] set_icon failed: {e}");
+            }
+        } else {
+            eprintln!("[tray] tray_icon_for_status returned None");
         }
+    } else {
+        eprintln!("[tray] tray_by_id('{TRAY_ID}') returned None");
+    }
+}
+
+/// IMPORTANT:
+/// Tray updates should run on the main thread, otherwise updates can silently not apply.
+fn update_tray_ui(app: &AppHandle<RT>, st: UiStatus) {
+    // Avoid E0505 by not using the same handle for the call receiver and inside the closure.
+    let app_for_call = app.clone();
+    let app_for_closure = app.clone();
+    let st_copy = st;
+
+    let res = app_for_call.run_on_main_thread(move || {
+        update_tray_ui_inner(&app_for_closure, st_copy);
+    });
+
+    // If we fail to schedule (can happen depending on runtime/thread), fallback direct.
+    if let Err(e) = res {
+        eprintln!("[tray] run_on_main_thread failed, fallback direct: {e}");
+        update_tray_ui_inner(app, st);
     }
 }
 
@@ -152,45 +188,42 @@ fn hide_main(app: &AppHandle<RT>) {
 }
 
 fn setup_tray(app: &AppHandle<RT>) -> tauri::Result<TrayHandles> {
-    // Initial state: disconnected => connect/reconnect enabled, disconnect disabled
     let open = MenuItem::with_id(app, "open", "Open Stellar VPN", true, None::<&str>)?;
     let connect = MenuItem::with_id(app, "connect", "Connect", true, None::<&str>)?;
     let reconnect = MenuItem::with_id(app, "reconnect", "Reconnect", true, None::<&str>)?;
     let disconnect = MenuItem::with_id(app, "disconnect", "Disconnect", false, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
 
-
     let menu = Menu::with_items(app, &[&open, &connect, &reconnect, &disconnect, &quit])?;
-
     let icon = Image::from_bytes(TRAY_ICON_OFFLINE_BYTES)?;
 
     TrayIconBuilder::with_id(TRAY_ID)
         .icon(icon)
         .menu(&menu)
-        .on_menu_event(|app, event| {
-            match event.id().as_ref() {
-                "open" => {
-                    show_main(app);
-                    let _ = app.emit("tray-open", ());
-                }
-                "connect" => {
-                    let _ = app.emit("tray-connect", ());
-                }
-                "reconnect" => {
-                    let _ = app.emit("tray-reconnect", ());
-                }
-                "disconnect" => {
-                    let _ = app.emit("tray-disconnect", ());
-                }
-                "quit" => {
-                    let _ = app.emit("tray-quit", ());
-                    app.exit(0);
-                }
-                _ => {}
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            "open" => {
+                show_main(app);
+                let _ = app.emit("tray-open", ());
             }
+            "connect" => {
+                update_tray_ui(app, UiStatus::Connecting);
+                let _ = app.emit("tray-connect", ());
+            }
+            "reconnect" => {
+                update_tray_ui(app, UiStatus::Connecting);
+                let _ = app.emit("tray-reconnect", ());
+            }
+            "disconnect" => {
+                update_tray_ui(app, UiStatus::Disconnected);
+                let _ = app.emit("tray-disconnect", ());
+            }
+            "quit" => {
+                let _ = app.emit("tray-quit", ());
+                app.exit(0);
+            }
+            _ => {}
         })
         .on_tray_icon_event(|tray, e| {
-            // Double-click -> show main
             if let TrayIconEvent::DoubleClick { .. } = e {
                 show_main(tray.app_handle());
             }
@@ -299,7 +332,7 @@ const OPENVPN_REL: &str = "bin/openvpn-x86_64-apple-darwin";
 )))]
 const OPENVPN_REL: &str = "openvpn";
 
-fn resolve_openvpn_binary(app: &AppHandle) -> Result<PathBuf, String> {
+fn resolve_openvpn_binary(app: &AppHandle<RT>) -> Result<PathBuf, String> {
     #[cfg(target_os = "linux")]
     {
         let installed = PathBuf::from("/usr/lib/stellar-vpn/openvpn");
@@ -443,22 +476,76 @@ async fn resolve_host(host: &str, port: u16) -> Vec<IpAddr> {
 }
 
 #[cfg(target_os = "linux")]
+fn tun_iface_set_args() -> Vec<String> {
+    let mut ifs = Vec::new();
+    for i in 0..=9 {
+        ifs.push(format!("\"tun{i}\""));
+    }
+    ifs
+}
+
+#[cfg(target_os = "linux")]
 async fn apply_kill_switch(enable: bool, config_path: Option<&str>) -> Result<(), String> {
+    // Production path: use pkexec + polkit helper if we do not have CAP_NET_ADMIN.
     if !linux_has_cap_net_admin() {
-        return Err("Kill switch needs root or CAP_NET_ADMIN (setcap).".to_string());
+        let helper = LINUX_HELPER_PATH;
+
+        if !std::path::Path::new(helper).exists() {
+            return Err("Kill switch helper missing: /usr/libexec/stellar-vpn/stellar-vpn-helper".to_string());
+        }
+
+        let mut cmd = Command::new("pkexec");
+        cmd.arg(helper)
+            .arg("killswitch")
+            .arg(if enable { "enable" } else { "disable" });
+
+        if enable {
+            let cfg = config_path
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .ok_or_else(|| "config_path is required when enabling kill switch.".to_string())?;
+
+            cmd.arg("--config").arg(cfg);
+        }
+
+        let out = cmd
+            .output()
+            .await
+            .map_err(|e| format!("Failed to start pkexec: {e}"))?;
+
+        if out.status.success() {
+            return Ok(());
+        }
+
+        let stdout = String::from_utf8_lossy(&out.stdout).to_string();
+        let stderr = String::from_utf8_lossy(&out.stderr).to_string();
+
+        return Err(format!(
+            "Kill switch helper failed.\n{}\n{}",
+            if stdout.trim().is_empty() { "" } else { &stdout },
+            if stderr.trim().is_empty() { "" } else { &stderr }
+        ));
     }
 
+    // Dev/root path: apply nft directly.
     if !enable {
         let _ = run_cmd("nft", &["delete", "table", "inet", "stellarkillswitch"]).await;
         return Ok(());
     }
 
+    let cfg = config_path.ok_or_else(|| {
+        "config_path is required when enabling kill switch (so we can allow the VPN remote).".to_string()
+    })?;
+
+    let cfg_text = fs::read_to_string(cfg).unwrap_or_default();
+    let remotes = parse_openvpn_remotes(&cfg_text);
+
     let _ = run_cmd("nft", &["add", "table", "inet", "stellarkillswitch"]).await;
     let _ = run_cmd(
         "nft",
         &[
-            "add","chain","inet","stellarkillswitch","output",
-            "{","type","filter","hook","output","priority","0",";","policy","accept",";","}",
+            "add", "chain", "inet", "stellarkillswitch", "output",
+            "{", "type", "filter", "hook", "output", "priority", "0", ";", "policy", "accept", ";", "}",
         ],
     )
     .await;
@@ -466,44 +553,42 @@ async fn apply_kill_switch(enable: bool, config_path: Option<&str>) -> Result<()
     let _ = run_cmd("nft", &["flush", "chain", "inet", "stellarkillswitch", "output"]).await;
 
     run_cmd("nft", &["add","rule","inet","stellarkillswitch","output","oifname","\"lo\"","accept"]).await?;
-    run_cmd("nft", &["add","rule","inet","stellarkillswitch","output","oifname","\"tun0\"","accept"]).await?;
+    let _ = run_cmd("nft", &["add","rule","inet","stellarkillswitch","output","ct","state","established,related","accept"]).await;
 
-    run_cmd("nft", &["add","rule","inet","stellarkillswitch","output","udp","dport","53","accept"]).await?;
-    run_cmd("nft", &["add","rule","inet","stellarkillswitch","output","tcp","dport","53","accept"]).await?;
+    let ifs = tun_iface_set_args();
+    let mut args: Vec<String> = vec![
+        "add".into(),"rule".into(),"inet".into(),"stellarkillswitch".into(),"output".into(),
+        "oifname".into(),
+        "{".into(),
+    ];
+    args.extend(ifs);
+    args.push("}".into());
+    args.push("accept".into());
 
-    if let Some(cfg) = config_path {
-        let cfg_text = if looks_like_url(cfg) {
-            let client = reqwest::Client::builder()
-                .connect_timeout(Duration::from_secs(3))
-                .timeout(Duration::from_secs(5))
-                .build()
-                .map_err(|e| format!("Failed to build HTTP client: {e}"))?;
+    let args_ref: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+    let _ = run_cmd("nft", &args_ref).await;
 
-            let resp = client.get(cfg).send().await.map_err(|e| e.to_string())?;
-            resp.text().await.unwrap_or_default()
-        } else {
-            fs::read_to_string(cfg).unwrap_or_default()
-        };
+    // DNS allow (compat mode).
+    let _ = run_cmd("nft", &["add","rule","inet","stellarkillswitch","output","udp","dport","53","accept"]).await;
+    let _ = run_cmd("nft", &["add","rule","inet","stellarkillswitch","output","tcp","dport","53","accept"]).await;
 
-        let remotes = parse_openvpn_remotes(&cfg_text);
-        for (host, port, proto) in remotes {
-            let ips = resolve_host(&host, port).await;
-            for ip in ips {
-                let ip_s = ip.to_string();
-                let port_s = port.to_string();
+    for (host, port, proto) in remotes {
+        let ips = resolve_host(&host, port).await;
+        for ip in ips {
+            let ip_s = ip.to_string();
+            let port_s = port.to_string();
 
-                if proto.contains("tcp") {
-                    if ip.is_ipv4() {
-                        let _ = run_cmd("nft", &["add","rule","inet","stellarkillswitch","output","ip","daddr",&ip_s,"tcp","dport",&port_s,"accept"]).await;
-                    } else {
-                        let _ = run_cmd("nft", &["add","rule","inet","stellarkillswitch","output","ip6","daddr",&ip_s,"tcp","dport",&port_s,"accept"]).await;
-                    }
+            if proto.contains("tcp") {
+                if ip.is_ipv4() {
+                    let _ = run_cmd("nft", &["add","rule","inet","stellarkillswitch","output","ip","daddr",&ip_s,"tcp","dport",&port_s,"accept"]).await;
                 } else {
-                    if ip.is_ipv4() {
-                        let _ = run_cmd("nft", &["add","rule","inet","stellarkillswitch","output","ip","daddr",&ip_s,"udp","dport",&port_s,"accept"]).await;
-                    } else {
-                        let _ = run_cmd("nft", &["add","rule","inet","stellarkillswitch","output","ip6","daddr",&ip_s,"udp","dport",&port_s,"accept"]).await;
-                    }
+                    let _ = run_cmd("nft", &["add","rule","inet","stellarkillswitch","output","ip6","daddr",&ip_s,"tcp","dport",&port_s,"accept"]).await;
+                }
+            } else {
+                if ip.is_ipv4() {
+                    let _ = run_cmd("nft", &["add","rule","inet","stellarkillswitch","output","ip","daddr",&ip_s,"udp","dport",&port_s,"accept"]).await;
+                } else {
+                    let _ = run_cmd("nft", &["add","rule","inet","stellarkillswitch","output","ip6","daddr",&ip_s,"udp","dport",&port_s,"accept"]).await;
                 }
             }
         }
@@ -520,7 +605,7 @@ async fn apply_kill_switch(_enable: bool, _config_path: Option<&str>) -> Result<
 
 // ---------------- Session lifecycle ----------------
 
-async fn stop_current_session(app: &AppHandle, state: &SharedState) {
+async fn stop_current_session(app: &AppHandle<RT>, state: &SharedState) {
     let mut g = state.lock().await;
     g.disconnect_requested = true;
 
@@ -534,14 +619,14 @@ async fn stop_current_session(app: &AppHandle, state: &SharedState) {
     update_tray_ui(app, UiStatus::Disconnected);
 }
 
-async fn set_status(state: &SharedState, app: &AppHandle, st: UiStatus) {
+async fn set_status(state: &SharedState, app: &AppHandle<RT>, st: UiStatus) {
     let mut g = state.lock().await;
     g.status = st;
     emit_status(app, st.as_str());
     update_tray_ui(app, st);
 }
 
-async fn set_error_and_disconnect(state: &SharedState, app: &AppHandle, msg: String) {
+async fn set_error_and_disconnect(state: &SharedState, app: &AppHandle<RT>, msg: String) {
     {
         let mut g = state.lock().await;
         g.status = UiStatus::Disconnected;
@@ -552,7 +637,7 @@ async fn set_error_and_disconnect(state: &SharedState, app: &AppHandle, msg: Str
 }
 
 async fn run_openvpn_session(
-    app: AppHandle,
+    app: AppHandle<RT>,
     state: SharedState,
     sid: u64,
     cfg_path: PathBuf,
@@ -710,7 +795,7 @@ async fn run_openvpn_session(
 
 #[tauri::command]
 async fn vpn_connect(
-    app: AppHandle,
+    app: AppHandle<RT>,
     state: tauri::State<'_, SharedState>,
     config_path: String,
     username: String,
@@ -743,6 +828,17 @@ async fn vpn_connect(
     let cfg_path = prepare_config(&config_path, sid).await?;
     let auth_path = write_auth_file(&username, &password, sid)?;
 
+    // Re-apply kill switch for THIS config if enabled (so allow-list matches server)
+    let ks_enabled = { state.lock().await.kill_switch_enabled };
+    if ks_enabled {
+        let cfg_str = cfg_path.to_string_lossy().to_string();
+        emit_log(&app, &format!("[ui] Kill switch enabled: applying for config {}", cfg_str));
+        apply_kill_switch(true, Some(cfg_str.as_str())).await.map_err(|e| {
+            emit_log(&app, &format!("[ui] Kill switch apply failed: {e}"));
+            e
+        })?;
+    }
+
     let (stop_tx, stop_rx) = tokio::sync::watch::channel(false);
     {
         let mut g = state.lock().await;
@@ -763,7 +859,7 @@ async fn vpn_connect(
 }
 
 #[tauri::command]
-async fn vpn_disconnect(app: AppHandle, state: tauri::State<'_, SharedState>) -> Result<(), String> {
+async fn vpn_disconnect(app: AppHandle<RT>, state: tauri::State<'_, SharedState>) -> Result<(), String> {
     stop_current_session(&app, state.inner()).await;
     Ok(())
 }
@@ -776,20 +872,51 @@ async fn vpn_status(state: tauri::State<'_, SharedState>) -> Result<String, Stri
 
 #[tauri::command]
 async fn vpn_set_kill_switch(
-    app: AppHandle,
+    app: AppHandle<RT>,
     state: tauri::State<'_, SharedState>,
     enabled: bool,
     config_path: Option<String>,
     _bearer_token: Option<String>,
 ) -> Result<(), String> {
-    apply_kill_switch(enabled, config_path.as_deref()).await.map_err(|e| {
+    if enabled {
+        let cfg_in = config_path
+            .as_deref()
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .ok_or_else(|| "config_path is required when enabling kill switch.".to_string())?;
+
+        // If UI sends a URL, download it to temp first so apply_kill_switch can read it.
+        let sid = {
+            let mut g = state.lock().await;
+            let sid = g.next_sid;
+            g.next_sid += 1;
+            sid
+        };
+
+        let cfg_path = prepare_config(cfg_in, sid).await?;
+        let cfg_str = cfg_path.to_string_lossy().to_string();
+
+        apply_kill_switch(true, Some(cfg_str.as_str())).await.map_err(|e| {
+            emit_log(&app, &format!("[ui] Kill switch error: {e}"));
+            e
+        })?;
+
+        let mut g = state.lock().await;
+        g.kill_switch_enabled = true;
+
+        emit_log(&app, "[ui] Kill switch set: true");
+        return Ok(());
+    }
+
+    // disable
+    apply_kill_switch(false, None).await.map_err(|e| {
         emit_log(&app, &format!("[ui] Kill switch error: {e}"));
         e
     })?;
 
     let mut g = state.lock().await;
-    g.kill_switch_enabled = enabled;
-    emit_log(&app, &format!("[ui] Kill switch set: {enabled}"));
+    g.kill_switch_enabled = false;
+    emit_log(&app, "[ui] Kill switch set: false");
     Ok(())
 }
 
@@ -806,15 +933,12 @@ fn main() {
 
     tauri::Builder::default()
         .setup(|app| {
-            // VPN state
             let state: SharedState = std::sync::Arc::new(Mutex::new(VpnInner::default()));
             app.manage(state);
 
-            // Tray
             let tray_handles = setup_tray(&app.handle())?;
             app.manage(tray_handles);
 
-            // Make sure tray UI matches initial state
             update_tray_ui(&app.handle(), UiStatus::Disconnected);
 
             // X -> hide to tray (instead of closing)

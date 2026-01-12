@@ -5,13 +5,19 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="45de0aa4-b568-4cf0-89f1-da837d51870b" name="Changes" comment="Updates">
+      <change afterPath="$PROJECT_DIR$/src-tauri/assets/linux/polkit/org.stellarsecurity.vpn.desktop.helper.policy" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src-tauri/bin/stellar-vpn-helper.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/dist/assets/index-BVGzl0kp.js" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/dist/assets/index-a4rHIE36.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/App.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/App.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/routes/Dashboard/ChangeLocation.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/routes/Dashboard/ChangeLocation.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/routes/Dashboard/Dashboard.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/routes/Dashboard/Dashboard.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/styles.css" beforeDir="false" afterPath="$PROJECT_DIR$/src/styles.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dist/assets/index-aGFo7Wj7.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dist/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/dist/index.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src-tauri/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/Cargo.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src-tauri/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src-tauri/scripts/linux/postinst.sh" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/scripts/linux/postinst.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src-tauri/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src-tauri/tauri.conf.json" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/tauri.conf.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/routes/Dashboard/Profile.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/routes/Dashboard/Profile.tsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -43,6 +49,7 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "JavaScript Debug.localhost:5176.executor": "Debug",
     "ModuleVcsDetector.initialDetectionPerformed": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
@@ -67,9 +74,22 @@
       <recent name="$PROJECT_DIR$" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/src-tauri/bin" />
+      <recent name="$PROJECT_DIR$/src-tauri/src/bin" />
+      <recent name="$PROJECT_DIR$/src-tauri" />
+      <recent name="$PROJECT_DIR$/assets/linux" />
       <recent name="$PROJECT_DIR$" />
-      <recent name="$PROJECT_DIR$/src-tauri/scripts/linux" />
     </key>
+  </component>
+  <component name="RunManager">
+    <configuration name="localhost:5176" type="JavascriptDebugType" temporary="true" nameIsGenerated="true" uri="http://localhost:5176/">
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="JavaScript Debug.localhost:5176" />
+      </list>
+    </recent_temporary>
   </component>
   <component name="SharedIndexes">
     <attachedChunks>
@@ -90,7 +110,7 @@
       <workItem from="1768049873987" duration="2000" />
       <workItem from="1768067910043" duration="5490000" />
       <workItem from="1768073487966" duration="10579000" />
-      <workItem from="1768140500006" duration="32860000" />
+      <workItem from="1768140500006" duration="44388000" />
     </task>
     <task id="LOCAL-00001" summary="Always on VPN">
       <option name="closed" value="true" />
@@ -204,7 +224,15 @@
       <option name="project" value="LOCAL" />
       <updated>1768181088296</updated>
     </task>
-    <option name="localTasksCounter" value="15" />
+    <task id="LOCAL-00015" summary="Updates">
+      <option name="closed" value="true" />
+      <created>1768231744142</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1768231744142</updated>
+    </task>
+    <option name="localTasksCounter" value="16" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">

@@ -148,8 +148,8 @@ export const Profile: React.FC = () => {
       try {
         await invoke("vpn_set_kill_switch", {
           enabled: false,
-          configPath: null,
-          bearerToken: null,
+          config_path: null, // ✅ snake_case
+          _bearer_token: null, // ✅ matches Rust arg name
         });
       } catch {
         // ignore
@@ -162,6 +162,8 @@ export const Profile: React.FC = () => {
 
   const toggleKillSwitch = async () => {
     const next = !killSwitch;
+
+    // optimistic UI
     setKillSwitch(next);
 
     if (!isTauri()) return;
@@ -169,26 +171,33 @@ export const Profile: React.FC = () => {
     try {
       if (next) {
         const server = await getSelectedServer().catch(() => null);
-        const cfg = server?.configUrl ? server.configUrl : DEFAULT_OVPN_URL;
+        const cfg =
+            (typeof (server as any)?.configUrl === "string" && (server as any).configUrl.trim())
+                ? (server as any).configUrl.trim()
+                : (typeof (server as any)?.config_url === "string" && (server as any).config_url.trim())
+                    ? (server as any).config_url.trim()
+                    : DEFAULT_OVPN_URL;
 
         await invoke("vpn_set_kill_switch", {
           enabled: true,
-          configPath: cfg,
-          bearerToken: null,
+          config_path: cfg, // ✅ snake_case (this was your bug)
+          _bearer_token: null,
         });
       } else {
         await invoke("vpn_set_kill_switch", {
           enabled: false,
-          configPath: null,
-          bearerToken: null,
+          config_path: null, // ✅ snake_case
+          _bearer_token: null,
         });
       }
     } catch (e: any) {
       console.error("Kill switch error:", e);
+
+      // revert UI on failure
       setKillSwitch(!next);
 
       alert(
-          "Kill switch failed.\n\nOn Linux this requires sudo until we ship a privileged helper.\nUse scripts/linux-dev-root.sh for dev."
+          "Kill switch failed.\n\nOn Linux this requires root/CAP_NET_ADMIN until we ship a privileged helper.\n(Your postinst setcap helps OpenVPN, but nftables rules still need net admin.)"
       );
     }
   };
@@ -220,11 +229,7 @@ export const Profile: React.FC = () => {
                           }}
                           className="text-xs flex items-center gap-2 hover:opacity-80 active:scale-[0.98] transition-all"
                       >
-                        <img
-                            src="/icons/copy.svg"
-                            alt="Copy"
-                            className="w-8 h-8"
-                        />
+                        <img src="/icons/copy.svg" alt="Copy" className="w-8 h-8" />
                       </button>
 
                       {showCopiedToast && (
@@ -250,7 +255,7 @@ export const Profile: React.FC = () => {
               </div>
             </div>
 
-            {/* Expires card (no progress bar) */}
+            {/* Expires card */}
             <div className="bg-white rounded-2xl flex-col p-4 text-sm flex items-center justify-between border border-[#EAEAF0] transition-all duration-200 hover:shadow-[0_10px_30px_rgba(11,12,25,0.06)] hover:-translate-y-[1px]">
               <div className="w-full">
                 <div className="flex items-center justify-between mb-3">
@@ -322,7 +327,7 @@ export const Profile: React.FC = () => {
                 Kill switch
               </span>
                 <span className="text-[11px] text-[#62626A] mt-1">
-                Blocks internet when VPN is down. Linux dev requires sudo.
+                Blocks internet when VPN is down. Linux needs CAP_NET_ADMIN/root.
               </span>
               </div>
 
@@ -361,11 +366,7 @@ export const Profile: React.FC = () => {
         {showLogout && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-50">
               <div className="text-center rounded-2xl pt-12 pb-8 px-6 w-full max-w-[280px] mx-4 logout-screen bg-[#F6F6FD] border border-[#EAEAF0] shadow-[0_20px_60px_rgba(0,0,0,0.18)]">
-                <img
-                    src="/icons/logout.svg"
-                    alt="Logout"
-                    className="w-10 h-10 mx-auto mb-4"
-                />
+                <img src="/icons/logout.svg" alt="Logout" className="w-10 h-10 mx-auto mb-4" />
                 <h2 className="text-xl font-bold mb-2">Log out</h2>
                 <p className="text-sm text-[#62626A] pb-4 mb-6 border-b border-[#EAEAF0]">
                   Are you sure you want to log out?

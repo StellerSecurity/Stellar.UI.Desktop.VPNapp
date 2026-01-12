@@ -13,10 +13,7 @@
     "windows": [
       { "title": "Stellar VPN", "width": 312, "height": 640, "resizable": false, "fullscreen": false }
     ],
-    "security": {
-      "csp": null,
-      "capabilities": ["main-capability"]
-    }
+    "security": { "csp": null, "capabilities": ["main-capability"] }
   },
   "bundle": {
     "active": true,
@@ -31,21 +28,24 @@
     "linux": {
       "deb": {
         "files": {
-          "/usr/lib/stellar-vpn/openvpn": "bin/openvpn-x86_64-unknown-linux-gnu"
+          "/usr/lib/stellar-vpn/openvpn": "bin/openvpn-x86_64-unknown-linux-gnu",
+          "/usr/libexec/stellar-vpn/stellar-vpn-helper": "target/release/stellar-vpn-helper",
+          "/usr/share/polkit-1/actions/org.stellarsecurity.vpn.desktop.helper.policy": "assets/linux/polkit/org.stellarsecurity.vpn.desktop.helper.policy"
         },
-        "depends": ["libcap2-bin"],
+        "depends": ["libcap2-bin", "policykit-1", "nftables"],
         "postInstallScript": "scripts/linux/postinst.sh",
         "preRemoveScript": "scripts/linux/prerm.sh"
       },
       "rpm": {
         "files": {
-          "/usr/lib/stellar-vpn/openvpn": "bin/openvpn-x86_64-unknown-linux-gnu"
+          "/usr/lib/stellar-vpn/openvpn": "bin/openvpn-x86_64-unknown-linux-gnu",
+          "/usr/libexec/stellar-vpn/stellar-vpn-helper": "target/release/stellar-vpn-helper",
+          "/usr/share/polkit-1/actions/org.stellarsecurity.vpn.desktop.helper.policy": "assets/linux/polkit/org.stellarsecurity.vpn.desktop.helper.policy"
         },
-        "depends": ["libcap"],
+        "depends": ["libcap", "polkit", "nftables"],
         "postInstallScript": "scripts/linux/postinst.sh",
         "preRemoveScript": "scripts/linux/prerm.sh"
       }
     }
-
   }
 }
