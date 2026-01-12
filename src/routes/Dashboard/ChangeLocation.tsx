@@ -1,7 +1,12 @@
 import React, { useMemo, useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AuthShell } from "../../components/layout/AuthShell";
-import { fetchServerList, type VpnServer, setSelectedServer } from "../../services/api";
+import {
+  fetchServerList,
+  type VpnServer,
+  setSelectedServer,
+  getSelectedServer,
+} from "../../services/api";
 
 type ServerItem = {
   id: string;
@@ -94,8 +99,9 @@ export const ChangeLocation: React.FC = () => {
   const [selectingServerId, setSelectingServerId] = useState<string | null>(null);
   const FASTEST_ID = "__fastest__";
 
-  // countryId -> ref (for smooth scroll when opening from ?country=CH)
+  // countryId -> ref (for smooth scroll when opening/expanding)
   const countryRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const didInitExpandRef = useRef(false);
 
   const backToDashboardAndFocusMap = useCallback(
       (countryCode?: string | null, connectNow?: boolean) => {
@@ -127,14 +133,44 @@ export const ChangeLocation: React.FC = () => {
         const transformed = transformServerList(servers);
         setCountriesData(transformed);
 
-        // Default open
-        if (transformed.length > 0) setExpandedCountry(transformed[0].id);
+        // Decide what to open (priority):
+        // 1) ?country=XX (from dashboard map click)
+        // 2) currently selected server (from local storage via API)
+        // 3) first country
+        let openId: string | null = null;
 
-        // If we came with ?country=CH (from dashboard map click), open it
+        // 1) query param override
         const q = (searchParams.get("country") || "").trim().toLowerCase();
         if (q) {
           const match = transformed.find((c) => (c.countryCode || "").toLowerCase() === q);
-          if (match) setExpandedCountry(match.id);
+          if (match) openId = match.id;
+        }
+
+        // 2) selected server fallback
+        if (!openId) {
+          try {
+            const selected = await getSelectedServer();
+            const ccRaw =
+                (selected as any)?.countryCode ??
+                (selected as any)?.country ??
+                null;
+
+            const cc = typeof ccRaw === "string" ? ccRaw.trim().toLowerCase() : "";
+            if (cc) {
+              const match = transformed.find((c) => (c.countryCode || "").toLowerCase() === cc);
+              if (match) openId = match.id;
+            }
+          } catch {
+            // ignore
+          }
+        }
+
+        // 3) first item fallback
+        if (!openId && transformed.length > 0) openId = transformed[0].id;
+
+        if (openId) {
+          setExpandedCountry(openId);
+          didInitExpandRef.current = true;
         }
       } catch (err) {
         console.error("Error loading server list:", err);
@@ -148,6 +184,12 @@ export const ChangeLocation: React.FC = () => {
 
     loadServers();
   }, [searchParams]);
+
+  // Scroll to expanded country (after it renders)
+  useEffect(() => {
+    if (!expandedCountry) return;
+
+  }, [expandedCountry]);
 
   const normalizedSearch = searchTerm.trim().toLowerCase();
 

@@ -117,6 +117,11 @@ export const Dashboard: React.FC = () => {
   const [mapFocusCountryCode, setMapFocusCountryCode] = useState<string | null>(null);
   const [mapAnimateKey, setMapAnimateKey] = useState(0);
 
+  const getSelectedConfigPath = (s: any): string => {
+    const v = s?.configUrl ?? s?.config_url; // support both shapes
+    return typeof v === "string" ? v.trim() : "";
+  };
+
   useEffect(() => {
     const st = (location.state as any) || {};
     const cc = String(st?.focusCountryCode || "").trim().toUpperCase();
@@ -373,8 +378,7 @@ export const Dashboard: React.FC = () => {
     }
 
     const selectedServer = await getSelectedServer();
-    const configPath =
-        (selectedServer?.configUrl && selectedServer.configUrl.trim()) || DEFAULT_OVPN_URL;
+    const configPath = getSelectedConfigPath(selectedServer) || DEFAULT_OVPN_URL;
 
     await startConnect(configPath);
   }, [startConnect, syncBackendStatus, setManualDisabled, isExpired]);
@@ -403,8 +407,7 @@ export const Dashboard: React.FC = () => {
     await new Promise((r) => setTimeout(r, 250));
 
     const selectedServer = await getSelectedServer();
-    const configPath =
-        (selectedServer?.configUrl && selectedServer.configUrl.trim()) || DEFAULT_OVPN_URL;
+    const configPath = getSelectedConfigPath(selectedServer) || DEFAULT_OVPN_URL;
 
     await startConnect(configPath);
   }, [startConnect, setManualDisabled, isExpired]);
@@ -454,9 +457,6 @@ export const Dashboard: React.FC = () => {
     (async () => {
       await syncBackendStatus();
 
-      const current = statusRef.current;
-      if (current === "connected" || current === "connecting") return;
-
       if (isExpired) {
         setShowExpiredModal(true);
         return;
@@ -465,12 +465,28 @@ export const Dashboard: React.FC = () => {
       setManualDisabled(false);
 
       const selectedServer = await getSelectedServer();
-      const configPath =
-          (selectedServer?.configUrl && selectedServer.configUrl.trim()) || DEFAULT_OVPN_URL;
+      const configPath = getSelectedConfigPath(selectedServer) || DEFAULT_OVPN_URL;
+
+      // If we're already connected/connecting, we must tear down first
+      const current = statusRef.current;
+      if (current === "connected" || current === "connecting") {
+        await invoke("vpn_disconnect").catch(() => {});
+        setStatus("disconnected");
+        await new Promise((r) => setTimeout(r, 250));
+      }
 
       await startConnect(configPath);
     })().catch((e) => console.error("connectNow failed:", e));
-  }, [location.key, listenersReady, syncBackendStatus, startConnect, setManualDisabled, isExpired]);
+  }, [
+    location.key,
+    listenersReady,
+    syncBackendStatus,
+    startConnect,
+    setManualDisabled,
+    isExpired,
+    setStatus,
+  ]);
+
   // ========================================
 
   // Auto-connect ONLY when allowed
@@ -500,8 +516,7 @@ export const Dashboard: React.FC = () => {
         if (current !== "disconnected") return;
 
         const selectedServer = await getSelectedServer();
-        const configPath =
-            (selectedServer?.configUrl && selectedServer.configUrl.trim()) || DEFAULT_OVPN_URL;
+        const configPath = getSelectedConfigPath(selectedServer) || DEFAULT_OVPN_URL;
 
         await startConnect(configPath);
       } catch (error) {
@@ -541,8 +556,7 @@ export const Dashboard: React.FC = () => {
         if (backendUi !== "disconnected") return;
 
         const selectedServer = await getSelectedServer();
-        const configPath =
-            (selectedServer?.configUrl && selectedServer.configUrl.trim()) || DEFAULT_OVPN_URL;
+        const configPath = getSelectedConfigPath(selectedServer) || DEFAULT_OVPN_URL;
 
         await startConnect(configPath);
       } catch {
@@ -618,8 +632,7 @@ export const Dashboard: React.FC = () => {
         setManualDisabled(false);
 
         const selectedServer = await getSelectedServer();
-        const configPath =
-            (selectedServer?.configUrl && selectedServer.configUrl.trim()) || DEFAULT_OVPN_URL;
+        const configPath = getSelectedConfigPath(selectedServer) || DEFAULT_OVPN_URL;
 
         await startConnect(configPath);
       } else {
