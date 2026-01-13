@@ -6,7 +6,6 @@ type RT = Wry;
 
 use std::{
   fs,
-  net::{IpAddr, ToSocketAddrs},
   path::{Path, PathBuf},
   time::{Duration, SystemTime, UNIX_EPOCH},
 };
@@ -477,7 +476,9 @@ async fn killswitch_table_exists() -> bool {
 }
 
 #[cfg(not(target_os = "linux"))]
-async fn killswitch_table_exists() -> bool { false }
+async fn killswitch_table_exists() -> bool {
+  false
+}
 
 #[cfg(target_os = "linux")]
 async fn cleanup_killswitch_when_disabled(app: &AppHandle<RT>, state: &SharedState) {
@@ -697,6 +698,48 @@ async fn run_openvpn_session(
 }
 
 // ---------------- Commands ----------------
+
+#[tauri::command]
+async fn vpn_prefetch_config(
+  app: AppHandle<RT>,
+  state: tauri::State<'_, SharedState>,
+  config_path: String,
+) -> Result<String, String> {
+  let cfg = config_path.trim().to_string();
+  if cfg.is_empty() {
+    return Err("configPath is required".to_string());
+  }
+
+  // only makes sense when connected if kill switch is on
+  let (ks, st) = {
+    let g = state.lock().await;
+    (g.kill_switch_enabled, g.status)
+  };
+
+  if ks && st != UiStatus::Connected {
+    return Err("Kill switch is ON and VPN is not connected; cannot prefetch.".to_string());
+  }
+
+  let sid = {
+    let mut g = state.lock().await;
+    let sid = g.next_sid;
+    g.next_sid += 1;
+    sid
+  };
+
+  let p = prepare_config(&cfg, sid).await?;
+  let p_str = p.to_string_lossy().to_string();
+
+  {
+    let mut g = state.lock().await;
+    g.last_config_path = Some(p_str.clone());
+    g.last_config_source = Some(cfg);
+  }
+
+  emit_log(&app, &format!("[ui] Prefetched config => {}", p_str));
+  Ok(p_str)
+}
+
 
 #[tauri::command]
 async fn vpn_connect(
@@ -942,6 +985,7 @@ fn main() {
       Ok(())
     })
     .invoke_handler(tauri::generate_handler![
+      vpn_prefetch_config,
       vpn_connect,
       vpn_disconnect,
       vpn_status,

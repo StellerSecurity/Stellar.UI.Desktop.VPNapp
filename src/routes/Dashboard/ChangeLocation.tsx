@@ -7,6 +7,7 @@ import {
   setSelectedServer,
   getSelectedServer,
 } from "../../services/api";
+import { invoke } from "@tauri-apps/api/core";
 
 type ServerItem = {
   id: string;
@@ -30,9 +31,6 @@ type Country = {
 // Same key your Dashboard uses (prevents auto-reconnect logic fighting you)
 const LS_MANUAL_DISABLED = "vpn_manual_disabled";
 
-/**
- * Transform flat server list into nested Country -> City -> Server structure
- */
 function transformServerList(servers: VpnServer[]): Country[] {
   const countriesMap = new Map<string, Country>();
 
@@ -72,7 +70,6 @@ function transformServerList(servers: VpnServer[]): Country[] {
   return Array.from(countriesMap.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/** Sexy skeleton row (shimmer) */
 const SkeletonRow: React.FC<{ className?: string }> = ({ className = "" }) => (
     <div className={`relative overflow-hidden rounded-2xl bg-[#EAEAF0] ${className}`}>
       <div className="absolute inset-0 -translate-x-[120%] bg-gradient-to-r from-transparent via-white/70 to-transparent animate-shimmer" />
@@ -83,6 +80,11 @@ const flagSrcForCountry = (code?: string) => {
   if (!code) return "/icons/flag.svg";
   return `/flags/${code.toLowerCase()}.svg`;
 };
+
+const isTauri = () =>
+    typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+const looksLikeUrl = (s: string) => /^https?:\/\//i.test(s.trim());
 
 export const ChangeLocation: React.FC = () => {
   const navigate = useNavigate();
@@ -95,11 +97,9 @@ export const ChangeLocation: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // UI feedback only (we are NOT connecting from here anymore)
   const [selectingServerId, setSelectingServerId] = useState<string | null>(null);
   const FASTEST_ID = "__fastest__";
 
-  // countryId -> ref (for smooth scroll when opening/expanding)
   const countryRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const didInitExpandRef = useRef(false);
 
@@ -108,12 +108,37 @@ export const ChangeLocation: React.FC = () => {
         navigate("/dashboard", {
           state: {
             focusCountryCode: (countryCode || "").trim().toUpperCase() || null,
-            connectNow: !!connectNow, // Dashboard is the only place that actually connects
+            connectNow: !!connectNow,
           },
         });
       },
       [navigate]
   );
+
+  const ensureLocalConfig = useCallback(async (cfg: string): Promise<string> => {
+    const trimmed = (cfg || "").trim();
+    if (!trimmed) throw new Error("Missing config URL");
+
+    if (!looksLikeUrl(trimmed)) return trimmed;
+    if (!isTauri()) return trimmed;
+
+    const ks = await invoke<boolean>("vpn_kill_switch_enabled").catch(() => false);
+    if (!ks) return trimmed;
+
+    const st = await invoke<string>("vpn_status").catch(() => "unknown");
+    if (st !== "connected") {
+      throw new Error(
+          "Kill switch er slået til, og VPN er ikke forbundet. Du kan kun skifte server mens VPN er forbundet (så vi kan hente config via tunnelen), ellers skal du slå kill switch fra midlertidigt."
+      );
+    }
+
+    // ✅ IMPORTANT: Tauri expects camelCase argument name
+    const localPath = await invoke<string>("vpn_prefetch_config", { configPath: trimmed });
+
+    if (!localPath || !localPath.trim()) throw new Error("Prefetch returned empty path");
+    return localPath.trim();
+  }, []);
+
 
   useEffect(() => {
     const loadServers = async () => {
@@ -133,28 +158,18 @@ export const ChangeLocation: React.FC = () => {
         const transformed = transformServerList(servers);
         setCountriesData(transformed);
 
-        // Decide what to open (priority):
-        // 1) ?country=XX (from dashboard map click)
-        // 2) currently selected server (from local storage via API)
-        // 3) first country
         let openId: string | null = null;
 
-        // 1) query param override
         const q = (searchParams.get("country") || "").trim().toLowerCase();
         if (q) {
           const match = transformed.find((c) => (c.countryCode || "").toLowerCase() === q);
           if (match) openId = match.id;
         }
 
-        // 2) selected server fallback
         if (!openId) {
           try {
             const selected = await getSelectedServer();
-            const ccRaw =
-                (selected as any)?.countryCode ??
-                (selected as any)?.country ??
-                null;
-
+            const ccRaw = (selected as any)?.countryCode ?? (selected as any)?.country ?? null;
             const cc = typeof ccRaw === "string" ? ccRaw.trim().toLowerCase() : "";
             if (cc) {
               const match = transformed.find((c) => (c.countryCode || "").toLowerCase() === cc);
@@ -165,7 +180,6 @@ export const ChangeLocation: React.FC = () => {
           }
         }
 
-        // 3) first item fallback
         if (!openId && transformed.length > 0) openId = transformed[0].id;
 
         if (openId) {
@@ -184,12 +198,6 @@ export const ChangeLocation: React.FC = () => {
 
     loadServers();
   }, [searchParams]);
-
-  // Scroll to expanded country (after it renders)
-  useEffect(() => {
-    if (!expandedCountry) return;
-
-  }, [expandedCountry]);
 
   const normalizedSearch = searchTerm.trim().toLowerCase();
 
@@ -221,22 +229,20 @@ export const ChangeLocation: React.FC = () => {
     setSelectingServerId(FASTEST_ID);
 
     try {
-      const cfg = s.config_url;
+      // Prefetch if needed (kill switch ON + connected)
+      const cfgToStore = await ensureLocalConfig(s.config_url);
 
-      // Allow dashboard connect flow (manual action)
       try {
         window.localStorage.setItem(LS_MANUAL_DISABLED, "0");
       } catch {
         // ignore
       }
 
-      await setSelectedServer(s.name, cfg, (s.country || "").toLowerCase() || undefined);
+      await setSelectedServer(s.name, cfgToStore, (s.country || "").toLowerCase() || undefined);
 
-      // Go back and let Dashboard connect (single source of truth)
       backToDashboardAndFocusMap(s.country || null, true);
     } catch (e: any) {
       console.error("Fastest select failed:", e);
-
       const msg = typeof e === "string" ? e : e?.message ? String(e.message) : "Unknown error";
       alert("Could not select fastest server.\n\n" + msg);
       navigate("/dashboard");
@@ -247,9 +253,7 @@ export const ChangeLocation: React.FC = () => {
 
   return (
       <AuthShell title="Change Location" onBack={() => navigate("/dashboard")}>
-        {/* IMPORTANT: make only the list scroll, not the whole window */}
         <div className="flex flex-col h-full min-h-0">
-          {/* Search */}
           <div className="mb-4 relative px-0">
             <div className="absolute left-5 top-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none z-10">
               <img src="/icons/search.svg" alt="Search" className="w-5 h-5" />
@@ -262,9 +266,7 @@ export const ChangeLocation: React.FC = () => {
             />
           </div>
 
-          {/* Scroll area */}
           <div className="flex-1 min-h-0 overflow-auto text-sm rounded-2xl custom-scrollbar bg-white">
-            {/* Loading */}
             {isLoading && (
                 <div className="p-6" role="status" aria-busy="true">
                   <div className="flex items-center gap-3">
@@ -288,18 +290,14 @@ export const ChangeLocation: React.FC = () => {
                 </div>
             )}
 
-            {/* Error */}
             {!isLoading && error && <div className="p-8 text-center text-red-500">{error}</div>}
 
-            {/* Empty */}
             {!isLoading && !error && filteredCountries.length === 0 && (
                 <div className="p-8 text-center text-[#62626A]">No servers found</div>
             )}
 
-            {/* Content */}
             {!isLoading && !error && (
                 <>
-                  {/* Fastest */}
                   <button
                       type="button"
                       onClick={handleFastestClick}
@@ -327,7 +325,6 @@ export const ChangeLocation: React.FC = () => {
                     <img src="/icons/right-arrow.svg" alt="Arrow" className="w-5 h-4" />
                   </button>
 
-                  {/* Countries */}
                   {filteredCountries.map((country) => {
                     const isOpen = expandedCountry === country.id;
 
@@ -339,7 +336,6 @@ export const ChangeLocation: React.FC = () => {
                             }}
                             className={["transition-colors duration-200", isOpen ? "bg-[#F6F6FD]" : ""].join(" ")}
                         >
-                          {/* Country row */}
                           <button
                               type="button"
                               onClick={() => toggleCountry(country.id)}
@@ -380,7 +376,6 @@ export const ChangeLocation: React.FC = () => {
                             </div>
                           </button>
 
-                          {/* Expand content with animation */}
                           <div
                               className={[
                                 "grid transition-all duration-300 ease-in-out",
@@ -419,11 +414,12 @@ export const ChangeLocation: React.FC = () => {
                                                     if (disabled) return;
                                                     if (!server.config_url) return;
 
-                                                    const cfg = server.config_url;
                                                     setSelectingServerId(server.id);
 
                                                     try {
-                                                      // Allow dashboard connect flow (manual action)
+                                                      // Prefetch if needed (kill switch ON + connected)
+                                                      const cfgToStore = await ensureLocalConfig(server.config_url);
+
                                                       try {
                                                         window.localStorage.setItem(LS_MANUAL_DISABLED, "0");
                                                       } catch {
@@ -432,11 +428,10 @@ export const ChangeLocation: React.FC = () => {
 
                                                       await setSelectedServer(
                                                           server.name,
-                                                          cfg,
+                                                          cfgToStore,
                                                           country.countryCode ? country.countryCode.toLowerCase() : undefined
                                                       );
 
-                                                      // Go back and let Dashboard connect (single source of truth)
                                                       backToDashboardAndFocusMap(country.countryCode || null, true);
                                                     } catch (e: any) {
                                                       console.error("Failed to select server:", e);
