@@ -560,7 +560,22 @@ async fn run_openvpn_session(
 
   emit_log(&app, &format!("[ui] OpenVPN binary: {}", openvpn_bin.display()));
 
-  let mut cmd = Command::new(&openvpn_bin);
+  // Decide whether to wrap OpenVPN with sudo on macOS (OpenVPN needs elevated privileges for utun/routes/DNS).
+  #[cfg(target_os = "macos")]
+  let is_root = unsafe { libc::geteuid() == 0 };
+  #[cfg(not(target_os = "macos"))]
+  let is_root = false;
+
+  let mut cmd = if cfg!(target_os = "macos") && !is_root {
+    // Fail fast if sudo needs password (we don't want a hanging Tauri process).
+    let mut c = Command::new("sudo");
+    c.arg("-n");
+    c.arg(&openvpn_bin);
+    c
+  } else {
+    Command::new(&openvpn_bin)
+  };
+
   cmd.kill_on_drop(true)
     .arg("--config")
     .arg(&cfg_path)
@@ -644,6 +659,21 @@ async fn run_openvpn_session(
           set_error_and_disconnect(&state, &app, "OpenVPN authentication failed (AUTH_FAILED).".to_string()).await;
           break;
         }
+
+        // macOS: sudo -n failed typically prints "a password is required" and then exits quickly.
+        if cfg!(target_os = "macos") && (line.contains("sudo:") || line.to_lowercase().contains("password")) {
+          emit_log(&app, "[ui] Detected sudo failure on macOS.");
+          let _ = child.kill().await;
+          let _ = child.wait().await;
+
+          set_error_and_disconnect(
+            &state,
+            &app,
+            "OpenVPN requires elevated privileges on macOS. Configure sudoers (NOPASSWD) for the bundled openvpn binary, or use a privileged helper. (sudo -n failed)".to_string()
+          ).await;
+
+          break;
+        }
       }
 
       _ = time::sleep_until(watchdog_deadline), if !init_done => {
@@ -668,7 +698,16 @@ async fn run_openvpn_session(
         };
 
         if !manual && !init_done {
-          set_error_and_disconnect(&state, &app, format!("OpenVPN exited before connection was established (code={code}).")).await;
+          // Improve macOS error if openvpn died immediately (likely privilege issue)
+          if cfg!(target_os = "macos") && code == 1 && !is_root {
+            set_error_and_disconnect(
+              &state,
+              &app,
+              "OpenVPN exited early on macOS (code=1). This is commonly a privilege issue. Ensure the app can run openvpn via sudo (NOPASSWD for the exact openvpn path) or use a privileged helper.".to_string()
+            ).await;
+          } else {
+            set_error_and_disconnect(&state, &app, format!("OpenVPN exited before connection was established (code={code}).")).await;
+          }
         } else {
           set_status(&state, &app, UiStatus::Disconnected).await;
         }
