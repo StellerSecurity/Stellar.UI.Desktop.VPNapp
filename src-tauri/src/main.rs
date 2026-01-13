@@ -1,6 +1,9 @@
 // src-tauri/src/main.rs
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+#[cfg(target_os = "macos")]
+mod macos_helper;
+
 use tauri::Wry;
 type RT = Wry;
 
@@ -365,7 +368,9 @@ fn resolve_openvpn_binary(app: &AppHandle<RT>) -> Result<PathBuf, String> {
 async fn run_helper_direct(enable: bool, cfg: Option<&str>) -> Result<(), String> {
   let helper = LINUX_HELPER_PATH;
   if !Path::new(helper).exists() {
-    return Err("Kill switch helper missing: /usr/libexec/stellar-vpn/stellar-vpn-helper".to_string());
+    return Err(
+      "Kill switch helper missing: /usr/libexec/stellar-vpn/stellar-vpn-helper".to_string(),
+    );
   }
 
   let mut cmd = Command::new(helper);
@@ -373,7 +378,8 @@ async fn run_helper_direct(enable: bool, cfg: Option<&str>) -> Result<(), String
     .arg(if enable { "enable" } else { "disable" });
 
   if enable {
-    let c = cfg.ok_or_else(|| "config_path is required when enabling kill switch.".to_string())?;
+    let c = cfg
+      .ok_or_else(|| "config_path is required when enabling kill switch.".to_string())?;
     cmd.arg("--config").arg(c);
   }
 
@@ -399,7 +405,9 @@ async fn run_helper_direct(enable: bool, cfg: Option<&str>) -> Result<(), String
 async fn run_helper_pkexec(enable: bool, cfg: Option<&str>) -> Result<(), String> {
   let helper = LINUX_HELPER_PATH;
   if !Path::new(helper).exists() {
-    return Err("Kill switch helper missing: /usr/libexec/stellar-vpn/stellar-vpn-helper".to_string());
+    return Err(
+      "Kill switch helper missing: /usr/libexec/stellar-vpn/stellar-vpn-helper".to_string(),
+    );
   }
 
   let mut cmd = Command::new("pkexec");
@@ -408,7 +416,8 @@ async fn run_helper_pkexec(enable: bool, cfg: Option<&str>) -> Result<(), String
     .arg(if enable { "enable" } else { "disable" });
 
   if enable {
-    let c = cfg.ok_or_else(|| "config_path is required when enabling kill switch.".to_string())?;
+    let c = cfg
+      .ok_or_else(|| "config_path is required when enabling kill switch.".to_string())?;
     cmd.arg("--config").arg(c);
   }
 
@@ -492,7 +501,10 @@ async fn cleanup_killswitch_when_disabled(app: &AppHandle<RT>, state: &SharedSta
 
   // Verify. If it's still there, warn loudly.
   if killswitch_table_exists().await {
-    emit_log(app, "[ui] WARNING: kill switch nft table still exists after disable attempt. Internet may remain blocked.");
+    emit_log(
+      app,
+      "[ui] WARNING: kill switch nft table still exists after disable attempt. Internet may remain blocked.",
+    );
   }
 }
 
@@ -560,22 +572,7 @@ async fn run_openvpn_session(
 
   emit_log(&app, &format!("[ui] OpenVPN binary: {}", openvpn_bin.display()));
 
-  // Decide whether to wrap OpenVPN with sudo on macOS (OpenVPN needs elevated privileges for utun/routes/DNS).
-  #[cfg(target_os = "macos")]
-  let is_root = unsafe { libc::geteuid() == 0 };
-  #[cfg(not(target_os = "macos"))]
-  let is_root = false;
-
-  let mut cmd = if cfg!(target_os = "macos") && !is_root {
-    // Fail fast if sudo needs password (we don't want a hanging Tauri process).
-    let mut c = Command::new("sudo");
-    c.arg("-n");
-    c.arg(&openvpn_bin);
-    c
-  } else {
-    Command::new(&openvpn_bin)
-  };
-
+  let mut cmd = Command::new(&openvpn_bin);
   cmd.kill_on_drop(true)
     .arg("--config")
     .arg(&cfg_path)
@@ -659,21 +656,6 @@ async fn run_openvpn_session(
           set_error_and_disconnect(&state, &app, "OpenVPN authentication failed (AUTH_FAILED).".to_string()).await;
           break;
         }
-
-        // macOS: sudo -n failed typically prints "a password is required" and then exits quickly.
-        if cfg!(target_os = "macos") && (line.contains("sudo:") || line.to_lowercase().contains("password")) {
-          emit_log(&app, "[ui] Detected sudo failure on macOS.");
-          let _ = child.kill().await;
-          let _ = child.wait().await;
-
-          set_error_and_disconnect(
-            &state,
-            &app,
-            "OpenVPN requires elevated privileges on macOS. Configure sudoers (NOPASSWD) for the bundled openvpn binary, or use a privileged helper. (sudo -n failed)".to_string()
-          ).await;
-
-          break;
-        }
       }
 
       _ = time::sleep_until(watchdog_deadline), if !init_done => {
@@ -698,16 +680,7 @@ async fn run_openvpn_session(
         };
 
         if !manual && !init_done {
-          // Improve macOS error if openvpn died immediately (likely privilege issue)
-          if cfg!(target_os = "macos") && code == 1 && !is_root {
-            set_error_and_disconnect(
-              &state,
-              &app,
-              "OpenVPN exited early on macOS (code=1). This is commonly a privilege issue. Ensure the app can run openvpn via sudo (NOPASSWD for the exact openvpn path) or use a privileged helper.".to_string()
-            ).await;
-          } else {
-            set_error_and_disconnect(&state, &app, format!("OpenVPN exited before connection was established (code={code}).")).await;
-          }
+          set_error_and_disconnect(&state, &app, format!("OpenVPN exited before connection was established (code={code}).")).await;
         } else {
           set_status(&state, &app, UiStatus::Disconnected).await;
         }
@@ -779,7 +752,6 @@ async fn vpn_prefetch_config(
   Ok(p_str)
 }
 
-
 #[tauri::command]
 async fn vpn_connect(
   app: AppHandle<RT>,
@@ -841,19 +813,16 @@ async fn vpn_connect(
     // KS ON + URL + not connected now -> cannot fetch unless cached.
     if last_src.as_deref() == Some(cfg_source.as_str()) {
       let cached = last_cached.ok_or_else(|| {
-        "Kill switch is ON but no cached config exists yet. Disable kill switch once, connect, then enable it."
-          .to_string()
+        "Kill switch is ON but no cached config exists yet. Disable kill switch once, connect, then enable it.".to_string()
       })?;
       let p = PathBuf::from(&cached);
       if !p.exists() {
-        return Err("Kill switch is ON but cached config file is missing. Disable kill switch once, connect, then enable it."
-          .to_string());
+        return Err("Kill switch is ON but cached config file is missing. Disable kill switch once, connect, then enable it.".to_string());
       }
       p
     } else {
       return Err(
-        "Kill switch is ON and VPN is disconnected, so internet is intentionally blocked. Switch server while connected (so we can prefetch), or disable kill switch once to cache the new config."
-          .to_string(),
+        "Kill switch is ON and VPN is disconnected, so internet is intentionally blocked. Switch server while connected (so we can prefetch), or disable kill switch once to cache the new config.".to_string(),
       );
     }
   } else {
@@ -874,12 +843,24 @@ async fn vpn_connect(
   if ks_enabled_now {
     let cfg_str = cfg_path.to_string_lossy().to_string();
     emit_log(&app, &format!("[ui] Kill switch enabled: applying for config {}", cfg_str));
-    apply_kill_switch(true, Some(cfg_str.as_str())).await.map_err(|e| {
-      emit_log(&app, &format!("[ui] Kill switch apply failed: {e}"));
-      e
-    })?;
+    apply_kill_switch(true, Some(cfg_str.as_str()))
+      .await
+      .map_err(|e| {
+        emit_log(&app, &format!("[ui] Kill switch apply failed: {e}"));
+        e
+      })?;
   }
 
+  // --- macOS: delegate to privileged helper (does NOT break Linux) ---
+  #[cfg(target_os = "macos")]
+  {
+    let openvpn_bin = resolve_openvpn_binary(&app)?;
+    // Helper will run OpenVPN as root and stream logs/status back.
+    macos_helper::helper_connect(&app, state.inner(), openvpn_bin, cfg_path, auth_path).await?;
+    return Ok(());
+  }
+
+  // --- non-macOS: spawn OpenVPN directly (Linux/Windows) ---
   let (stop_tx, stop_rx) = tokio::sync::watch::channel(false);
   {
     let mut g = state.lock().await;
@@ -901,6 +882,13 @@ async fn vpn_connect(
 
 #[tauri::command]
 async fn vpn_disconnect(app: AppHandle<RT>, state: tauri::State<'_, SharedState>) -> Result<(), String> {
+  #[cfg(target_os = "macos")]
+  {
+    // macOS uses helper. No sudo app nonsense.
+    macos_helper::helper_disconnect(&app, state.inner()).await?;
+    return Ok(());
+  }
+
   stop_current_session(&app, state.inner()).await;
   Ok(())
 }
@@ -926,7 +914,12 @@ async fn vpn_set_kill_switch(
 ) -> Result<(), String> {
   if args.enabled {
     // Prefer config_path from UI, else fallback to last prepared config path.
-    let cfg_in: String = if let Some(s) = args.config_path.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+    let cfg_in: String = if let Some(s) = args
+      .config_path
+      .as_deref()
+      .map(str::trim)
+      .filter(|s| !s.is_empty())
+    {
       s.to_string()
     } else {
       let g = state.lock().await;
@@ -952,10 +945,12 @@ async fn vpn_set_kill_switch(
       g.last_config_source = Some(cfg_in.clone());
     }
 
-    apply_kill_switch(true, Some(cfg_str.as_str())).await.map_err(|e| {
-      emit_log(&app, &format!("[ui] Kill switch enable failed: {e}"));
-      e
-    })?;
+    apply_kill_switch(true, Some(cfg_str.as_str()))
+      .await
+      .map_err(|e| {
+        emit_log(&app, &format!("[ui] Kill switch enable failed: {e}"));
+        e
+      })?;
 
     {
       let mut g = state.lock().await;
@@ -1009,6 +1004,14 @@ fn main() {
       app.manage(tray_handles);
 
       update_tray_ui(&app.handle(), UiStatus::Disconnected);
+
+      // macOS: subscribe to helper log/status stream once.
+      #[cfg(target_os = "macos")]
+      {
+        let app_handle = app.handle().clone();
+        let st = app.state::<SharedState>().inner().clone();
+        macos_helper::spawn_helper_subscriber(app_handle, st);
+      }
 
       // X -> hide to tray (instead of closing)
       if let Some(w) = app.get_webview_window("main") {
