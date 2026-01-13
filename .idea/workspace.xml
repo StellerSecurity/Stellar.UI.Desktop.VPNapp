@@ -5,7 +5,11 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="45de0aa4-b568-4cf0-89f1-da837d51870b" name="Changes" comment="Latest working version">
-      <change afterPath="$PROJECT_DIR$/src-tauri/src/macos_helper.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src-tauri/bin/stellar-vpn-helper-macos.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/bin/stellar-vpn-helper-macos.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src-tauri/src/macos_helper.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/src/macos_helper.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src-tauri/src/macos_helper_client.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src-tauri/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/src/main.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -237,15 +241,7 @@
       <option name="project" value="LOCAL" />
       <updated>1768307407071</updated>
     </task>
-    <task id="LOCAL-00018" summary="Latest working version">
-      <option name="closed" value="true" />
-      <created>1768333223101</created>
-      <option name="number" value="00018" />
-      <option name="presentableId" value="LOCAL-00018" />
-      <option name="project" value="LOCAL" />
-      <updated>1768333223101</updated>
-    </task>
-    <option name="localTasksCounter" value="19" />
+    <option name="localTasksCounter" value="18" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">

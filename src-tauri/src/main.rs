@@ -368,9 +368,7 @@ fn resolve_openvpn_binary(app: &AppHandle<RT>) -> Result<PathBuf, String> {
 async fn run_helper_direct(enable: bool, cfg: Option<&str>) -> Result<(), String> {
   let helper = LINUX_HELPER_PATH;
   if !Path::new(helper).exists() {
-    return Err(
-      "Kill switch helper missing: /usr/libexec/stellar-vpn/stellar-vpn-helper".to_string(),
-    );
+    return Err("Kill switch helper missing: /usr/libexec/stellar-vpn/stellar-vpn-helper".to_string());
   }
 
   let mut cmd = Command::new(helper);
@@ -378,8 +376,7 @@ async fn run_helper_direct(enable: bool, cfg: Option<&str>) -> Result<(), String
     .arg(if enable { "enable" } else { "disable" });
 
   if enable {
-    let c = cfg
-      .ok_or_else(|| "config_path is required when enabling kill switch.".to_string())?;
+    let c = cfg.ok_or_else(|| "config_path is required when enabling kill switch.".to_string())?;
     cmd.arg("--config").arg(c);
   }
 
@@ -405,9 +402,7 @@ async fn run_helper_direct(enable: bool, cfg: Option<&str>) -> Result<(), String
 async fn run_helper_pkexec(enable: bool, cfg: Option<&str>) -> Result<(), String> {
   let helper = LINUX_HELPER_PATH;
   if !Path::new(helper).exists() {
-    return Err(
-      "Kill switch helper missing: /usr/libexec/stellar-vpn/stellar-vpn-helper".to_string(),
-    );
+    return Err("Kill switch helper missing: /usr/libexec/stellar-vpn/stellar-vpn-helper".to_string());
   }
 
   let mut cmd = Command::new("pkexec");
@@ -416,8 +411,7 @@ async fn run_helper_pkexec(enable: bool, cfg: Option<&str>) -> Result<(), String
     .arg(if enable { "enable" } else { "disable" });
 
   if enable {
-    let c = cfg
-      .ok_or_else(|| "config_path is required when enabling kill switch.".to_string())?;
+    let c = cfg.ok_or_else(|| "config_path is required when enabling kill switch.".to_string())?;
     cmd.arg("--config").arg(c);
   }
 
@@ -501,10 +495,7 @@ async fn cleanup_killswitch_when_disabled(app: &AppHandle<RT>, state: &SharedSta
 
   // Verify. If it's still there, warn loudly.
   if killswitch_table_exists().await {
-    emit_log(
-      app,
-      "[ui] WARNING: kill switch nft table still exists after disable attempt. Internet may remain blocked.",
-    );
+    emit_log(app, "[ui] WARNING: kill switch nft table still exists after disable attempt. Internet may remain blocked.");
   }
 }
 
@@ -813,16 +804,21 @@ async fn vpn_connect(
     // KS ON + URL + not connected now -> cannot fetch unless cached.
     if last_src.as_deref() == Some(cfg_source.as_str()) {
       let cached = last_cached.ok_or_else(|| {
-        "Kill switch is ON but no cached config exists yet. Disable kill switch once, connect, then enable it.".to_string()
+        "Kill switch is ON but no cached config exists yet. Disable kill switch once, connect, then enable it."
+          .to_string()
       })?;
       let p = PathBuf::from(&cached);
       if !p.exists() {
-        return Err("Kill switch is ON but cached config file is missing. Disable kill switch once, connect, then enable it.".to_string());
+        return Err(
+          "Kill switch is ON but cached config file is missing. Disable kill switch once, connect, then enable it."
+            .to_string(),
+        );
       }
       p
     } else {
       return Err(
-        "Kill switch is ON and VPN is disconnected, so internet is intentionally blocked. Switch server while connected (so we can prefetch), or disable kill switch once to cache the new config.".to_string(),
+        "Kill switch is ON and VPN is disconnected, so internet is intentionally blocked. Switch server while connected (so we can prefetch), or disable kill switch once to cache the new config."
+          .to_string(),
       );
     }
   } else {
@@ -855,42 +851,56 @@ async fn vpn_connect(
   #[cfg(target_os = "macos")]
   {
     let openvpn_bin = resolve_openvpn_binary(&app)?;
-    // Helper will run OpenVPN as root and stream logs/status back.
-    macos_helper::helper_connect(&app, state.inner(), openvpn_bin, cfg_path, auth_path).await?;
+    if let Err(e) =
+      macos_helper::helper_connect(&app, state.inner(), openvpn_bin, cfg_path, auth_path).await
+    {
+      // Keep state sane if helper failed
+      set_error_and_disconnect(state.inner(), &app, e.clone()).await;
+      return Err(e);
+    }
     return Ok(());
   }
 
   // --- non-macOS: spawn OpenVPN directly (Linux/Windows) ---
-  let (stop_tx, stop_rx) = tokio::sync::watch::channel(false);
+  #[cfg(not(target_os = "macos"))]
   {
-    let mut g = state.lock().await;
-    g.session = Some(Session { sid, stop_tx });
+    let (stop_tx, stop_rx) = tokio::sync::watch::channel(false);
+    {
+      let mut g = state.lock().await;
+      g.session = Some(Session { sid, stop_tx });
+    }
+
+    tokio::spawn(run_openvpn_session(
+      app,
+      state.inner().clone(),
+      sid,
+      cfg_path,
+      auth_path,
+      stop_rx,
+      CONNECT_WATCHDOG_MS,
+    ));
+
+    Ok(())
   }
-
-  tokio::spawn(run_openvpn_session(
-    app,
-    state.inner().clone(),
-    sid,
-    cfg_path,
-    auth_path,
-    stop_rx,
-    CONNECT_WATCHDOG_MS,
-  ));
-
-  Ok(())
 }
 
 #[tauri::command]
 async fn vpn_disconnect(app: AppHandle<RT>, state: tauri::State<'_, SharedState>) -> Result<(), String> {
   #[cfg(target_os = "macos")]
   {
-    // macOS uses helper. No sudo app nonsense.
-    macos_helper::helper_disconnect(&app, state.inner()).await?;
+    if let Err(e) = macos_helper::helper_disconnect(&app, state.inner()).await {
+      set_error_and_disconnect(state.inner(), &app, e.clone()).await;
+      return Err(e);
+    }
+    set_status(state.inner(), &app, UiStatus::Disconnected).await;
     return Ok(());
   }
 
-  stop_current_session(&app, state.inner()).await;
-  Ok(())
+  #[cfg(not(target_os = "macos"))]
+  {
+    stop_current_session(&app, state.inner()).await;
+    Ok(())
+  }
 }
 
 #[tauri::command]
@@ -998,6 +1008,9 @@ fn main() {
   tauri::Builder::default()
     .setup(|app| {
       let state: SharedState = std::sync::Arc::new(Mutex::new(VpnInner::default()));
+      #[cfg(target_os = "macos")]
+      let state_for_helper = state.clone();
+
       app.manage(state);
 
       let tray_handles = setup_tray(&app.handle())?;
@@ -1009,8 +1022,7 @@ fn main() {
       #[cfg(target_os = "macos")]
       {
         let app_handle = app.handle().clone();
-        let st = app.state::<SharedState>().inner().clone();
-        macos_helper::spawn_helper_subscriber(app_handle, st);
+        macos_helper::spawn_helper_subscriber(app_handle, state_for_helper);
       }
 
       // X -> hide to tray (instead of closing)
