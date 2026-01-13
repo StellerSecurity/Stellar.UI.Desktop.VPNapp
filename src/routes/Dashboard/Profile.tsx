@@ -329,7 +329,7 @@ export const Profile: React.FC = () => {
                 Kill switch
               </span>
                 <span className="text-[11px] text-[#62626A] mt-1">
-                Blocks internet when VPN is down. Linux may require CAP_NET_ADMIN/root.
+                Blocks internet when VPN is down.
               </span>
               </div>
 
