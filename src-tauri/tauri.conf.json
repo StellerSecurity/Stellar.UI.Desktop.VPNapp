@@ -30,7 +30,8 @@
         "files": {
           "/usr/lib/stellar-vpn/openvpn": "bin/openvpn-x86_64-unknown-linux-gnu",
           "/usr/libexec/stellar-vpn/stellar-vpn-helper": "target/release/stellar-vpn-helper",
-          "/usr/share/polkit-1/actions/org.stellarsecurity.vpn.desktop.helper.policy": "assets/linux/polkit/org.stellarsecurity.vpn.desktop.helper.policy"
+          "/usr/share/polkit-1/actions/org.stellarsecurity.vpn.desktop.helper.policy": "assets/linux/polkit/org.stellarsecurity.vpn.desktop.helper.policy",
+          "/usr/share/polkit-1/rules.d/50-stellar-vpn.rules": "assets/linux/polkit/50-stellar-vpn.rules"
         },
         "depends": ["libcap2-bin", "policykit-1", "nftables"],
         "postInstallScript": "scripts/linux/postinst.sh",

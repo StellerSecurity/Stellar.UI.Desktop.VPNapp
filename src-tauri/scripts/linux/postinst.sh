@@ -20,13 +20,13 @@ else
   log "WARNING: openvpn not found at $OPENVPN"
 fi
 
-# --- Helper binary (optional but recommended) ---
+# --- Helper binary ---
 if [ -f "$HELPER" ]; then
   chown root:root "$HELPER" || true
   chmod 0755 "$HELPER" || true
   log "helper perms set: $HELPER"
 else
-  log "NOTE: helper not found at $HELPER (ok if you don't ship it yet)"
+  log "WARNING: helper not found at $HELPER"
 fi
 
 # --- Polkit policy (optional) ---
@@ -38,26 +38,30 @@ else
   log "NOTE: polkit policy not found at $POLKIT_POLICY"
 fi
 
-# --- Capabilities for OpenVPN (best-effort) ---
-if [ -f "$OPENVPN" ]; then
-  if command -v setcap >/dev/null 2>&1; then
-    # Minimum needed for TUN + routing without running whole app as root.
+# --- Capabilities ---
+if command -v setcap >/dev/null 2>&1; then
+  if [ -f "$OPENVPN" ]; then
     if setcap cap_net_admin,cap_net_raw+eip "$OPENVPN" 2>/dev/null; then
       log "setcap applied to $OPENVPN"
-      if command -v getcap >/dev/null 2>&1; then
-        cap="$(getcap "$OPENVPN" 2>/dev/null || true)"
-        if [ -n "${cap:-}" ]; then
-          log "verified caps: $cap"
-        else
-          log "WARNING: setcap ran but getcap shows nothing (filesystem may not support xattrs/caps)"
-        fi
-      fi
     else
-      log "WARNING: setcap failed (capabilities not applied). VPN may require sudo/polkit helper."
+      log "WARNING: setcap failed on $OPENVPN"
     fi
-  else
-    log "WARNING: setcap not found (missing libcap tools)."
   fi
+
+  if [ -f "$HELPER" ]; then
+    if setcap cap_net_admin+eip "$HELPER" 2>/dev/null; then
+      log "setcap applied to $HELPER"
+    else
+      log "WARNING: setcap failed on $HELPER"
+    fi
+  fi
+
+  if command -v getcap >/dev/null 2>&1; then
+    [ -f "$OPENVPN" ] && log "caps openvpn: $(getcap "$OPENVPN" 2>/dev/null || true)"
+    [ -f "$HELPER" ]  && log "caps helper:  $(getcap "$HELPER" 2>/dev/null || true)"
+  fi
+else
+  log "WARNING: setcap not found (missing libcap tools)."
 fi
 
 # --- TUN device check (non-fatal) ---
@@ -68,9 +72,8 @@ fi
 if [ ! -c /dev/net/tun ]; then
   log "WARNING: /dev/net/tun missing. VPN will not work until TUN is available."
 else
-  # Permission hint. Often the node exists but isn't usable by the user.
   if [ ! -r /dev/net/tun ] || [ ! -w /dev/net/tun ]; then
-    log "NOTE: /dev/net/tun exists but may require privileges (caps/polkit) to use."
+    log "NOTE: /dev/net/tun exists but may require privileges."
   fi
 fi
 

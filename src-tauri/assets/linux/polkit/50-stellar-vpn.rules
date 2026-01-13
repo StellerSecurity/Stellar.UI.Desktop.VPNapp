@@ -1,0 +1,7 @@
+polkit.addRule(function(action, subject) {
+  if (action.id === "org.stellarsecurity.vpn.desktop.helper" &&
+      subject.local === true &&
+      subject.active === true) {
+    return polkit.Result.YES;
+  }
+});

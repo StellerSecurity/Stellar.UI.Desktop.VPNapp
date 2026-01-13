@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AuthShell } from "../../components/layout/AuthShell";
-import { Button } from "../../components/ui/Button";
 import { useSubscription } from "../../contexts/SubscriptionContext";
 import {
   getAccountNumber,
@@ -59,12 +58,25 @@ export const Profile: React.FC = () => {
 
   const [showLogout, setShowLogout] = useState(false);
 
-  const [autoConnect, setAutoConnectState] = useState(true); // default ON
+  const [autoConnect, setAutoConnectState] = useState(true);
   const [killSwitch, setKillSwitch] = useState(false);
 
   const [accountNumber, setAccountNumber] = useState<string | null>(null);
   const [deviceName, setDeviceName] = useState<string | null>(null);
   const [showCopiedToast, setShowCopiedToast] = useState(false);
+
+  // IMPORTANT: Rust command expects `args` wrapper:
+  // vpn_set_kill_switch(app, state, args: KillSwitchArgs)
+  const setKillSwitchNative = async (enabled: boolean, configPath?: string | null) => {
+    if (!isTauri()) return;
+
+    await invoke("vpn_set_kill_switch", {
+      args: {
+        enabled,
+        config_path: configPath ?? null,
+      },
+    });
+  };
 
   useEffect(() => {
     const loadData = async () => {
@@ -74,8 +86,6 @@ export const Profile: React.FC = () => {
 
       setAccountNumber(account);
       setDeviceName(device);
-
-      // Default ON unless the user explicitly turned it off before
       setAutoConnectState(autoConnectPref ?? true);
 
       if (isTauri()) {
@@ -137,20 +147,15 @@ export const Profile: React.FC = () => {
 
   const handleLogout = async () => {
     if (isTauri()) {
-      // Always clean up VPN first
       try {
         await invoke("vpn_disconnect");
       } catch {
         // ignore
       }
 
-      // Optional: disable kill switch on logout to avoid "no internet surprise"
+      // Disable kill switch on logout to avoid "no internet surprise"
       try {
-        await invoke("vpn_set_kill_switch", {
-          enabled: false,
-          config_path: null, // ✅ snake_case
-          _bearer_token: null, // ✅ matches Rust arg name
-        });
+        await setKillSwitchNative(false, null);
       } catch {
         // ignore
       }
@@ -162,8 +167,6 @@ export const Profile: React.FC = () => {
 
   const toggleKillSwitch = async () => {
     const next = !killSwitch;
-
-    // optimistic UI
     setKillSwitch(next);
 
     if (!isTauri()) return;
@@ -171,6 +174,7 @@ export const Profile: React.FC = () => {
     try {
       if (next) {
         const server = await getSelectedServer().catch(() => null);
+
         const cfg =
             (typeof (server as any)?.configUrl === "string" && (server as any).configUrl.trim())
                 ? (server as any).configUrl.trim()
@@ -178,27 +182,30 @@ export const Profile: React.FC = () => {
                     ? (server as any).config_url.trim()
                     : DEFAULT_OVPN_URL;
 
-        await invoke("vpn_set_kill_switch", {
-          enabled: true,
-          config_path: cfg, // ✅ snake_case (this was your bug)
-          _bearer_token: null,
-        });
+        await setKillSwitchNative(true, cfg);
       } else {
-        await invoke("vpn_set_kill_switch", {
-          enabled: false,
-          config_path: null, // ✅ snake_case
-          _bearer_token: null,
-        });
+        await setKillSwitchNative(false, null);
       }
     } catch (e: any) {
-      console.error("Kill switch error:", e);
+      console.error("Kill switch error (raw):", e);
 
-      // revert UI on failure
+      // revert UI
       setKillSwitch(!next);
 
-      alert(
-          "Kill switch failed.\n\nOn Linux this requires root/CAP_NET_ADMIN until we ship a privileged helper.\n(Your postinst setcap helps OpenVPN, but nftables rules still need net admin.)"
-      );
+      const msg =
+          typeof e === "string"
+              ? e
+              : e?.message
+                  ? e.message
+                  : (() => {
+                    try {
+                      return JSON.stringify(e, null, 2);
+                    } catch {
+                      return String(e);
+                    }
+                  })();
+
+      alert(`Kill switch failed:\n\n${msg}`);
     }
   };
 
@@ -206,7 +213,6 @@ export const Profile: React.FC = () => {
       <AuthShell title="Profile" onBack={() => navigate("/dashboard")}>
         <div className="space-y-4 flex-1 flex flex-col">
           <div className="px-6 flex flex-col gap-4">
-            {/* Account card */}
             <div className="bg-white rounded-2xl p-4 text-sm border border-[#EAEAF0] transition-all duration-200 hover:shadow-[0_10px_30px_rgba(11,12,25,0.06)] hover:-translate-y-[1px]">
               <div className="flex justify-between items-center mb-2">
                 <div>
@@ -255,7 +261,6 @@ export const Profile: React.FC = () => {
               </div>
             </div>
 
-            {/* Expires card */}
             <div className="bg-white rounded-2xl flex-col p-4 text-sm flex items-center justify-between border border-[#EAEAF0] transition-all duration-200 hover:shadow-[0_10px_30px_rgba(11,12,25,0.06)] hover:-translate-y-[1px]">
               <div className="w-full">
                 <div className="flex items-center justify-between mb-3">
@@ -287,9 +292,7 @@ export const Profile: React.FC = () => {
             </div>
           </div>
 
-          {/* Settings */}
           <div className="px-5 mt-10 bg-white rounded-2xl flex-1 pt-6 pb-6 border border-[#EAEAF0]">
-            {/* Auto connect */}
             <div className="flex items-center justify-between text-sm mb-6 pb-6 border-b border-[#EAEAF0]">
             <span className="text-[14px] font-semibold text-[#0B0C19] flex items-center gap-2">
               <img src="/icons/network.svg" alt="Network" className="w-11 h-11" />
@@ -319,7 +322,6 @@ export const Profile: React.FC = () => {
               </button>
             </div>
 
-            {/* Kill switch */}
             <div className="flex items-center justify-between text-sm mb-6 pb-6 border-b border-[#EAEAF0]">
               <div className="flex flex-col">
               <span className="text-[14px] font-semibold text-[#0B0C19] flex items-center gap-2">
@@ -327,7 +329,7 @@ export const Profile: React.FC = () => {
                 Kill switch
               </span>
                 <span className="text-[11px] text-[#62626A] mt-1">
-                Blocks internet when VPN is down. Linux needs CAP_NET_ADMIN/root.
+                Blocks internet when VPN is down. Linux may require CAP_NET_ADMIN/root.
               </span>
               </div>
 
@@ -350,7 +352,6 @@ export const Profile: React.FC = () => {
               </button>
             </div>
 
-            {/* Logout */}
             <button
                 type="button"
                 onClick={() => setShowLogout(true)}
@@ -362,7 +363,6 @@ export const Profile: React.FC = () => {
           </div>
         </div>
 
-        {/* Logout modal */}
         {showLogout && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-50">
               <div className="text-center rounded-2xl pt-12 pb-8 px-6 w-full max-w-[280px] mx-4 logout-screen bg-[#F6F6FD] border border-[#EAEAF0] shadow-[0_20px_60px_rgba(0,0,0,0.18)]">

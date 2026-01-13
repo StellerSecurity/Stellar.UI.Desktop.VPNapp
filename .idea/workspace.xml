@@ -4,17 +4,16 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="45de0aa4-b568-4cf0-89f1-da837d51870b" name="Changes" comment="Updates">
-      <change afterPath="$PROJECT_DIR$/src-tauri/assets/linux/polkit/org.stellarsecurity.vpn.desktop.helper.policy" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src-tauri/bin/stellar-vpn-helper.rs" afterDir="false" />
+    <list default="true" id="45de0aa4-b568-4cf0-89f1-da837d51870b" name="Changes" comment="kill switch">
+      <change afterPath="$PROJECT_DIR$/src-tauri/assets/linux/polkit/50-stellar-vpn.rules" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/dist/assets/index-BVGzl0kp.js" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/dist/assets/index-a4rHIE36.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/dist/assets/index-aGFo7Wj7.css" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/dist/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/dist/index.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src-tauri/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/Cargo.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src-tauri/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src-tauri/assets/linux/polkit/org.stellarsecurity.vpn.desktop.helper.policy" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/assets/linux/polkit/org.stellarsecurity.vpn.desktop.helper.policy" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src-tauri/bin/stellar-vpn-helper.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/bin/stellar-vpn-helper.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src-tauri/scripts/linux/postinst.sh" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/scripts/linux/postinst.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src-tauri/scripts/linux/prerm.sh" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/scripts/linux/prerm.sh" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src-tauri/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/src/main.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src-tauri/tauri.conf.json" beforeDir="false" afterPath="$PROJECT_DIR$/src-tauri/tauri.conf.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/routes/Dashboard/Profile.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/routes/Dashboard/Profile.tsx" afterDir="false" />
@@ -110,7 +109,7 @@
       <workItem from="1768049873987" duration="2000" />
       <workItem from="1768067910043" duration="5490000" />
       <workItem from="1768073487966" duration="10579000" />
-      <workItem from="1768140500006" duration="44388000" />
+      <workItem from="1768140500006" duration="65630000" />
     </task>
     <task id="LOCAL-00001" summary="Always on VPN">
       <option name="closed" value="true" />
@@ -232,7 +231,15 @@
       <option name="project" value="LOCAL" />
       <updated>1768231744142</updated>
     </task>
-    <option name="localTasksCounter" value="16" />
+    <task id="LOCAL-00016" summary="kill switch">
+      <option name="closed" value="true" />
+      <created>1768243683910</created>
+      <option name="number" value="00016" />
+      <option name="presentableId" value="LOCAL-00016" />
+      <option name="project" value="LOCAL" />
+      <updated>1768243683910</updated>
+    </task>
+    <option name="localTasksCounter" value="17" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -248,6 +255,7 @@
     <MESSAGE value="Bug fixes, animations and more." />
     <MESSAGE value="Added flyover + animation" />
     <MESSAGE value="Updates" />
-    <option name="LAST_COMMIT_MESSAGE" value="Updates" />
+    <MESSAGE value="kill switch" />
+    <option name="LAST_COMMIT_MESSAGE" value="kill switch" />
   </component>
 </project>
