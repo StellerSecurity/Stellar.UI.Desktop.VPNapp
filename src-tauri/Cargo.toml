@@ -31,6 +31,7 @@ hex = "0.4"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "process", "io-util", "net", "sync", "fs"] }
 
 fix-path-env = { git = "https://github.com/tauri-apps/fix-path-env-rs" }
+tauri-plugin-os = "2"
 
 [[bin]]
 name = "stellar-vpn-desktop"
