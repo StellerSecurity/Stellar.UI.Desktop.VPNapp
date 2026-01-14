@@ -44,3 +44,8 @@ path = "bin/stellar-vpn-helper.rs"
 [[bin]]
 name = "stellar-vpn-helper-macos"
 path = "bin/stellar-vpn-helper-macos.rs"
+required-features = ["macos-build"]
+
+[features]
+default = []
+macos-build = []
