@@ -31,6 +31,56 @@ type Country = {
 // Same key your Dashboard uses (prevents auto-reconnect logic fighting you)
 const LS_MANUAL_DISABLED = "vpn_manual_disabled";
 
+// --- Server list cache (stale-while-revalidate) ---
+const SERVER_CACHE_KEY = "stellar_vpn_servers_cache_v1";
+
+// “Fresh” window: use cache instantly and still refresh in background
+const SERVER_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
+
+// “Max stale” fallback: if network fails, still allow old list (offline mode)
+const SERVER_CACHE_MAX_STALE_MS = 1000 * 60 * 60 * 24 * 30; // 30 days
+
+type ServerCachePayload = {
+  ts: number;
+  servers: VpnServer[];
+};
+
+function readServerCache(): ServerCachePayload | null {
+  try {
+    const raw = window.localStorage.getItem(SERVER_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as ServerCachePayload;
+    if (!parsed || typeof parsed.ts !== "number" || !Array.isArray(parsed.servers)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeServerCache(servers: VpnServer[]) {
+  try {
+    const payload: ServerCachePayload = { ts: Date.now(), servers };
+    window.localStorage.setItem(SERVER_CACHE_KEY, JSON.stringify(payload));
+  } catch {
+    // ignore
+  }
+}
+
+function serversRoughlyEqual(a: VpnServer[], b: VpnServer[]): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  if (a.length !== b.length) return false;
+
+  // cheap-ish comparison: ids + config_url
+  for (let i = 0; i < a.length; i++) {
+    const A = a[i] as any;
+    const B = b[i] as any;
+    if ((A?.id ?? "") !== (B?.id ?? "")) return false;
+    if ((A?.config_url ?? "") !== (B?.config_url ?? "")) return false;
+  }
+  return true;
+}
+
 function transformServerList(servers: VpnServer[]): Country[] {
   const countriesMap = new Map<string, Country>();
 
@@ -95,6 +145,7 @@ export const ChangeLocation: React.FC = () => {
   const [countriesData, setCountriesData] = useState<Country[]>([]);
   const [rawServers, setRawServers] = useState<VpnServer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [selectingServerId, setSelectingServerId] = useState<string | null>(null);
@@ -132,71 +183,145 @@ export const ChangeLocation: React.FC = () => {
       );
     }
 
-    // ✅ IMPORTANT: Tauri expects camelCase argument name
+    // Tauri expects camelCase argument name
     const localPath = await invoke<string>("vpn_prefetch_config", { configPath: trimmed });
 
     if (!localPath || !localPath.trim()) throw new Error("Prefetch returned empty path");
     return localPath.trim();
   }, []);
 
-
   useEffect(() => {
-    const loadServers = async () => {
-      setIsLoading(true);
+    let mounted = true;
+
+    const hydrateFromCache = () => {
+      const cached = readServerCache();
+      if (!cached) return false;
+
+      const age = Date.now() - cached.ts;
+      if (age > SERVER_CACHE_MAX_STALE_MS) return false;
+
+      const transformed = transformServerList(cached.servers);
+      if (!mounted) return true;
+
+      setRawServers(cached.servers);
+      setCountriesData(transformed);
       setError(null);
+
+      // If cache is fresh, we don’t need the big loader
+      setIsLoading(false);
+
+      // Initialize expanded country once
+      if (!didInitExpandRef.current && transformed.length > 0) {
+        setExpandedCountry(transformed[0].id);
+        didInitExpandRef.current = true;
+      }
+
+      return true;
+    };
+
+    const backgroundRefresh = async () => {
+      // Decide whether to mark as refreshing (only if we already showed cached list)
+      const cached = readServerCache();
+      const hadCache = !!cached && (Date.now() - cached.ts) <= SERVER_CACHE_MAX_STALE_MS;
+      if (hadCache) setIsRefreshing(true);
 
       try {
         const servers = await fetchServerList();
+
+        if (!mounted) return;
+
+        // If empty list, treat as error but don’t wipe a valid cache instantly
         if (!servers || servers.length === 0) {
-          setError("No servers available");
-          setCountriesData([]);
-          setRawServers([]);
+          if (!hadCache) {
+            setError("No servers available");
+            setCountriesData([]);
+            setRawServers([]);
+          }
           return;
+        }
+
+        // Update UI if changed
+        const prev = readServerCache()?.servers ?? [];
+        if (!serversRoughlyEqual(prev, servers)) {
+          writeServerCache(servers);
         }
 
         setRawServers(servers);
         const transformed = transformServerList(servers);
         setCountriesData(transformed);
 
-        let openId: string | null = null;
+        // Expand selection logic only if not initialized yet
+        if (!didInitExpandRef.current) {
+          let openId: string | null = null;
 
-        const q = (searchParams.get("country") || "").trim().toLowerCase();
-        if (q) {
-          const match = transformed.find((c) => (c.countryCode || "").toLowerCase() === q);
-          if (match) openId = match.id;
-        }
+          const q = (searchParams.get("country") || "").trim().toLowerCase();
+          if (q) {
+            const match = transformed.find((c) => (c.countryCode || "").toLowerCase() === q);
+            if (match) openId = match.id;
+          }
 
-        if (!openId) {
-          try {
-            const selected = await getSelectedServer();
-            const ccRaw = (selected as any)?.countryCode ?? (selected as any)?.country ?? null;
-            const cc = typeof ccRaw === "string" ? ccRaw.trim().toLowerCase() : "";
-            if (cc) {
-              const match = transformed.find((c) => (c.countryCode || "").toLowerCase() === cc);
-              if (match) openId = match.id;
+          if (!openId) {
+            try {
+              const selected = await getSelectedServer();
+              const ccRaw = (selected as any)?.countryCode ?? (selected as any)?.country ?? null;
+              const cc = typeof ccRaw === "string" ? ccRaw.trim().toLowerCase() : "";
+              if (cc) {
+                const match = transformed.find((c) => (c.countryCode || "").toLowerCase() === cc);
+                if (match) openId = match.id;
+              }
+            } catch {
+              // ignore
             }
-          } catch {
-            // ignore
+          }
+
+          if (!openId && transformed.length > 0) openId = transformed[0].id;
+
+          if (openId) {
+            setExpandedCountry(openId);
+            didInitExpandRef.current = true;
           }
         }
 
-        if (!openId && transformed.length > 0) openId = transformed[0].id;
-
-        if (openId) {
-          setExpandedCountry(openId);
-          didInitExpandRef.current = true;
-        }
+        setError(null);
       } catch (err) {
-        console.error("Error loading server list:", err);
-        setError("Failed to load server list");
-        setCountriesData([]);
-        setRawServers([]);
+        console.error("Server list refresh failed:", err);
+
+        if (!mounted) return;
+
+        // If we have a cache, keep UI working. If not, show error.
+        const cached = readServerCache();
+        const canFallback = !!cached && (Date.now() - cached.ts) <= SERVER_CACHE_MAX_STALE_MS;
+
+        if (!canFallback) {
+          setError("Failed to load server list");
+          setCountriesData([]);
+          setRawServers([]);
+        }
       } finally {
+        if (!mounted) return;
         setIsLoading(false);
+        setIsRefreshing(false);
       }
     };
 
-    loadServers();
+    // Step 1: show cache instantly if possible
+    const hasCache = hydrateFromCache();
+
+    // Step 2: background refresh (always)
+    // If cache is fresh, still refresh, but quietly.
+    const cached = readServerCache();
+    const cacheAge = cached ? Date.now() - cached.ts : Number.POSITIVE_INFINITY;
+
+    // If we have very fresh cache, you can delay refresh a bit to reduce spam.
+    // (Optional) tweak: refresh only after TTL, but your request said "henter i baggrunden" so we do it always.
+    void backgroundRefresh();
+
+    // If no cache, show loader until network comes back
+    if (!hasCache) setIsLoading(true);
+
+    return () => {
+      mounted = false;
+    };
   }, [searchParams]);
 
   const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -239,7 +364,6 @@ export const ChangeLocation: React.FC = () => {
       }
 
       await setSelectedServer(s.name, cfgToStore, (s.country || "").toLowerCase() || undefined);
-
       backToDashboardAndFocusMap(s.country || null, true);
     } catch (e: any) {
       console.error("Fastest select failed:", e);
@@ -287,6 +411,17 @@ export const ChangeLocation: React.FC = () => {
                     <SkeletonRow className="h-[56px]" />
                     <SkeletonRow className="h-[56px]" />
                   </div>
+                </div>
+            )}
+
+            {!isLoading && (
+                <div className="px-8 pt-4 pb-2 flex items-center justify-between">
+                  <div className="text-[11px] text-[#62626A]">
+                    {isRefreshing ? "Updating server list…" : ""}
+                  </div>
+                  {isRefreshing && (
+                      <div className="w-4 h-4 rounded-full border-2 border-[#62626A]/20 border-t-[#62626A] animate-spin" />
+                  )}
                 </div>
             )}
 
@@ -417,7 +552,6 @@ export const ChangeLocation: React.FC = () => {
                                                     setSelectingServerId(server.id);
 
                                                     try {
-                                                      // Prefetch if needed (kill switch ON + connected)
                                                       const cfgToStore = await ensureLocalConfig(server.config_url);
 
                                                       try {
