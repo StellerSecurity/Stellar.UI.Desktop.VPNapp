@@ -110,8 +110,8 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({
     const poll = async () => {
       await refreshSubscription();
 
-      // Poll every 30 minutes
-      const interval = 30 * 60 * 1000;
+      // Poll every 10 minutes
+      const interval = 10 * 60 * 1000;
 
       pollingTimeoutRef.current = setTimeout(poll, interval);
     };
