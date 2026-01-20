@@ -6,6 +6,7 @@ import React, {
   useRef,
   ReactNode,
 } from "react";
+import { useLocation } from "react-router-dom";
 import {
   fetchHomeData,
   type HomeResponse,
@@ -69,6 +70,8 @@ function writeHomeCache(data: HomeResponse) {
 export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({
                                                                           children,
                                                                         }) => {
+  const location = useLocation();
+
   const [user, setUser] = useState<User | null>(null);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -77,7 +80,16 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({
   const pollingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isPollingRef = useRef(false);
 
+  // Track if we have a token (so we don't refresh while logged out)
+  const tokenRef = useRef<string | null>(null);
+
+  // Prevent overlapping refresh calls (React StrictMode + fast navigation)
+  const refreshInFlightRef = useRef(false);
+
   const refreshSubscription = async () => {
+    if (refreshInFlightRef.current) return;
+    refreshInFlightRef.current = true;
+
     setIsLoading(true);
     setError(null);
 
@@ -99,6 +111,7 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({
       console.error("Error refreshing subscription:", err);
     } finally {
       setIsLoading(false);
+      refreshInFlightRef.current = false;
     }
   };
 
@@ -136,6 +149,8 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({
       const token = await getBearerToken();
       if (!mounted) return;
 
+      tokenRef.current = token || null;
+
       if (!token) {
         // Not logged in -> don't show cached data
         return;
@@ -158,6 +173,23 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Refresh every time user navigates INTO /dashboard
+  useEffect(() => {
+    if (location.pathname !== "/dashboard") return;
+    if (!tokenRef.current) return;
+
+    // If polling somehow isn't running yet, start it (also refreshes immediately)
+    if (!isPollingRef.current) {
+      startPolling();
+      return;
+    }
+
+    // Otherwise just refresh once on dashboard entry
+    void refreshSubscription();
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.key, location.pathname]);
 
   return (
       <SubscriptionContext.Provider
