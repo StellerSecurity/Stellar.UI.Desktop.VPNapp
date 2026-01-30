@@ -1006,6 +1006,8 @@ fn main() {
   let _ = fix_path_env::fix();
 
   tauri::Builder::default()
+    // ✅ Updater plugin (required for `@tauri-apps/plugin-updater`)
+    .plugin(tauri_plugin_updater::Builder::new().build())
     .setup(|app| {
       let state: SharedState = std::sync::Arc::new(Mutex::new(VpnInner::default()));
       #[cfg(target_os = "macos")]
