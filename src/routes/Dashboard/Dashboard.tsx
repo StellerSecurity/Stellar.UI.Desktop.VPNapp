@@ -9,20 +9,21 @@ import {
   getDeviceName,
   fetchServerList,
   getAutoConnect,
+  getVpnAuth
 } from "../../services/api";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { VpnWorldMap } from "../../components/VpnWorldMap";
+
+// ✅ OTA updater (Tauri)
+import { check } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
 
 const isTauri = () =>
     typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 const DEFAULT_OVPN_URL =
     "https://stellarvpnserverstorage.blob.core.windows.net/openvpn/stellar-switzerland.ovpn";
-
-// TEMP TEST CREDS (do NOT ship this)
-const DEFAULT_OVPN_USERNAME = "stvpn_eu_test_1";
-const DEFAULT_OVPN_PASSWORD = "testpassword";
 
 const CONNECT_TIMEOUT_MS = 10_000;
 
@@ -255,6 +256,35 @@ export const Dashboard: React.FC = () => {
     });
   }, []);
 
+  // ✅ OTA update check (runs when user enters Dashboard)
+  const otaCheckedKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isTauri()) return;
+
+    if (otaCheckedKeyRef.current === location.key) return;
+    otaCheckedKeyRef.current = location.key;
+
+    (async () => {
+      try {
+        appendLog("[ui] Checking for updates...");
+        const update = await check();
+        if (update) {
+          appendLog("[ui] Update available. Downloading...");
+          await update.downloadAndInstall();
+          appendLog("[ui] Update installed. Relaunching...");
+          await relaunch();
+        } else {
+          appendLog("[ui] No updates available.");
+        }
+      } catch (e: any) {
+        const msg =
+            typeof e === "string" ? e : e?.message ? String(e.message) : "Unknown error";
+        console.warn("Update check failed:", e);
+        appendLog(`[ui] Update check failed: ${msg}`);
+      }
+    })();
+  }, [location.key, appendLog]);
+
   // ---- Connect attempt tracking + watchdog (prevents infinite "Connecting...") ----
   const connectAttemptIdRef = useRef<number>(0);
 
@@ -291,11 +321,23 @@ export const Dashboard: React.FC = () => {
 
         appendLog(`[ui] Connecting using config: ${configPath}`);
 
+        const vpnAuth = await getVpnAuth();
+
+        if (!vpnAuth?.username || !vpnAuth?.password) {
+          const msg = "Missing VPN credentials. Please log in again.";
+          appendLog(`[ui] ${msg}`);
+          setConnectError(msg);
+          setShowLogs(true);
+          setStatus("disconnected");
+          setManualDisabled(true);
+          return;
+        }
+
         try {
           await invoke("vpn_connect", {
             configPath,
-            username: DEFAULT_OVPN_USERNAME,
-            password: DEFAULT_OVPN_PASSWORD,
+            username: vpnAuth.username,
+            password: vpnAuth.password,
           });
         } catch (e: any) {
           const msg =

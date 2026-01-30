@@ -21,6 +21,7 @@ export async function handleAuthSuccess(
     await storeAuthData(
       authResponse.token,
       authResponse.device_name,
+      authResponse.vpn_auth,
       authResponse.account_number
     );
 

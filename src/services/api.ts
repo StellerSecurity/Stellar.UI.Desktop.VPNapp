@@ -44,12 +44,22 @@ export interface LoginWithAccountNumberRequest {
   account_number: string;
 }
 
+export type VpnAuth = {
+  username: string;
+  password: string;
+};
+
 export interface AuthResponse {
   response_code: number;
-  token: string;
-  device_name: string;
-  account_number?: string; // Only present for account number flows
-  response_message?: string; // Error message if response_code !== 200
+
+  // success
+  token?: string;
+  vpn_auth?: VpnAuth;
+  device_name?: string;
+  account_number?: string;
+
+  // error
+  response_message?: string;
 }
 
 // Password Reset interfaces
@@ -94,6 +104,8 @@ const LS_KEYS = {
   deviceName: "stellar_vpn_device_name",
   accountNumber: "stellar_vpn_account_number",
   autoConnect: "stellar_vpn_auto_connect",
+  vpnUsername: "stellar_vpn_username",
+  vpnPassword: "stellar_vpn_password",
 } as const;
 
 const isTauri =
@@ -198,18 +210,57 @@ export async function getDeviceName(): Promise<string | null> {
   return lsGet(LS_KEYS.deviceName);
 }
 
+export async function getVpnAuth(): Promise<VpnAuth | null> {
+  // If you already have lsGet() + getStore(), use those.
+  // This mirrors your storeAuthData() logic.
+
+  // ---- TAURI STORE FIRST ----
+  try {
+    const isTauri =
+        typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+    if (isTauri) {
+      const store = await getStore(); // same helper you use in storeAuthData()
+      const username = await store.get<string>("vpn_auth_username");
+      const password = await store.get<string>("vpn_auth_password");
+
+      const u = typeof username === "string" ? username.trim() : "";
+      const p = typeof password === "string" ? password.trim() : "";
+
+      if (u && p) return { username: u, password: p };
+    }
+  } catch {
+    // ignore, fallback below
+  }
+
+  // ---- FALLBACK: localStorage ----
+  try {
+    const u = (window.localStorage.getItem("vpn_auth_username") || "").trim();
+    const p = (window.localStorage.getItem("vpn_auth_password") || "").trim();
+    if (u && p) return { username: u, password: p };
+  } catch {
+    // ignore
+  }
+
+  return null;
+}
+
 /**
  * Store authentication data in secure storage
  */
 export async function storeAuthData(
     token: string,
     deviceName: string,
+    vpnAuth: VpnAuth,
     accountNumber?: string
 ): Promise<void> {
   if (isTauri) {
     try {
       const store = await getStore();
       await store.set("bearer_token", token);
+      await store.set("vpn_auth_username", vpnAuth.username);
+      await store.set("vpn_auth_password", vpnAuth.password);
+
       await store.set("device_name", deviceName);
       if (accountNumber) {
         await store.set("account_number", accountNumber);
@@ -219,9 +270,12 @@ export async function storeAuthData(
     } catch (error) {
       console.warn("Tauri store not available, using localStorage:", error);
     }
+    console.log(vpnAuth.username);
 
     lsSet(LS_KEYS.bearerToken, token);
     lsSet(LS_KEYS.deviceName, deviceName);
+    lsSet(LS_KEYS.vpnUsername, vpnAuth.username);
+    lsSet(LS_KEYS.vpnPassword, vpnAuth.password);
     if (accountNumber) lsSet(LS_KEYS.accountNumber, accountNumber);
     return;
   }
@@ -231,18 +285,11 @@ export async function storeAuthData(
   if (accountNumber) lsSet(LS_KEYS.accountNumber, accountNumber);
 }
 
-/**
- * Store bearer token in secure storage (legacy function for backward compatibility)
- */
-export async function setBearerToken(token: string): Promise<void> {
-  await storeAuthData(token, "");
-}
 
 /**
  * Clear all authentication data from storage
  */
 export async function clearAuthData(): Promise<void> {
-
   try {
     localStorage.removeItem("stellar_vpn_home_cache_v1");
   } catch {
@@ -252,9 +299,14 @@ export async function clearAuthData(): Promise<void> {
   if (isTauri) {
     try {
       const store = await getStore();
+
       await store.delete("bearer_token");
       await store.delete("device_name");
       await store.delete("account_number");
+
+      await store.delete("vpn_auth_username");
+      await store.delete("vpn_auth_password");
+
       await store.save();
       return;
     } catch (error) {
@@ -264,20 +316,23 @@ export async function clearAuthData(): Promise<void> {
     lsRemove(LS_KEYS.bearerToken);
     lsRemove(LS_KEYS.deviceName);
     lsRemove(LS_KEYS.accountNumber);
+
+    // ✅ clear VPN credentials too (localStorage fallback)
+    lsRemove(LS_KEYS.vpnUsername);
+    lsRemove(LS_KEYS.vpnPassword);
+
     return;
   }
 
   lsRemove(LS_KEYS.bearerToken);
   lsRemove(LS_KEYS.deviceName);
   lsRemove(LS_KEYS.accountNumber);
+
+  // ✅ clear VPN credentials too (web)
+  lsRemove(LS_KEYS.vpnUsername);
+  lsRemove(LS_KEYS.vpnPassword);
 }
 
-/**
- * Remove bearer token from storage (legacy function for backward compatibility)
- */
-export async function clearBearerToken(): Promise<void> {
-  await clearAuthData();
-}
 
 // ---------- VPN preferences ----------
 
