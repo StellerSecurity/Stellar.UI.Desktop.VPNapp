@@ -2,7 +2,292 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+    font-family: 'Silka';
+  src: url('/fonts/silka.woff2') format('woff2'),
+       url('/fonts/silka.woff') format('woff'),
+       url('/fonts/silka.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+html {
+  font-size: 80%; /* Reduce base font size by 20% to match window size reduction */
+}
+
 body {
   @apply antialiased;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", sans-serif;
+  font-family: "Poppins", system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", sans-serif;
 }
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin-top: 0px;
+  overflow: hidden; /* <- stopper hele app’en i at scrolle */
+  overscroll-behavior: none;
+}
+
+.pb-15 {
+  padding-bottom: 3.5rem;
+}
+
+
+/* Scale down all icons - reduce by 40% (0.6 scale) to make them appropriately sized */
+img[src*="icons"] {
+  transform: scale(0.6) !important;
+  transform-origin: center;
+  display: inline-block; /* Ensure transform works properly */
+}
+
+/* Note: Spacing (padding, margins, gaps) is already scaled by 20% because:
+   - html { font-size: 80% } scales all rem-based values (which Tailwind uses)
+   - This automatically reduces padding, margins, gaps, etc. proportionally
+*/
+
+/* Ensure Tailwind's font-silka utility actually applies Silka.
+   The body font rule above was overriding it due to CSS order, so we reinforce it here. */
+.font-silka {
+  font-family: "Silka", sans-serif !important;
+}
+
+.change-location-special {
+  position: absolute;
+  width: 100%;
+  border-radius: 0;
+  top: 20px;
+  height: 100%;
+  overflow-y: auto;
+  text-align: left;
+  background: #F6F6FD;
+  padding-bottom: 0;
+}
+
+.change-location-special .custom-scrollbar {
+    margin-left: -20px;
+    margin-right: -22px;
+}
+
+.profile-special {
+  position: absolute;
+  top: 0;
+  width: 100%;
+  bottom: 0;
+  border-radius: 0;
+  background: #F6F6FD;
+  padding-left: 0.2rem;
+  padding-right: 0.2rem;
+      display: flex;
+    flex-direction: column;
+    padding-bottom: 0;
+
+}
+
+.subscribe-special {
+  width: 100%;
+  border-radius: 0;
+  background: #F6F6FD;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 1.3rem 1.3rem 0.5rem 1.3rem;
+  position: static;
+}
+
+.subscribe-container {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    position: relative;
+}
+
+.subscribe-special {
+    border-top-left-radius: 36px;
+    border-top-right-radius: 39px;
+}
+
+
+.subscribe-container > div:first-child {
+    min-height: 40vh;
+}
+
+/* Cross icon for back button in subscribe page */
+.subscribe-special .back-btn {
+  position: static;
+}
+
+.subscribe-special .back-btn button {
+  position: absolute;
+  z-index: 9999;
+  top: 4rem;
+  left: 1rem;
+  width: 20px;
+  height: 20px;
+  color: #fff;
+}
+
+.subscribe-special .back-btn button img {
+  display: none;
+}
+
+.subscribe-special .back-btn button::before,
+.subscribe-special .back-btn button::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 1px;
+  height: 22px;
+  background-color: white;
+  transform-origin: center;
+}
+
+.subscribe-special .back-btn button::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.subscribe-special .back-btn button::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+/* Custom thin scrollbar */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #D6D6E0 transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px !important;
+  height: 6px !important;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent !important;
+  border-radius: 10px !important;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #D6D6E0 !important;
+  border-radius: 10px !important;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #B0B0C0 !important;
+}
+
+/* Custom scrollbar for subscribe-container */
+.subscribe-container {
+  scrollbar-width: thin;
+  scrollbar-color: #D6D6E0 transparent;
+}
+
+.subscribe-container::-webkit-scrollbar {
+  width: 4px !important;
+  height: 4px !important;
+}
+
+.subscribe-container::-webkit-scrollbar-track {
+  border-radius: 10px !important;
+  background-color: #F6F6FD;
+}
+
+.subscribe-container::-webkit-scrollbar-thumb {
+  background: #2761FC !important;
+  border-radius: 10px !important;
+}
+
+.subscribe-container::-webkit-scrollbar-thumb:hover {
+  background: #B0B0C0 !important;
+}
+
+/* Custom scrollbar for change-location-special */
+.change-location-special {
+  scrollbar-width: thin;
+  scrollbar-color: #D6D6E0 transparent;
+}
+
+.change-location-special::-webkit-scrollbar {
+  width: 4px !important;
+  height: 4px !important;
+}
+
+.change-location-special::-webkit-scrollbar-track {
+  background: transparent !important;
+  border-radius: 10px !important;
+}
+
+.change-location-special::-webkit-scrollbar-thumb {
+  background: #D6D6E0 !important;
+  border-radius: 10px !important;
+}
+
+.change-location-special::-webkit-scrollbar-thumb:hover {
+  background: #B0B0C0 !important;
+}
+
+/* Slide-up animation for congrats modal */
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+/* Fade-in animation for toast */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -10px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+/* Loading spinner */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+/* Spinner for outline button variant */
+.spinner-outline {
+  border: 2px solid rgba(39, 97, 252, 0.3) !important;
+  border-top-color: #2761FC !important;
+}
+
+/* Back arrow rotation for change location */
+.backk-arrow {
+  transform: rotate(-90deg);
+}
+

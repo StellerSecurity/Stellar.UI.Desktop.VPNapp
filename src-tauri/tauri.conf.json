@@ -4,25 +4,63 @@
   "version": "0.1.0",
   "identifier": "org.stellarsecurity.vpn.desktop",
   "build": {
-    "beforeBuildCommand": "npm run build:web",
     "beforeDevCommand": "npm run dev",
-    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "npm run build:web",
+    "devUrl": "http://localhost:5176",
     "frontendDist": "../dist"
   },
   "app": {
-    "security": {
-      "csp": null
-    },
     "windows": [
       {
         "title": "Stellar VPN",
-        "width": 1200,
-        "height": 720,
-        "resizable": true,
-        "fullscreen": false
+        "width": 312,
+        "height": 640,
+        "resizable": false,
+        "fullscreen": false,
+        "devtools": true
       }
-    ]
+    ],
+    "security": {
+      "csp": null,
+      "capabilities": ["main-capability"]
+    }
   },
-  "bundle": {},
-  "plugins": {}
+  "bundle": {
+    "active": true,
+    "targets": ["deb", "rpm", "app", "dmg"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": [
+      "bin/openvpn-aarch64-apple-darwin",
+      "bin/openvpn-x86_64-apple-darwin"
+    ],
+    "linux": {
+      "deb": {
+        "files": {
+          "/usr/lib/stellar-vpn/openvpn": "bin/openvpn-x86_64-unknown-linux-gnu",
+          "/usr/libexec/stellar-vpn/stellar-vpn-helper": "target/release/stellar-vpn-helper",
+          "/usr/share/polkit-1/actions/org.stellarsecurity.vpn.desktop.helper.policy": "assets/linux/polkit/org.stellarsecurity.vpn.desktop.helper.policy",
+          "/usr/share/polkit-1/rules.d/50-stellar-vpn.rules": "assets/linux/polkit/50-stellar-vpn.rules"
+        },
+        "depends": ["libcap2-bin", "policykit-1", "nftables"],
+        "postInstallScript": "scripts/linux/postinst.sh",
+        "preRemoveScript": "scripts/linux/prerm.sh"
+      },
+      "rpm": {
+        "files": {
+          "/usr/lib/stellar-vpn/openvpn": "bin/openvpn-x86_64-unknown-linux-gnu",
+          "/usr/libexec/stellar-vpn/stellar-vpn-helper": "target/release/stellar-vpn-helper",
+          "/usr/share/polkit-1/actions/org.stellarsecurity.vpn.desktop.helper.policy": "assets/linux/polkit/org.stellarsecurity.vpn.desktop.helper.policy"
+        },
+        "depends": ["libcap", "polkit", "nftables"],
+        "postInstallScript": "scripts/linux/postinst.sh",
+        "preRemoveScript": "scripts/linux/prerm.sh"
+      }
+    }
+  }
 }

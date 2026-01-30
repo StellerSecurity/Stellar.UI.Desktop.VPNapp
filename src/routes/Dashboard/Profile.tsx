@@ -1,86 +1,395 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AuthShell } from "../../components/layout/AuthShell";
-import { Button } from "../../components/ui/Button";
+import { useSubscription } from "../../contexts/SubscriptionContext";
+import {
+  getAccountNumber,
+  getDeviceName,
+  clearAuthData,
+  getAutoConnect,
+  setAutoConnect,
+  getSelectedServer,
+} from "../../services/api";
+import { invoke } from "@tauri-apps/api/core";
+
+const isTauri = () =>
+    typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+const DEFAULT_OVPN_URL =
+    "https://stellarvpnserverstorage.blob.core.windows.net/openvpn/stellar-switzerland.ovpn";
+
+type ExpiresStatus = "ok" | "warning" | "expired" | "unknown";
+
+function formatAccountNumber(account: string | null): string {
+  if (!account) return "N/A";
+  const cleaned = account.replace(/\s/g, "");
+  return cleaned.match(/.{1,4}/g)?.join(" ") || account;
+}
+
+function formatExpirationDate(dateString: string | undefined): string {
+  if (!dateString) return "N/A";
+  try {
+    const date = new Date(dateString.replace(" ", "T"));
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}.${month}.${day}`;
+  } catch {
+    return "N/A";
+  }
+}
+
+const pillClassForStatus = (s: ExpiresStatus) => {
+  switch (s) {
+    case "ok":
+      return "text-emerald-700 bg-emerald-50 border-emerald-200";
+    case "warning":
+      return "text-amber-700 bg-amber-50 border-amber-200";
+    case "expired":
+      return "text-red-600 bg-red-50 border-red-200";
+    default:
+      return "text-[#62626A] bg-[#F6F6FD] border-[#EAEAF0]";
+  }
+};
 
 export const Profile: React.FC = () => {
   const navigate = useNavigate();
+  const { subscription } = useSubscription();
+
   const [showLogout, setShowLogout] = useState(false);
 
+  const [autoConnect, setAutoConnectState] = useState(true);
+  const [killSwitch, setKillSwitch] = useState(false);
+
+  const [accountNumber, setAccountNumber] = useState<string | null>(null);
+  const [deviceName, setDeviceName] = useState<string | null>(null);
+  const [showCopiedToast, setShowCopiedToast] = useState(false);
+
+  // IMPORTANT: Rust command expects `args` wrapper:
+  // vpn_set_kill_switch(app, state, args: KillSwitchArgs)
+  const setKillSwitchNative = async (enabled: boolean, configPath?: string | null) => {
+    if (!isTauri()) return;
+
+    await invoke("vpn_set_kill_switch", {
+      args: {
+        enabled,
+        config_path: configPath ?? null,
+      },
+    });
+  };
+
+  useEffect(() => {
+    const loadData = async () => {
+      const account = await getAccountNumber();
+      const device = await getDeviceName();
+      const autoConnectPref = await getAutoConnect();
+
+      setAccountNumber(account);
+      setDeviceName(device);
+      setAutoConnectState(autoConnectPref ?? true);
+
+      if (isTauri()) {
+        try {
+          const ks = await invoke<boolean>("vpn_kill_switch_enabled");
+          setKillSwitch(Boolean(ks));
+        } catch {
+          // ignore
+        }
+      }
+    };
+
+    loadData();
+  }, []);
+
+  const expiresDays = subscription?.days_remaining;
+  const expiresStatus: ExpiresStatus =
+      expiresDays === undefined || expiresDays === null
+          ? "unknown"
+          : expiresDays <= 0
+              ? "expired"
+              : expiresDays <= 3
+                  ? "warning"
+                  : "ok";
+
+  const expiresLabel =
+      expiresDays === undefined || expiresDays === null
+          ? "N/A"
+          : expiresDays <= 0
+              ? "Expired"
+              : `In ${expiresDays} ${expiresDays === 1 ? "day" : "days"}`;
+
+  const handleCopyAccount = async () => {
+    if (!accountNumber) return;
+
+    try {
+      const cleaned = accountNumber.replace(/\s/g, "");
+      await navigator.clipboard.writeText(cleaned);
+      setShowCopiedToast(true);
+      setTimeout(() => setShowCopiedToast(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy:", err);
+      const textArea = document.createElement("textarea");
+      textArea.value = accountNumber.replace(/\s/g, "");
+      textArea.style.position = "fixed";
+      textArea.style.opacity = "0";
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand("copy");
+        setShowCopiedToast(true);
+        setTimeout(() => setShowCopiedToast(false), 2000);
+      } catch (fallbackErr) {
+        console.error("Fallback copy failed:", fallbackErr);
+      }
+      document.body.removeChild(textArea);
+    }
+  };
+
+  const handleLogout = async () => {
+    if (isTauri()) {
+      try {
+        await invoke("vpn_disconnect");
+      } catch {
+        // ignore
+      }
+
+      // Disable kill switch on logout to avoid "no internet surprise"
+      try {
+        await setKillSwitchNative(false, null);
+      } catch {
+        // ignore
+      }
+    }
+
+    await clearAuthData();
+    navigate("/welcome");
+  };
+
+  const toggleKillSwitch = async () => {
+    const next = !killSwitch;
+    setKillSwitch(next);
+
+    if (!isTauri()) return;
+
+    try {
+      if (next) {
+        const server = await getSelectedServer().catch(() => null);
+
+        const cfg =
+            (typeof (server as any)?.configUrl === "string" && (server as any).configUrl.trim())
+                ? (server as any).configUrl.trim()
+                : (typeof (server as any)?.config_url === "string" && (server as any).config_url.trim())
+                    ? (server as any).config_url.trim()
+                    : DEFAULT_OVPN_URL;
+
+        await setKillSwitchNative(true, cfg);
+      } else {
+        await setKillSwitchNative(false, null);
+      }
+    } catch (e: any) {
+      console.error("Kill switch error (raw):", e);
+
+      // revert UI
+      setKillSwitch(!next);
+
+      const msg =
+          typeof e === "string"
+              ? e
+              : e?.message
+                  ? e.message
+                  : (() => {
+                    try {
+                      return JSON.stringify(e, null, 2);
+                    } catch {
+                      return String(e);
+                    }
+                  })();
+
+      alert(`Kill switch failed:\n\n${msg}`);
+    }
+  };
+
   return (
-    <AuthShell
-      title="Profile"
-      subtitle="Manage your Stellar VPN account"
-      onBack={() => navigate("/dashboard")}
-    >
-      <div className="space-y-4">
-        <div className="bg-slate-50 rounded-2xl p-4 text-sm">
-          <div className="flex justify-between items-center mb-2">
-            <div>
-              <div className="text-xs text-slate-500">Account number</div>
-              <div className="font-semibold">6049 9111 1433 1221</div>
+      <AuthShell title="Profile" onBack={() => navigate("/dashboard")}>
+        <div className="space-y-4 flex-1 flex flex-col">
+          <div className="px-6 flex flex-col gap-4">
+            <div className="bg-white rounded-2xl p-4 text-sm border border-[#EAEAF0] transition-all duration-200 hover:shadow-[0_10px_30px_rgba(11,12,25,0.06)] hover:-translate-y-[1px]">
+              <div className="flex justify-between items-center mb-2">
+                <div>
+                  <div className="text-[11px] font-normal text-[#62626A] mb-1">
+                    Account Name / Number
+                  </div>
+                  <div className="text-[12px] font-semibold text-[#0B0C19]">
+                    {formatAccountNumber(accountNumber)}
+                  </div>
+                </div>
+
+                {accountNumber && (
+                    <div className="relative">
+                      <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleCopyAccount();
+                          }}
+                          className="text-xs flex items-center gap-2 hover:opacity-80 active:scale-[0.98] transition-all"
+                      >
+                        <img src="/icons/copy.svg" alt="Copy" className="w-8 h-8" />
+                      </button>
+
+                      {showCopiedToast && (
+                          <div className="absolute bottom-full right-0 mb-1 z-[9999] pointer-events-none">
+                            <div className="bg-[#0B0C19] text-white px-3 py-1.5 rounded-lg text-[10px] font-medium shadow-lg whitespace-nowrap">
+                              Copied!
+                            </div>
+                          </div>
+                      )}
+                    </div>
+                )}
+              </div>
+
+              <div className="text-[11px] font-normal text-[#62626A] mb-1">
+                Device name:
+              </div>
+              <div className="text-[14px] text-[#0B0C19] font-semibold">
+                {deviceName || "N/A"}
+              </div>
+
+              <div className="text-[12px] text-[#62626A] mt-3 pt-3 border-t border-[#EAEAF0]">
+                Available for <span className="text-[#2761FC]">6</span> devices
+              </div>
             </div>
-            <button className="text-xs text-[#256BFF]">Copy</button>
-          </div>
-          <div className="text-xs text-slate-500 mt-1">
-            Device name: <span className="font-medium">Winged Coral</span>
-          </div>
-          <div className="text-xs text-slate-500 mt-2">
-            Available for <span className="font-medium">5 devices</span>.
-          </div>
-        </div>
 
-        <div className="bg-slate-50 rounded-2xl p-4 text-sm flex items-center justify-between">
-          <div>
-            <div className="text-xs text-slate-500">Expires</div>
-            <div className="font-medium text-emerald-600">In 30 days</div>
-            <div className="text-xs text-slate-400">2024.04.04</div>
-          </div>
-          <Button onClick={() => navigate("/subscribe")}>Add more days</Button>
-        </div>
+            <div className="bg-white rounded-2xl flex-col p-4 text-sm flex items-center justify-between border border-[#EAEAF0] transition-all duration-200 hover:shadow-[0_10px_30px_rgba(11,12,25,0.06)] hover:-translate-y-[1px]">
+              <div className="w-full">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-sm text-[#62626A]">Subscription</div>
+                  <span
+                      className={[
+                        "text-[11px] px-2 py-1 rounded-full border",
+                        pillClassForStatus(expiresStatus),
+                        "transition-colors duration-200",
+                      ].join(" ")}
+                  >
+                  {expiresStatus === "ok"
+                      ? "Active"
+                      : expiresStatus === "warning"
+                          ? "Expiring soon"
+                          : expiresStatus === "expired"
+                              ? "Expired"
+                              : "Unknown"}
+                </span>
+                </div>
 
-        <div className="flex items-center justify-between text-sm">
-          <span>Auto connect</span>
-          <button className="w-12 h-7 rounded-full bg-[#256BFF] flex items-center px-1">
-            <span className="w-5 h-5 rounded-full bg-white translate-x-5" />
-          </button>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setShowLogout(true)}
-          className="text-sm text-red-500"
-        >
-          Logout
-        </button>
-      </div>
-
-      {showLogout && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm">
-            <h2 className="text-lg font-semibold mb-2">Log out</h2>
-            <p className="text-sm text-slate-500 mb-4">
-              Are you sure you want to log out?
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                type="button"
-                className="text-sm text-slate-500"
-                onClick={() => setShowLogout(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="text-sm text-[#256BFF] font-semibold"
-                onClick={() => navigate("/welcome")}
-              >
-                Log out
-              </button>
+                <div className="flex items-center justify-between w-full">
+                  <div className="font-semibold text-[#0B0C19]">{expiresLabel}</div>
+                  <div className="text-sm text-[#62626A]">
+                    {formatExpirationDate(subscription?.expires_at)}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
+
+          <div className="px-5 mt-10 bg-white rounded-2xl flex-1 pt-6 pb-6 border border-[#EAEAF0]">
+            <div className="flex items-center justify-between text-sm mb-6 pb-6 border-b border-[#EAEAF0]">
+            <span className="text-[14px] font-semibold text-[#0B0C19] flex items-center gap-2">
+              <img src="/icons/network.svg" alt="Network" className="w-11 h-11" />
+              Auto connect
+            </span>
+
+              <button
+                  type="button"
+                  onClick={async () => {
+                    const newValue = !autoConnect;
+                    setAutoConnectState(newValue);
+                    await setAutoConnect(newValue);
+                  }}
+                  className={`w-[42px] h-[26px] rounded-full flex items-center px-1 transition-colors ${
+                      autoConnect ? "bg-[#2761FC]" : "bg-gray-300"
+                  }`}
+              >
+              <span
+                  className={`w-[20px] h-[20px] rounded-full bg-white flex items-center justify-center transition-transform ${
+                      autoConnect ? "translate-x-4" : "translate-x-0"
+                  }`}
+              >
+                {autoConnect && (
+                    <img src="/icons/blue-tick.svg" alt="Tick" className="w-4 h-4" />
+                )}
+              </span>
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between text-sm mb-6 pb-6 border-b border-[#EAEAF0]">
+              <div className="flex flex-col">
+              <span className="text-[14px] font-semibold text-[#0B0C19] flex items-center gap-2">
+                <img src="/icons/network.svg" alt="Kill switch" className="w-11 h-11" />
+                Kill switch
+              </span>
+                <span className="text-[11px] text-[#62626A] mt-1">
+                Blocks internet when VPN is down.
+              </span>
+              </div>
+
+              <button
+                  type="button"
+                  onClick={toggleKillSwitch}
+                  className={`w-[42px] h-[26px] rounded-full flex items-center px-1 transition-colors ${
+                      killSwitch ? "bg-[#2761FC]" : "bg-gray-300"
+                  }`}
+              >
+              <span
+                  className={`w-[20px] h-[20px] rounded-full bg-white flex items-center justify-center transition-transform ${
+                      killSwitch ? "translate-x-4" : "translate-x-0"
+                  }`}
+              >
+                {killSwitch && (
+                    <img src="/icons/blue-tick.svg" alt="Tick" className="w-4 h-4" />
+                )}
+              </span>
+              </button>
+            </div>
+
+            <button
+                type="button"
+                onClick={() => setShowLogout(true)}
+                className="text-sm text-[#62626A] flex items-center gap-3 pl-2 hover:opacity-90 active:scale-[0.99] transition-all"
+            >
+              <img src="/icons/logout.svg" alt="Logout" className="w-7 h-7" />
+              <span className="text-[14px] font-semibold text-[#62626A]">Logout</span>
+            </button>
+          </div>
         </div>
-      )}
-    </AuthShell>
+
+        {showLogout && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-50">
+              <div className="text-center rounded-2xl pt-12 pb-8 px-6 w-full max-w-[280px] mx-4 logout-screen bg-[#F6F6FD] border border-[#EAEAF0] shadow-[0_20px_60px_rgba(0,0,0,0.18)]">
+                <img src="/icons/logout.svg" alt="Logout" className="w-10 h-10 mx-auto mb-4" />
+                <h2 className="text-xl font-bold mb-2">Log out</h2>
+                <p className="text-sm text-[#62626A] pb-4 mb-6 border-b border-[#EAEAF0]">
+                  Are you sure you want to log out?
+                </p>
+                <div className="flex justify-end gap-5">
+                  <button
+                      type="button"
+                      className="text-sm font-semibold text-[#62626A] hover:opacity-80 transition-opacity"
+                      onClick={() => setShowLogout(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                      type="button"
+                      className="text-sm text-[#2761FC] font-semibold hover:opacity-80 transition-opacity"
+                      onClick={handleLogout}
+                  >
+                    Log out
+                  </button>
+                </div>
+              </div>
+            </div>
+        )}
+      </AuthShell>
   );
 };

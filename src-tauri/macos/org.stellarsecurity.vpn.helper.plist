@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>org.stellarsecurity.vpn.helper</string>
+
+    <key>ProgramArguments</key>
+    <array>
+      <string>/Library/PrivilegedHelperTools/stellar-vpn-helper-macos</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/var/log/stellar-vpn-helper.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/var/log/stellar-vpn-helper.log</string>
+  </dict>
+</plist>

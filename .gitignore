@@ -1,2 +1,5 @@
 node_modules
 src-tauri/target
+dist
+.workspace.xml
+.idea

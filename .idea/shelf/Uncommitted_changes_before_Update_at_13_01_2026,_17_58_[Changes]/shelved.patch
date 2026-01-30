@@ -1,0 +1,235 @@
+Index: .idea/workspace.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+><?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<project version=\"4\">\n  <component name=\"AutoImportSettings\">\n    <option name=\"autoReloadType\" value=\"SELECTIVE\" />\n  </component>\n  <component name=\"ChangeListManager\">\n    <list default=\"true\" id=\"45de0aa4-b568-4cf0-89f1-da837d51870b\" name=\"Changes\" comment=\"Updates\">\n      <change beforePath=\"$PROJECT_DIR$/.idea/workspace.xml\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/.idea/workspace.xml\" afterDir=\"false\" />\n      <change beforePath=\"$PROJECT_DIR$/dist/assets/index-BVGzl0kp.js\" beforeDir=\"false\" />\n      <change beforePath=\"$PROJECT_DIR$/dist/assets/index-a4rHIE36.js\" beforeDir=\"false\" />\n      <change beforePath=\"$PROJECT_DIR$/src/App.tsx\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/src/App.tsx\" afterDir=\"false\" />\n      <change beforePath=\"$PROJECT_DIR$/src/routes/Dashboard/ChangeLocation.tsx\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/src/routes/Dashboard/ChangeLocation.tsx\" afterDir=\"false\" />\n      <change beforePath=\"$PROJECT_DIR$/src/routes/Dashboard/Dashboard.tsx\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/src/routes/Dashboard/Dashboard.tsx\" afterDir=\"false\" />\n      <change beforePath=\"$PROJECT_DIR$/src/styles.css\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/src/styles.css\" afterDir=\"false\" />\n    </list>\n    <option name=\"SHOW_DIALOG\" value=\"false\" />\n    <option name=\"HIGHLIGHT_CONFLICTS\" value=\"true\" />\n    <option name=\"HIGHLIGHT_NON_ACTIVE_CHANGELIST\" value=\"false\" />\n    <option name=\"LAST_RESOLUTION\" value=\"IGNORE\" />\n  </component>\n  <component name=\"Git.Settings\">\n    <option name=\"RECENT_GIT_ROOT_PATH\" value=\"$PROJECT_DIR$\" />\n  </component>\n  <component name=\"GitHubPullRequestSearchHistory\">{\n  &quot;lastFilter&quot;: {\n    &quot;state&quot;: &quot;OPEN&quot;,\n    &quot;assignee&quot;: &quot;stellar-security-os&quot;\n  }\n}</component>\n  <component name=\"GithubPullRequestsUISettings\">{\n  &quot;selectedUrlAndAccountId&quot;: {\n    &quot;url&quot;: &quot;https://github.com/StellerSecurity/Stellar.UI.Desktop.VPNapp.git&quot;,\n    &quot;accountId&quot;: &quot;a1d82068-b7ff-4317-9be2-1b25beb4653d&quot;\n  }\n}</component>\n  <component name=\"ProjectColorInfo\">{\n  &quot;associatedIndex&quot;: 2\n}</component>\n  <component name=\"ProjectId\" id=\"36Ui7BT2Su1lW3Cu2hJWACP0ZAe\" />\n  <component name=\"ProjectViewState\">\n    <option name=\"hideEmptyMiddlePackages\" value=\"true\" />\n    <option name=\"showLibraryContents\" value=\"true\" />\n  </component>\n  <component name=\"PropertiesComponent\"><![CDATA[{\n  \"keyToString\": {\n    \"ModuleVcsDetector.initialDetectionPerformed\": \"true\",\n    \"RunOnceActivity.ShowReadmeOnStart\": \"true\",\n    \"RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252\": \"true\",\n    \"RunOnceActivity.git.unshallow\": \"true\",\n    \"RunOnceActivity.typescript.service.memoryLimit.init\": \"true\",\n    \"git-widget-placeholder\": \"design\",\n    \"javascript.preferred.runtime.type.id\": \"node\",\n    \"last_opened_file_path\": \"/home/bb/WebstormProjects/a/Stellar.UI.Desktop.VPNapp/src-tauri/icons\",\n    \"node.js.detected.package.eslint\": \"true\",\n    \"node.js.detected.package.tslint\": \"true\",\n    \"node.js.selected.package.eslint\": \"(autodetect)\",\n    \"node.js.selected.package.tslint\": \"(autodetect)\",\n    \"nodejs_package_manager_path\": \"npm\",\n    \"ts.external.directory.path\": \"/home/bb/WebstormProjects/a/Stellar.UI.Desktop.VPNapp/node_modules/typescript/lib\",\n    \"vue.rearranger.settings.migration\": \"true\"\n  }\n}]]></component>\n  <component name=\"RecentsManager\">\n    <key name=\"CopyFile.RECENT_KEYS\">\n      <recent name=\"$PROJECT_DIR$/src-tauri/icons\" />\n      <recent name=\"$PROJECT_DIR$/src-tauri\" />\n      <recent name=\"$PROJECT_DIR$\" />\n    </key>\n    <key name=\"MoveFile.RECENT_KEYS\">\n      <recent name=\"$PROJECT_DIR$\" />\n      <recent name=\"$PROJECT_DIR$/src-tauri/scripts/linux\" />\n    </key>\n  </component>\n  <component name=\"SharedIndexes\">\n    <attachedChunks>\n      <set>\n        <option value=\"bundled-js-predefined-d6986cc7102b-9b0f141eb926-JavaScript-WS-253.29346.242\" />\n      </set>\n    </attachedChunks>\n  </component>\n  <component name=\"TaskManager\">\n    <task active=\"true\" id=\"Default\" summary=\"Default task\">\n      <changelist id=\"45de0aa4-b568-4cf0-89f1-da837d51870b\" name=\"Changes\" comment=\"\" />\n      <created>1765067380858</created>\n      <option name=\"number\" value=\"Default\" />\n      <option name=\"presentableId\" value=\"Default\" />\n      <updated>1765067380858</updated>\n      <workItem from=\"1765067382115\" duration=\"3134000\" />\n      <workItem from=\"1768000805115\" duration=\"6998000\" />\n      <workItem from=\"1768049873987\" duration=\"2000\" />\n      <workItem from=\"1768067910043\" duration=\"5490000\" />\n      <workItem from=\"1768073487966\" duration=\"10579000\" />\n      <workItem from=\"1768140500006\" duration=\"32860000\" />\n    </task>\n    <task id=\"LOCAL-00001\" summary=\"Always on VPN\">\n      <option name=\"closed\" value=\"true\" />\n      <created>1768006170920</created>\n      <option name=\"number\" value=\"00001\" />\n      <option name=\"presentableId\" value=\"LOCAL-00001\" />\n      <option name=\"project\" value=\"LOCAL\" />\n      <updated>1768006170920</updated>\n    </task>\n    <task id=\"LOCAL-00002\" summary=\"Always on VPN\">\n      <option name=\"closed\" value=\"true\" />\n      <created>1768006698313</created>\n      <option name=\"number\" value=\"00002\" />\n      <option name=\"presentableId\" value=\"LOCAL-00002\" />\n      <option name=\"project\" value=\"LOCAL\" />\n      <updated>1768006698313</updated>\n    </task>\n    <task id=\"LOCAL-00003\" summary=\"Disconnect on signout\">\n      <option name=\"closed\" value=\"true\" />\n      <created>1768006852689</created>\n      <option name=\"number\" value=\"00003\" />\n      <option name=\"presentableId\" value=\"LOCAL-00003\" />\n      <option name=\"project\" value=\"LOCAL\" />\n      <updated>1768006852689</updated>\n    </task>\n    <task id=\"LOCAL-00004\" summary=\"Bug fixes, vpn connection etc.\">\n      <option name=\"closed\" value=\"true\" />\n      <created>1768082785856</created>\n      <option name=\"number\" value=\"00004\" />\n      <option name=\"presentableId\" value=\"LOCAL-00004\" />\n      <option name=\"project\" value=\"LOCAL\" />\n      <updated>1768082785856</updated>\n    </task>\n    <task id=\"LOCAL-00005\" summary=\"Hide add more days for now\">\n      <option name=\"closed\" value=\"true\" />\n      <created>1768083145831</created>\n      <option name=\"number\" value=\"00005\" />\n      <option name=\"presentableId\" value=\"LOCAL-00005\" />\n      <option name=\"project\" value=\"LOCAL\" />\n      <updated>1768083145831</updated>\n    </task>\n    <task id=\"LOCAL-00006\" summary=\"Added cache\">\n      <option name=\"closed\" value=\"true\" />\n      <created>1768084204951</created>\n      <option name=\"number\" value=\"00006\" />\n      <option name=\"presentableId\" value=\"LOCAL-00006\" />\n      <option name=\"project\" value=\"LOCAL\" />\n      <updated>1768084204951</updated>\n    </task>\n    <task id=\"LOCAL-00007\" summary=\"Added cache\">\n      <option name=\"closed\" value=\"true\" />\n      <created>1768084301211</created>\n      <option name=\"number\" value=\"00007\" />\n      <option name=\"presentableId\" value=\"LOCAL-00007\" />\n      <option name=\"project\" value=\"LOCAL\" />\n      <updated>1768084301211</updated>\n    </task>\n    <task id=\"LOCAL-00008\" summary=\"6 devices\">\n      <option name=\"closed\" value=\"true\" />\n      <created>1768140581230</created>\n      <option name=\"number\" value=\"00008\" />\n      <option name=\"presentableId\" value=\"LOCAL-00008\" />\n      <option name=\"project\" value=\"LOCAL\" />\n      <updated>1768140581230</updated>\n    </task>\n    <task id=\"LOCAL-00009\" summary=\"Bug fixes, animations and more.\">\n      <option name=\"closed\" value=\"true\" />\n      <created>1768142199816</created>\n      <option name=\"number\" value=\"00009\" />\n      <option name=\"presentableId\" value=\"LOCAL-00009\" />\n      <option name=\"project\" value=\"LOCAL\" />\n      <updated>1768142199816</updated>\n    </task>\n    <task id=\"LOCAL-00010\" summary=\"Bug fixes, animations and more.\">\n      <option name=\"closed\" value=\"true\" />\n      <created>1768143975067</created>\n      <option name=\"number\" value=\"00010\" />\n      <option name=\"presentableId\" value=\"LOCAL-00010\" />\n      <option name=\"project\" value=\"LOCAL\" />\n      <updated>1768143975067</updated>\n    </task>\n    <task id=\"LOCAL-00011\" summary=\"Added flyover + animation\">\n      <option name=\"closed\" value=\"true\" />\n      <created>1768162765616</created>\n      <option name=\"number\" value=\"00011\" />\n      <option name=\"presentableId\" value=\"LOCAL-00011\" />\n      <option name=\"project\" value=\"LOCAL\" />\n      <updated>1768162765616</updated>\n    </task>\n    <task id=\"LOCAL-00012\" summary=\"Added flyover + animation\">\n      <option name=\"closed\" value=\"true\" />\n      <created>1768164187704</created>\n      <option name=\"number\" value=\"00012\" />\n      <option name=\"presentableId\" value=\"LOCAL-00012\" />\n      <option name=\"project\" value=\"LOCAL\" />\n      <updated>1768164187704</updated>\n    </task>\n    <task id=\"LOCAL-00013\" summary=\"Updates\">\n      <option name=\"closed\" value=\"true\" />\n      <created>1768174525527</created>\n      <option name=\"number\" value=\"00013\" />\n      <option name=\"presentableId\" value=\"LOCAL-00013\" />\n      <option name=\"project\" value=\"LOCAL\" />\n      <updated>1768174525527</updated>\n    </task>\n    <task id=\"LOCAL-00014\" summary=\"Updates\">\n      <option name=\"closed\" value=\"true\" />\n      <created>1768181088296</created>\n      <option name=\"number\" value=\"00014\" />\n      <option name=\"presentableId\" value=\"LOCAL-00014\" />\n      <option name=\"project\" value=\"LOCAL\" />\n      <updated>1768181088296</updated>\n    </task>\n    <option name=\"localTasksCounter\" value=\"15\" />\n    <servers />\n  </component>\n  <component name=\"TypeScriptGeneratedFilesManager\">\n    <option name=\"version\" value=\"3\" />\n  </component>\n  <component name=\"VcsManagerConfiguration\">\n    <MESSAGE value=\"Always on VPN\" />\n    <MESSAGE value=\"Disconnect on signout\" />\n    <MESSAGE value=\"Bug fixes, vpn connection etc.\" />\n    <MESSAGE value=\"Hide add more days for now\" />\n    <MESSAGE value=\"Added cache\" />\n    <MESSAGE value=\"6 devices\" />\n    <MESSAGE value=\"Bug fixes, animations and more.\" />\n    <MESSAGE value=\"Added flyover + animation\" />\n    <MESSAGE value=\"Updates\" />\n    <option name=\"LAST_COMMIT_MESSAGE\" value=\"Updates\" />\n  </component>\n</project>
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/workspace.xml b/.idea/workspace.xml
+--- a/.idea/workspace.xml	(revision e7f6982ce0bc5143ca9f125b9f415669eff9d4a7)
++++ b/.idea/workspace.xml	(date 1768241154909)
+@@ -4,14 +4,8 @@
+     <option name="autoReloadType" value="SELECTIVE" />
+   </component>
+   <component name="ChangeListManager">
+-    <list default="true" id="45de0aa4-b568-4cf0-89f1-da837d51870b" name="Changes" comment="Updates">
++    <list default="true" id="e52c7e89-c79f-4897-bed6-21d36fec40ce" name="Changes" comment="">
+       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+-      <change beforePath="$PROJECT_DIR$/dist/assets/index-BVGzl0kp.js" beforeDir="false" />
+-      <change beforePath="$PROJECT_DIR$/dist/assets/index-a4rHIE36.js" beforeDir="false" />
+-      <change beforePath="$PROJECT_DIR$/src/App.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/App.tsx" afterDir="false" />
+-      <change beforePath="$PROJECT_DIR$/src/routes/Dashboard/ChangeLocation.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/routes/Dashboard/ChangeLocation.tsx" afterDir="false" />
+-      <change beforePath="$PROJECT_DIR$/src/routes/Dashboard/Dashboard.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/routes/Dashboard/Dashboard.tsx" afterDir="false" />
+-      <change beforePath="$PROJECT_DIR$/src/styles.css" beforeDir="false" afterPath="$PROJECT_DIR$/src/styles.css" afterDir="false" />
+     </list>
+     <option name="SHOW_DIALOG" value="false" />
+     <option name="HIGHLIGHT_CONFLICTS" value="true" />
+@@ -20,206 +14,17 @@
+   </component>
+   <component name="Git.Settings">
+     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+-  </component>
+-  <component name="GitHubPullRequestSearchHistory">{
+-  &quot;lastFilter&quot;: {
+-    &quot;state&quot;: &quot;OPEN&quot;,
+-    &quot;assignee&quot;: &quot;stellar-security-os&quot;
+-  }
+-}</component>
+-  <component name="GithubPullRequestsUISettings">{
+-  &quot;selectedUrlAndAccountId&quot;: {
+-    &quot;url&quot;: &quot;https://github.com/StellerSecurity/Stellar.UI.Desktop.VPNapp.git&quot;,
+-    &quot;accountId&quot;: &quot;a1d82068-b7ff-4317-9be2-1b25beb4653d&quot;
+-  }
+-}</component>
+-  <component name="ProjectColorInfo">{
+-  &quot;associatedIndex&quot;: 2
+-}</component>
+-  <component name="ProjectId" id="36Ui7BT2Su1lW3Cu2hJWACP0ZAe" />
+-  <component name="ProjectViewState">
+-    <option name="hideEmptyMiddlePackages" value="true" />
+-    <option name="showLibraryContents" value="true" />
+   </component>
+   <component name="PropertiesComponent"><![CDATA[{
+   "keyToString": {
+-    "ModuleVcsDetector.initialDetectionPerformed": "true",
+-    "RunOnceActivity.ShowReadmeOnStart": "true",
+-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+-    "RunOnceActivity.git.unshallow": "true",
+-    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+     "git-widget-placeholder": "design",
+-    "javascript.preferred.runtime.type.id": "node",
+-    "last_opened_file_path": "/home/bb/WebstormProjects/a/Stellar.UI.Desktop.VPNapp/src-tauri/icons",
+     "node.js.detected.package.eslint": "true",
+     "node.js.detected.package.tslint": "true",
+     "node.js.selected.package.eslint": "(autodetect)",
+-    "node.js.selected.package.tslint": "(autodetect)",
+-    "nodejs_package_manager_path": "npm",
+-    "ts.external.directory.path": "/home/bb/WebstormProjects/a/Stellar.UI.Desktop.VPNapp/node_modules/typescript/lib",
+-    "vue.rearranger.settings.migration": "true"
++    "node.js.selected.package.tslint": "(autodetect)"
+   }
+ }]]></component>
+-  <component name="RecentsManager">
+-    <key name="CopyFile.RECENT_KEYS">
+-      <recent name="$PROJECT_DIR$/src-tauri/icons" />
+-      <recent name="$PROJECT_DIR$/src-tauri" />
+-      <recent name="$PROJECT_DIR$" />
+-    </key>
+-    <key name="MoveFile.RECENT_KEYS">
+-      <recent name="$PROJECT_DIR$" />
+-      <recent name="$PROJECT_DIR$/src-tauri/scripts/linux" />
+-    </key>
+-  </component>
+-  <component name="SharedIndexes">
+-    <attachedChunks>
+-      <set>
+-        <option value="bundled-js-predefined-d6986cc7102b-9b0f141eb926-JavaScript-WS-253.29346.242" />
+-      </set>
+-    </attachedChunks>
+-  </component>
+   <component name="TaskManager">
+-    <task active="true" id="Default" summary="Default task">
+-      <changelist id="45de0aa4-b568-4cf0-89f1-da837d51870b" name="Changes" comment="" />
+-      <created>1765067380858</created>
+-      <option name="number" value="Default" />
+-      <option name="presentableId" value="Default" />
+-      <updated>1765067380858</updated>
+-      <workItem from="1765067382115" duration="3134000" />
+-      <workItem from="1768000805115" duration="6998000" />
+-      <workItem from="1768049873987" duration="2000" />
+-      <workItem from="1768067910043" duration="5490000" />
+-      <workItem from="1768073487966" duration="10579000" />
+-      <workItem from="1768140500006" duration="32860000" />
+-    </task>
+-    <task id="LOCAL-00001" summary="Always on VPN">
+-      <option name="closed" value="true" />
+-      <created>1768006170920</created>
+-      <option name="number" value="00001" />
+-      <option name="presentableId" value="LOCAL-00001" />
+-      <option name="project" value="LOCAL" />
+-      <updated>1768006170920</updated>
+-    </task>
+-    <task id="LOCAL-00002" summary="Always on VPN">
+-      <option name="closed" value="true" />
+-      <created>1768006698313</created>
+-      <option name="number" value="00002" />
+-      <option name="presentableId" value="LOCAL-00002" />
+-      <option name="project" value="LOCAL" />
+-      <updated>1768006698313</updated>
+-    </task>
+-    <task id="LOCAL-00003" summary="Disconnect on signout">
+-      <option name="closed" value="true" />
+-      <created>1768006852689</created>
+-      <option name="number" value="00003" />
+-      <option name="presentableId" value="LOCAL-00003" />
+-      <option name="project" value="LOCAL" />
+-      <updated>1768006852689</updated>
+-    </task>
+-    <task id="LOCAL-00004" summary="Bug fixes, vpn connection etc.">
+-      <option name="closed" value="true" />
+-      <created>1768082785856</created>
+-      <option name="number" value="00004" />
+-      <option name="presentableId" value="LOCAL-00004" />
+-      <option name="project" value="LOCAL" />
+-      <updated>1768082785856</updated>
+-    </task>
+-    <task id="LOCAL-00005" summary="Hide add more days for now">
+-      <option name="closed" value="true" />
+-      <created>1768083145831</created>
+-      <option name="number" value="00005" />
+-      <option name="presentableId" value="LOCAL-00005" />
+-      <option name="project" value="LOCAL" />
+-      <updated>1768083145831</updated>
+-    </task>
+-    <task id="LOCAL-00006" summary="Added cache">
+-      <option name="closed" value="true" />
+-      <created>1768084204951</created>
+-      <option name="number" value="00006" />
+-      <option name="presentableId" value="LOCAL-00006" />
+-      <option name="project" value="LOCAL" />
+-      <updated>1768084204951</updated>
+-    </task>
+-    <task id="LOCAL-00007" summary="Added cache">
+-      <option name="closed" value="true" />
+-      <created>1768084301211</created>
+-      <option name="number" value="00007" />
+-      <option name="presentableId" value="LOCAL-00007" />
+-      <option name="project" value="LOCAL" />
+-      <updated>1768084301211</updated>
+-    </task>
+-    <task id="LOCAL-00008" summary="6 devices">
+-      <option name="closed" value="true" />
+-      <created>1768140581230</created>
+-      <option name="number" value="00008" />
+-      <option name="presentableId" value="LOCAL-00008" />
+-      <option name="project" value="LOCAL" />
+-      <updated>1768140581230</updated>
+-    </task>
+-    <task id="LOCAL-00009" summary="Bug fixes, animations and more.">
+-      <option name="closed" value="true" />
+-      <created>1768142199816</created>
+-      <option name="number" value="00009" />
+-      <option name="presentableId" value="LOCAL-00009" />
+-      <option name="project" value="LOCAL" />
+-      <updated>1768142199816</updated>
+-    </task>
+-    <task id="LOCAL-00010" summary="Bug fixes, animations and more.">
+-      <option name="closed" value="true" />
+-      <created>1768143975067</created>
+-      <option name="number" value="00010" />
+-      <option name="presentableId" value="LOCAL-00010" />
+-      <option name="project" value="LOCAL" />
+-      <updated>1768143975067</updated>
+-    </task>
+-    <task id="LOCAL-00011" summary="Added flyover + animation">
+-      <option name="closed" value="true" />
+-      <created>1768162765616</created>
+-      <option name="number" value="00011" />
+-      <option name="presentableId" value="LOCAL-00011" />
+-      <option name="project" value="LOCAL" />
+-      <updated>1768162765616</updated>
+-    </task>
+-    <task id="LOCAL-00012" summary="Added flyover + animation">
+-      <option name="closed" value="true" />
+-      <created>1768164187704</created>
+-      <option name="number" value="00012" />
+-      <option name="presentableId" value="LOCAL-00012" />
+-      <option name="project" value="LOCAL" />
+-      <updated>1768164187704</updated>
+-    </task>
+-    <task id="LOCAL-00013" summary="Updates">
+-      <option name="closed" value="true" />
+-      <created>1768174525527</created>
+-      <option name="number" value="00013" />
+-      <option name="presentableId" value="LOCAL-00013" />
+-      <option name="project" value="LOCAL" />
+-      <updated>1768174525527</updated>
+-    </task>
+-    <task id="LOCAL-00014" summary="Updates">
+-      <option name="closed" value="true" />
+-      <created>1768181088296</created>
+-      <option name="number" value="00014" />
+-      <option name="presentableId" value="LOCAL-00014" />
+-      <option name="project" value="LOCAL" />
+-      <updated>1768181088296</updated>
+-    </task>
+-    <option name="localTasksCounter" value="15" />
+     <servers />
+   </component>
+-  <component name="TypeScriptGeneratedFilesManager">
+-    <option name="version" value="3" />
+-  </component>
+-  <component name="VcsManagerConfiguration">
+-    <MESSAGE value="Always on VPN" />
+-    <MESSAGE value="Disconnect on signout" />
+-    <MESSAGE value="Bug fixes, vpn connection etc." />
+-    <MESSAGE value="Hide add more days for now" />
+-    <MESSAGE value="Added cache" />
+-    <MESSAGE value="6 devices" />
+-    <MESSAGE value="Bug fixes, animations and more." />
+-    <MESSAGE value="Added flyover + animation" />
+-    <MESSAGE value="Updates" />
+-    <option name="LAST_COMMIT_MESSAGE" value="Updates" />
+-  </component>
+ </project>
+\ No newline at end of file
