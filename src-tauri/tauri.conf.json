@@ -28,9 +28,9 @@
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://updates.stellarsecurity.org/vpn/{{target}}-{{arch}}/{{current_version}}"
+        "https://desktopreleasesprod.stellarsecurity.com/vpn/latest.json"
       ],
-      "pubkey": "PASTE_YOUR_PUBLIC_KEY_HERE"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEMyQThCODE4QkZBODZEMzUKUldRMWJhaS9HTGlvd21RRFlYL1d4dWJJNGh4NHpNU2dHcDZZbUYwUDJxVHphOUNIV3VuMDNkc0wK"
     }
   },
   "bundle": {
@@ -54,7 +54,8 @@
     ],
     "resources": [
       "bin/openvpn-aarch64-apple-darwin",
-      "bin/openvpn-x86_64-apple-darwin"
+      "bin/openvpn-x86_64-apple-darwin",
+      "bin/openvpn-x86_64-unknown-linux-gnu"
     ],
     "linux": {
       "deb": {

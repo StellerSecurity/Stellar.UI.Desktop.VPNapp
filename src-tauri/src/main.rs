@@ -1006,7 +1006,7 @@ fn main() {
   let _ = fix_path_env::fix();
 
   tauri::Builder::default()
-    // ✅ Updater plugin (required for `@tauri-apps/plugin-updater`)
+    // ✅ Updater plugin (desktop)
     .plugin(tauri_plugin_updater::Builder::new().build())
     .setup(|app| {
       let state: SharedState = std::sync::Arc::new(Mutex::new(VpnInner::default()));
@@ -1020,14 +1020,12 @@ fn main() {
 
       update_tray_ui(&app.handle(), UiStatus::Disconnected);
 
-      // macOS: subscribe to helper log/status stream once.
       #[cfg(target_os = "macos")]
       {
         let app_handle = app.handle().clone();
         macos_helper::spawn_helper_subscriber(app_handle, state_for_helper);
       }
 
-      // X -> hide to tray (instead of closing)
       if let Some(w) = app.get_webview_window("main") {
         let app_handle = app.handle().clone();
         w.on_window_event(move |e| {
@@ -1051,3 +1049,4 @@ fn main() {
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }
+

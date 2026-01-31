@@ -221,8 +221,8 @@ export async function getVpnAuth(): Promise<VpnAuth | null> {
 
     if (isTauri) {
       const store = await getStore(); // same helper you use in storeAuthData()
-      const username = await store.get<string>("vpn_auth_username");
-      const password = await store.get<string>("vpn_auth_password");
+      const username = await store.get<string>(LS_KEYS.vpnUsername);
+      const password = await store.get<string>(LS_KEYS.vpnPassword);
 
       const u = typeof username === "string" ? username.trim() : "";
       const p = typeof password === "string" ? password.trim() : "";
@@ -235,8 +235,8 @@ export async function getVpnAuth(): Promise<VpnAuth | null> {
 
   // ---- FALLBACK: localStorage ----
   try {
-    const u = (window.localStorage.getItem("vpn_auth_username") || "").trim();
-    const p = (window.localStorage.getItem("vpn_auth_password") || "").trim();
+    const u = (window.localStorage.getItem(LS_KEYS.vpnUsername) || "").trim();
+    const p = (window.localStorage.getItem(LS_KEYS.vpnPassword) || "").trim();
     if (u && p) return { username: u, password: p };
   } catch {
     // ignore
@@ -258,8 +258,8 @@ export async function storeAuthData(
     try {
       const store = await getStore();
       await store.set("bearer_token", token);
-      await store.set("vpn_auth_username", vpnAuth.username);
-      await store.set("vpn_auth_password", vpnAuth.password);
+      await store.set(LS_KEYS.vpnUsername, vpnAuth.username);
+      await store.set(LS_KEYS.vpnPassword, vpnAuth.password);
 
       await store.set("device_name", deviceName);
       if (accountNumber) {
@@ -304,8 +304,8 @@ export async function clearAuthData(): Promise<void> {
       await store.delete("device_name");
       await store.delete("account_number");
 
-      await store.delete("vpn_auth_username");
-      await store.delete("vpn_auth_password");
+      await store.delete(LS_KEYS.vpnUsername);
+      await store.delete(LS_KEYS.vpnPassword);
 
       await store.save();
       return;

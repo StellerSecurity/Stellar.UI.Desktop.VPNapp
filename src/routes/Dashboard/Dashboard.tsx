@@ -9,13 +9,13 @@ import {
   getDeviceName,
   fetchServerList,
   getAutoConnect,
-  getVpnAuth
+  getVpnAuth,
 } from "../../services/api";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { VpnWorldMap } from "../../components/VpnWorldMap";
 
-// ✅ OTA updater (Tauri)
+// OTA updater (Tauri)
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 
@@ -164,6 +164,36 @@ export const Dashboard: React.FC = () => {
     });
   }, []);
 
+  const clearLogs = useCallback(() => {
+    setVpnLogs([]);
+    setConnectError(null);
+  }, []);
+
+  const copyLogs = useCallback(async () => {
+    const text = ["=== Stellar VPN Logs ===", connectError ? `ERROR: ${connectError}` : "", ...vpnLogs]
+        .filter(Boolean)
+        .join("\n");
+
+    try {
+      await navigator.clipboard.writeText(text);
+      appendLog("[ui] Logs copied to clipboard.");
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand("copy");
+        appendLog("[ui] Logs copied to clipboard.");
+      } catch {
+        appendLog("[ui] Failed to copy logs.");
+      }
+      document.body.removeChild(ta);
+    }
+  }, [vpnLogs, connectError, appendLog]);
+
   const refreshSelectedServer = useCallback(async () => {
     const server = await getSelectedServer();
     setSelectedServerName(server?.name ?? null);
@@ -225,8 +255,7 @@ export const Dashboard: React.FC = () => {
       setSelectedServerCountryCode(server?.countryCode ?? null);
 
       const isNewUser =
-          searchParams.get("newUser") === "true" &&
-          searchParams.get("oneClick") === "true";
+          searchParams.get("newUser") === "true" && searchParams.get("oneClick") === "true";
 
       if (isNewUser) {
         setHasConnectedOnce(false);
@@ -256,7 +285,7 @@ export const Dashboard: React.FC = () => {
     });
   }, []);
 
-  // ✅ OTA update check (runs when user enters Dashboard)
+  // OTA update check (runs when user enters Dashboard)
   const otaCheckedKeyRef = useRef<string | null>(null);
   useEffect(() => {
     if (!isTauri()) return;
@@ -277,15 +306,14 @@ export const Dashboard: React.FC = () => {
           appendLog("[ui] No updates available.");
         }
       } catch (e: any) {
-        const msg =
-            typeof e === "string" ? e : e?.message ? String(e.message) : "Unknown error";
+        const msg = typeof e === "string" ? e : e?.message ? String(e.message) : "Unknown error";
         console.warn("Update check failed:", e);
         appendLog(`[ui] Update check failed: ${msg}`);
       }
     })();
   }, [location.key, appendLog]);
 
-  // ---- Connect attempt tracking + watchdog (prevents infinite "Connecting...") ----
+  // Connect attempt tracking + watchdog (prevents infinite "Connecting...")
   const connectAttemptIdRef = useRef<number>(0);
 
   const startConnectWatchdog = useCallback(
@@ -316,6 +344,7 @@ export const Dashboard: React.FC = () => {
         const attemptId = connectAttemptIdRef.current;
 
         setConnectError(null);
+        setShowLogs(true); // Always show logs during connect attempts (production debugging)
         setStatus("connecting");
         startConnectWatchdog(attemptId);
 
@@ -340,8 +369,7 @@ export const Dashboard: React.FC = () => {
             password: vpnAuth.password,
           });
         } catch (e: any) {
-          const msg =
-              typeof e === "string" ? e : e?.message ? String(e.message) : "Unknown error";
+          const msg = typeof e === "string" ? e : e?.message ? String(e.message) : "Unknown error";
 
           appendLog(`[ui] vpn_connect failed: ${msg}`);
           setConnectError(msg);
@@ -403,7 +431,7 @@ export const Dashboard: React.FC = () => {
     };
   }, [appendLog, setStatus, syncBackendStatus, setHasConnectedOnce, setManualDisabled]);
 
-  // ===== TRAY EVENTS (Mullvad-style menu) =====
+  // Tray events (Mullvad-style menu)
   const trayConnect = useCallback(async () => {
     if (!isTauri()) return;
 
@@ -481,9 +509,8 @@ export const Dashboard: React.FC = () => {
       if (unlistenReconnect) unlistenReconnect();
     };
   }, [trayConnect, trayDisconnect, trayReconnect]);
-  // ===========================================
 
-  // === CONNECT NOW (from ChangeLocation) ===
+  // Connect now (from ChangeLocation)
   const connectNowHandledKeyRef = useRef<string | null>(null);
   useEffect(() => {
     if (!isTauri()) return;
@@ -492,7 +519,7 @@ export const Dashboard: React.FC = () => {
     const st = (location.state as any) || {};
     if (st?.connectNow !== true) return;
 
-    // only once per navigation entry
+    // Only once per navigation entry
     if (connectNowHandledKeyRef.current === location.key) return;
     connectNowHandledKeyRef.current = location.key;
 
@@ -529,9 +556,7 @@ export const Dashboard: React.FC = () => {
     setStatus,
   ]);
 
-  // ========================================
-
-  // Auto-connect ONLY when allowed
+  // Auto-connect only when allowed
   useEffect(() => {
     if (!isTauri()) return;
     if (!listenersReady) return;
@@ -665,7 +690,6 @@ export const Dashboard: React.FC = () => {
       const current = statusRef.current;
 
       if (current === "disconnected") {
-        // ✅ ONLY CHANGE: block connect when expired + show modal
         if (isExpired) {
           setShowExpiredModal(true);
           return;
@@ -690,12 +714,10 @@ export const Dashboard: React.FC = () => {
 
   return (
       <div className="w-[312px] h-[640px] overflow-hidden relative bg-[#0037A3]">
-        {/* Map background (full height, sexy blue) */}
+        {/* Map background */}
         <div className="absolute inset-0 z-0">
-          {/* Base blue wash */}
           <div className="absolute inset-0 bg-[#0037A3]" />
 
-          {/* Map */}
           <div className="absolute inset-0 opacity-[1] scale-[1.02]">
             <VpnWorldMap
                 height={640}
@@ -706,11 +728,10 @@ export const Dashboard: React.FC = () => {
             />
           </div>
 
-          {/* Subtle readability overlay */}
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_28%,rgba(255,255,255,0.08),rgba(0,0,0,0.22)_58%,rgba(0,0,0,0.45)_100%)]" />
         </div>
 
-        {/* Status gradient overlay (above map) */}
+        {/* Status gradient overlay */}
         <div
             className={`absolute top-0 left-0 w-full h-[280px] z-10 ${
                 isConnected
@@ -726,11 +747,7 @@ export const Dashboard: React.FC = () => {
           {/* Header */}
           <div className="px-6 pt-10 flex items-center justify-between">
             <div className="flex items-center logo-container">
-              <img
-                  src="/icons/dashboard-icon.svg"
-                  alt="Dashboard"
-                  className="h-20 w-20 inline-block"
-              />
+              <img src="/icons/dashboard-icon.svg" alt="Dashboard" className="h-20 w-20 inline-block" />
               <span className="text-[14px] font-semibold font-silka">Stellar VPN</span>
             </div>
 
@@ -738,6 +755,7 @@ export const Dashboard: React.FC = () => {
               <button
                   className="rounded-full bg-white px-3 py-1 text-[11px]"
                   onClick={() => navigate("/profile")}
+                  type="button"
               >
               <span
                   className={`font-semibold flex items-center gap-1 ${
@@ -751,8 +769,17 @@ export const Dashboard: React.FC = () => {
               </button>
 
               <button
+                  className="rounded-full bg-white/10 px-3 py-1 text-[11px] text-white hover:bg-white/15 transition-colors"
+                  onClick={() => setShowLogs(true)}
+                  type="button"
+              >
+                Logs
+              </button>
+
+              <button
                   className="rounded-full flex items-center justify-center"
                   onClick={() => navigate("/profile")}
+                  type="button"
               >
                 <img src="/icons/user.svg" alt="Profile" className="w-[25px] h-[25px]" />
               </button>
@@ -881,9 +908,7 @@ export const Dashboard: React.FC = () => {
                     </h2>
 
                     <p className="text-sm text-[#62626A] mb-6 text-center font-poppins">
-                      {accountNumber
-                          ? "Here's your account number. Save it!"
-                          : "Welcome! Your account has been created."}
+                      {accountNumber ? "Here's your account number. Save it!" : "Welcome! Your account has been created."}
                     </p>
 
                     <div className="w-full mb-6 relative">
@@ -971,7 +996,67 @@ export const Dashboard: React.FC = () => {
           )}
         </div>
 
-        {/* Your log panel is still wired (vpnLogs/showLogs/connectError), you just don't render it. */}
+        {/* Logs Modal */}
+        {showLogs && (
+            <div className="absolute inset-0 z-[999] bg-black/50 flex items-end justify-center">
+              <div className="w-full bg-[#0B0C19] rounded-t-3xl px-5 pt-5 pb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex flex-col">
+                    <span className="text-white font-semibold text-sm">Connection logs</span>
+                    <span className="text-white/60 text-[11px]">
+                  {isTauri() ? "Tauri (production)" : "Web preview"}
+                </span>
+                  </div>
+
+                  <button
+                      type="button"
+                      onClick={() => setShowLogs(false)}
+                      className="text-white/80 hover:text-white text-[12px] px-3 py-1 rounded-full bg-white/10 hover:bg-white/15 transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
+
+                {connectError && (
+                    <div className="mb-3 rounded-2xl bg-red-500/15 border border-red-500/30 px-4 py-3">
+                      <div className="text-red-200 text-[12px] font-semibold mb-1">Error</div>
+                      <div className="text-red-100 text-[12px] whitespace-pre-wrap break-words">
+                        {connectError}
+                      </div>
+                    </div>
+                )}
+
+                <div className="flex items-center gap-2 mb-3">
+                  <button
+                      type="button"
+                      onClick={() => copyLogs()}
+                      className="flex-1 rounded-full bg-white/10 hover:bg-white/15 transition-colors px-4 py-2 text-[12px] text-white"
+                  >
+                    Copy
+                  </button>
+                  <button
+                      type="button"
+                      onClick={() => clearLogs()}
+                      className="flex-1 rounded-full bg-white/10 hover:bg-white/15 transition-colors px-4 py-2 text-[12px] text-white"
+                  >
+                    Clear
+                  </button>
+                </div>
+
+                <div className="h-[280px] overflow-auto rounded-2xl bg-black/35 border border-white/10 px-3 py-3">
+                  {vpnLogs.length === 0 ? (
+                      <div className="text-white/60 text-[12px]">
+                        No logs yet. Try connecting and reopen this panel.
+                      </div>
+                  ) : (
+                      <pre className="text-[11px] leading-relaxed text-white/85 whitespace-pre-wrap break-words">
+                  {vpnLogs.join("\n")}
+                </pre>
+                  )}
+                </div>
+              </div>
+            </div>
+        )}
       </div>
   );
 };
