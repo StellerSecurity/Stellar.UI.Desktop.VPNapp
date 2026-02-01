@@ -1,21 +1,25 @@
 [package]
 name = "stellar-vpn-desktop"
-version = "0.1.0"
+version = "0.1.5"
 description = "Stellar VPN Desktop"
 authors = ["Stellar Security"]
 edition = "2021"
 default-run = "stellar-vpn-desktop"
+
 
 [build-dependencies]
 tauri-build = { version = "2.0", features = [] }
 
 [dependencies]
 anyhow = "1"
+tauri-plugin-fs = "2"
+
 
 tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-plugin-shell = "2"
 tauri-plugin-store = "2.4.1"
 tauri-plugin-autostart = "2.5.1"
+tauri-plugin-process = "2"
 
 clap = { version = "4", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }

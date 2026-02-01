@@ -6,6 +6,8 @@
   "permissions": [
     "core:default",
     "store:default",
-    "os:default"
+    "os:default",
+    "process:default",
+    "updater:default"
   ]
 }

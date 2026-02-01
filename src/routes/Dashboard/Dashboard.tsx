@@ -17,7 +17,7 @@ import { VpnWorldMap } from "../../components/VpnWorldMap";
 
 // OTA updater (Tauri)
 import { check } from "@tauri-apps/plugin-updater";
-import { relaunch } from "@tauri-apps/plugin-process";
+
 
 const isTauri = () =>
     typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -50,7 +50,11 @@ const lsSetBool = (key: string, v: boolean) => {
 };
 
 const Spinner: React.FC<{ className?: string }> = ({ className = "" }) => (
-    <svg className={`animate-spin ${className}`} viewBox="0 0 24 24" aria-label="Loading">
+    <svg
+        className={`animate-spin ${className}`}
+        viewBox="0 0 24 24"
+        aria-label="Loading"
+    >
       <circle
           className="opacity-20"
           cx="12"
@@ -91,8 +95,12 @@ export const Dashboard: React.FC = () => {
   const [showCongrats, setShowCongrats] = useState(false);
   const [accountNumber, setAccountNumber] = useState<string | null>(null);
 
-  const [selectedServerName, setSelectedServerName] = useState<string | null>(null);
-  const [selectedServerCountryCode, setSelectedServerCountryCode] = useState<string | null>(null);
+  const [selectedServerName, setSelectedServerName] = useState<string | null>(
+      null
+  );
+  const [selectedServerCountryCode, setSelectedServerCountryCode] = useState<
+      string | null
+  >(null);
 
   const [showCopiedToast, setShowCopiedToast] = useState(false);
   const [deviceName, setDeviceName] = useState<string | null>(null);
@@ -103,6 +111,12 @@ export const Dashboard: React.FC = () => {
   const [listenersReady, setListenersReady] = useState(false);
 
   const [showExpiredModal, setShowExpiredModal] = useState(false);
+
+  // --- Mullvad-style update UI (manual install) ---
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [updateVersion, setUpdateVersion] = useState<string | null>(null);
+  const [updateUrl, setUpdateUrl] = useState<string | null>(null);
+  const [updateCmd, setUpdateCmd] = useState<string | null>(null);
 
   const isConnected = status === "connected";
   const isConnecting = status === "connecting";
@@ -115,7 +129,9 @@ export const Dashboard: React.FC = () => {
   // Focus country (temporary animation target when returning from ChangeLocation)
   const [focusCountryCode, setFocusCountryCode] = useState<string | null>(null);
 
-  const [mapFocusCountryCode, setMapFocusCountryCode] = useState<string | null>(null);
+  const [mapFocusCountryCode, setMapFocusCountryCode] = useState<string | null>(
+      null
+  );
   const [mapAnimateKey, setMapAnimateKey] = useState(0);
 
   const getSelectedConfigPath = (s: any): string => {
@@ -170,7 +186,11 @@ export const Dashboard: React.FC = () => {
   }, []);
 
   const copyLogs = useCallback(async () => {
-    const text = ["=== Stellar VPN Logs ===", connectError ? `ERROR: ${connectError}` : "", ...vpnLogs]
+    const text = [
+      "=== Stellar VPN Logs ===",
+      connectError ? `ERROR: ${connectError}` : "",
+      ...vpnLogs,
+    ]
         .filter(Boolean)
         .join("\n");
 
@@ -255,7 +275,8 @@ export const Dashboard: React.FC = () => {
       setSelectedServerCountryCode(server?.countryCode ?? null);
 
       const isNewUser =
-          searchParams.get("newUser") === "true" && searchParams.get("oneClick") === "true";
+          searchParams.get("newUser") === "true" &&
+          searchParams.get("oneClick") === "true";
 
       if (isNewUser) {
         setHasConnectedOnce(false);
@@ -286,6 +307,7 @@ export const Dashboard: React.FC = () => {
   }, []);
 
   // OTA update check (runs when user enters Dashboard)
+  // Mullvad-style: show Update available, user installs manually (deb)
   const otaCheckedKeyRef = useRef<string | null>(null);
   useEffect(() => {
     if (!isTauri()) return;
@@ -295,20 +317,51 @@ export const Dashboard: React.FC = () => {
 
     (async () => {
       try {
+        setShowLogs(true);
         appendLog("[ui] Checking for updates...");
+
         const update = await check();
-        if (update) {
-          appendLog("[ui] Update available. Downloading...");
-          await update.downloadAndInstall();
-          appendLog("[ui] Update installed. Relaunching...");
-          await relaunch();
-        } else {
+
+        appendLog(`[ui] check() finished. update=${update ? "YES" : "NO"}`);
+
+        if (!update) {
           appendLog("[ui] No updates available.");
+          setUpdateAvailable(false);
+          setUpdateVersion(null);
+          setUpdateUrl(null);
+          setUpdateCmd(null);
+          return;
         }
+
+        const v = String(update.version ?? "").trim() || "unknown";
+
+        // We distribute deb. Use a deterministic URL scheme:
+        // https://.../vpn/<version>/Stellar%20VPN_<version>_amd64.deb
+        const url = `https://desktopreleasesprod.stellarsecurity.com/vpn/${v}/Stellar%20VPN_${v}_amd64.deb`;
+
+        const cmd =
+            `cd /tmp && ` +
+            `wget -O stellar-vpn.deb "${url}" && ` +
+            `sudo apt-get install -y ./stellar-vpn.deb`;
+
+        appendLog(`[ui] Update available: ${v}`);
+        appendLog(`[ui] Download URL: ${url}`);
+        appendLog("[ui] Waiting for user to install (manual).");
+
+        setUpdateAvailable(true);
+        setUpdateVersion(v);
+        setUpdateUrl(url);
+        setUpdateCmd(cmd);
       } catch (e: any) {
-        const msg = typeof e === "string" ? e : e?.message ? String(e.message) : "Unknown error";
+        const msg =
+            typeof e === "string"
+                ? e
+                : e?.message
+                    ? String(e.message)
+                    : JSON.stringify(e);
         console.warn("Update check failed:", e);
         appendLog(`[ui] Update check failed: ${msg}`);
+        setShowLogs(true);
       }
     })();
   }, [location.key, appendLog]);
@@ -323,10 +376,14 @@ export const Dashboard: React.FC = () => {
           if (statusRef.current !== "connecting") return;
 
           try {
-            appendLog(`[ui] Connect watchdog fired after ${CONNECT_TIMEOUT_MS}ms`);
+            appendLog(
+                `[ui] Connect watchdog fired after ${CONNECT_TIMEOUT_MS}ms`
+            );
             await invoke("vpn_disconnect").catch(() => {});
           } finally {
-            setConnectError("VPN connect timed out. Check OpenVPN logs and kill switch permissions.");
+            setConnectError(
+                "VPN connect timed out. Check OpenVPN logs and kill switch permissions."
+            );
             setShowLogs(true);
             setStatus("disconnected");
             setManualDisabled(true);
@@ -369,7 +426,12 @@ export const Dashboard: React.FC = () => {
             password: vpnAuth.password,
           });
         } catch (e: any) {
-          const msg = typeof e === "string" ? e : e?.message ? String(e.message) : "Unknown error";
+          const msg =
+              typeof e === "string"
+                  ? e
+                  : e?.message
+                      ? String(e.message)
+                      : "Unknown error";
 
           appendLog(`[ui] vpn_connect failed: ${msg}`);
           setConnectError(msg);
@@ -495,11 +557,15 @@ export const Dashboard: React.FC = () => {
       });
 
       unlistenDisconnect = await listen("tray-disconnect", () => {
-        trayDisconnect().catch((e) => console.error("tray-disconnect failed:", e));
+        trayDisconnect().catch((e) =>
+            console.error("tray-disconnect failed:", e)
+        );
       });
 
       unlistenReconnect = await listen("tray-reconnect", () => {
-        trayReconnect().catch((e) => console.error("tray-reconnect failed:", e));
+        trayReconnect().catch((e) =>
+            console.error("tray-reconnect failed:", e)
+        );
       });
     })();
 
@@ -712,6 +778,34 @@ export const Dashboard: React.FC = () => {
     }
   };
 
+  const copyUpdateCommand = useCallback(async () => {
+    if (!updateCmd) return;
+    try {
+      await navigator.clipboard.writeText(updateCmd);
+      appendLog("[ui] Update command copied to clipboard.");
+      setShowLogs(true);
+    } catch {
+      appendLog("[ui] Failed to copy update command.");
+      setShowLogs(true);
+    }
+  }, [updateCmd, appendLog]);
+
+  const openUpdateUrl = useCallback(async () => {
+    if (!updateUrl) return;
+
+    try {
+      window.open(updateUrl, "_blank", "noopener,noreferrer");
+      appendLog("[ui] Opened download URL.");
+      setShowLogs(true);
+    } catch (e: any) {
+      const msg =
+          typeof e === "string" ? e : e?.message ? String(e.message) : JSON.stringify(e);
+      appendLog(`[ui] Failed to open URL: ${msg}`);
+      setShowLogs(true);
+    }
+  }, [updateUrl, appendLog]);
+
+
   return (
       <div className="w-[312px] h-[640px] overflow-hidden relative bg-[#0037A3]">
         {/* Map background */}
@@ -747,8 +841,14 @@ export const Dashboard: React.FC = () => {
           {/* Header */}
           <div className="px-6 pt-10 flex items-center justify-between">
             <div className="flex items-center logo-container">
-              <img src="/icons/dashboard-icon.svg" alt="Dashboard" className="h-20 w-20 inline-block" />
-              <span className="text-[14px] font-semibold font-silka">Stellar VPN</span>
+              <img
+                  src="/icons/dashboard-icon.svg"
+                  alt="Dashboard"
+                  className="h-20 w-20 inline-block"
+              />
+              <span className="text-[14px] font-semibold font-silka">
+              Stellar VPN
+            </span>
             </div>
 
             <div className="flex items-center gap-2">
@@ -759,7 +859,9 @@ export const Dashboard: React.FC = () => {
               >
               <span
                   className={`font-semibold flex items-center gap-1 ${
-                      (subscription?.days_remaining ?? 0) === 0 ? "!text-red-500" : "text-[#00B252]"
+                      (subscription?.days_remaining ?? 0) === 0
+                          ? "!text-red-500"
+                          : "text-[#00B252]"
                   }`}
               >
                 {subscription?.days_remaining !== undefined
@@ -781,14 +883,20 @@ export const Dashboard: React.FC = () => {
                   onClick={() => navigate("/profile")}
                   type="button"
               >
-                <img src="/icons/user.svg" alt="Profile" className="w-[25px] h-[25px]" />
+                <img
+                    src="/icons/user.svg"
+                    alt="Profile"
+                    className="w-[25px] h-[25px]"
+                />
               </button>
             </div>
           </div>
 
           <div className="px-6 mt-4 text-[11px] text-white/80">
             <span className="text-[#D6D6E0] text-[12px]">Device Name: </span>
-            <span className="font-semibold text-[12px] text-white">{deviceName || "N/A"}</span>
+            <span className="font-semibold text-[12px] text-white">
+            {deviceName || "N/A"}
+          </span>
           </div>
 
           {/* Status pill */}
@@ -796,14 +904,22 @@ export const Dashboard: React.FC = () => {
             <div className="bg-[rgba(0,0,0,0.10)] inline-flex items-center gap-2 rounded-full px-4 pr-6 py-2 text-md text-white font-semibold backdrop-blur-[18px]">
               {isConnected ? (
                   <>
-                    <img src="/icons/secured.svg" alt="Secured" className="w-10 h-10" />
+                    <img
+                        src="/icons/secured.svg"
+                        alt="Secured"
+                        className="w-10 h-10"
+                    />
                     <span>Secured connection</span>
                   </>
               ) : isConnecting ? (
                   <span>Connecting...</span>
               ) : (
                   <>
-                    <img src="/icons/unsecured.svg" alt="Unsecured" className="w-10 h-10" />
+                    <img
+                        src="/icons/unsecured.svg"
+                        alt="Unsecured"
+                        className="w-10 h-10"
+                    />
                     <span>Unsecured connection</span>
                   </>
               )}
@@ -855,7 +971,9 @@ export const Dashboard: React.FC = () => {
                 className="mb-4 w-full rounded-full bg-white/10 px-5 py-4 text-xs flex items-center justify-between hover:bg-white/15 transition-colors"
             >
               <div className="flex flex-col">
-                <span className="text-[#D6D6E0] text-[12px]">Fastest Server</span>
+              <span className="text-[#D6D6E0] text-[12px]">
+                Fastest Server
+              </span>
                 <span className="mt-1 text-sm font-semibold text-[#EAEAF0] flex items-center gap-2">
                 <img
                     src={flagSrcForCountryCode(selectedServerCountryCode)}
@@ -901,14 +1019,20 @@ export const Dashboard: React.FC = () => {
               <div className="absolute inset-0 flex items-end justify-center bg-black/40 z-50">
                 <div className="w-full bg-white rounded-t-3xl px-6 pt-6 pb-12 animate-slide-up">
                   <div className="flex flex-col items-center">
-                    <img src="/icons/green-tick.svg" alt="Success" className="w-12 h-12 mb-2" />
+                    <img
+                        src="/icons/green-tick.svg"
+                        alt="Success"
+                        className="w-12 h-12 mb-2"
+                    />
 
                     <h2 className="text-xl font-bold text-[#0B0C19] mb-2 font-poppins">
                       Congrats!
                     </h2>
 
                     <p className="text-sm text-[#62626A] mb-6 text-center font-poppins">
-                      {accountNumber ? "Here's your account number. Save it!" : "Welcome! Your account has been created."}
+                      {accountNumber
+                          ? "Here's your account number. Save it!"
+                          : "Welcome! Your account has been created."}
                     </p>
 
                     <div className="w-full mb-6 relative">
@@ -964,7 +1088,13 @@ export const Dashboard: React.FC = () => {
                 <div className="w-full bg-white rounded-t-3xl px-6 pt-6 pb-12 animate-slide-up">
                   <div className="flex flex-col items-center text-center">
                     <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mb-3">
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="text-red-500">
+                      <svg
+                          width="22"
+                          height="22"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          className="text-red-500"
+                      >
                         <path
                             d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10
                          10-4.48 10-10S17.52 2 12 2Zm3.54 13.54-1.41 1.41L12 13.41
@@ -996,13 +1126,72 @@ export const Dashboard: React.FC = () => {
           )}
         </div>
 
+        {/* Update Modal (manual .deb install) */}
+        {updateAvailable && updateVersion && updateUrl && updateCmd && (
+            <div className="absolute inset-0 z-[998] bg-black/50 flex items-end justify-center">
+              <div className="w-full bg-white rounded-t-3xl px-6 pt-6 pb-8">
+                <div className="flex items-start justify-between">
+                  <div className="pr-4">
+                    <div className="text-[#0B0C19] font-bold text-[16px]">
+                      Update available
+                    </div>
+                    <div className="text-[#62626A] text-[12px] mt-1">
+                      Version{" "}
+                      <span className="font-semibold">{updateVersion}</span> is ready.
+                      Install it in terminal.
+                    </div>
+                  </div>
+
+                  <button
+                      type="button"
+                      onClick={() => setUpdateAvailable(false)}
+                      className="text-[#0B0C19] text-[12px] px-3 py-1 rounded-full bg-black/5 hover:bg-black/10 transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
+
+                <div className="mt-4 rounded-2xl bg-[#0B0C19] text-white px-4 py-3">
+                  <div className="text-[11px] text-white/70 mb-2">Run this:</div>
+                  <pre className="text-[11px] whitespace-pre-wrap break-words leading-relaxed">
+                {updateCmd}
+              </pre>
+                </div>
+
+                <div className="mt-4 flex items-center gap-2">
+                  <button
+                      type="button"
+                      onClick={() => openUpdateUrl()}
+                      className="flex-1 rounded-full bg-[#0B0C19] hover:bg-black text-white px-4 py-2 text-[12px] transition-colors"
+                  >
+                    Open download
+                  </button>
+
+                  <button
+                      type="button"
+                      onClick={() => copyUpdateCommand()}
+                      className="flex-1 rounded-full bg-black/5 hover:bg-black/10 text-[#0B0C19] px-4 py-2 text-[12px] transition-colors"
+                  >
+                    Copy command
+                  </button>
+                </div>
+
+                <div className="mt-3 text-[11px] text-[#62626A]">
+                  Tip: users can paste it into Terminal. The app does not install updates automatically.
+                </div>
+              </div>
+            </div>
+        )}
+
         {/* Logs Modal */}
         {showLogs && (
             <div className="absolute inset-0 z-[999] bg-black/50 flex items-end justify-center">
               <div className="w-full bg-[#0B0C19] rounded-t-3xl px-5 pt-5 pb-6">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex flex-col">
-                    <span className="text-white font-semibold text-sm">Connection logs</span>
+                <span className="text-white font-semibold text-sm">
+                  Connection logs
+                </span>
                     <span className="text-white/60 text-[11px]">
                   {isTauri() ? "Tauri (production)" : "Web preview"}
                 </span>
@@ -1019,7 +1208,9 @@ export const Dashboard: React.FC = () => {
 
                 {connectError && (
                     <div className="mb-3 rounded-2xl bg-red-500/15 border border-red-500/30 px-4 py-3">
-                      <div className="text-red-200 text-[12px] font-semibold mb-1">Error</div>
+                      <div className="text-red-200 text-[12px] font-semibold mb-1">
+                        Error
+                      </div>
                       <div className="text-red-100 text-[12px] whitespace-pre-wrap break-words">
                         {connectError}
                       </div>

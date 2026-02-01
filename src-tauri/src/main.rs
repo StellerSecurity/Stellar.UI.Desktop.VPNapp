@@ -703,6 +703,92 @@ async fn run_openvpn_session(
 // ---------------- Commands ----------------
 
 #[tauri::command]
+fn chmod_exec(path: String) -> Result<(), String> {
+  use std::os::unix::fs::PermissionsExt;
+  let mut perms = std::fs::metadata(&path)
+    .map_err(|e| e.to_string())?
+    .permissions();
+  perms.set_mode(0o755);
+  std::fs::set_permissions(&path, perms)
+    .map_err(|e| e.to_string())
+}
+
+/// Install current running AppImage "permanently" for the user:
+/// - Copies to ~/.local/bin/stellar-vpn.AppImage
+/// - Creates ~/.local/share/applications/stellar-vpn.desktop
+/// - chmod 755 target
+///
+/// Frontend should pass APPIMAGE path (env APPIMAGE) as `appimage_path`.
+#[tauri::command]
+fn install_appimage_linux(appimage_path: String) -> Result<(), String> {
+  #[cfg(not(target_os = "linux"))]
+  {
+    let _ = appimage_path;
+    return Err("install_appimage_linux is only supported on Linux.".to_string());
+  }
+
+  #[cfg(target_os = "linux")]
+  {
+    use std::io::Write;
+    use std::os::unix::fs::PermissionsExt;
+
+    let src = appimage_path.trim();
+    if src.is_empty() {
+      return Err("appimage_path is empty".to_string());
+    }
+
+    let src_path = PathBuf::from(src);
+    if !src_path.exists() {
+      return Err(format!("AppImage not found: {}", src_path.display()));
+    }
+
+    let home = std::env::var("HOME").map_err(|_| "HOME not set".to_string())?;
+
+    let bin_dir = PathBuf::from(&home).join(".local/bin");
+    fs::create_dir_all(&bin_dir).map_err(|e| format!("Failed to create ~/.local/bin: {e}"))?;
+
+    let target_path = bin_dir.join("stellar-vpn.AppImage");
+
+    // Always overwrite (ensures "latest run" matches installed)
+    fs::copy(&src_path, &target_path)
+      .map_err(|e| format!("Failed to copy AppImage to {}: {e}", target_path.display()))?;
+
+    // chmod 755
+    let mut perms = fs::metadata(&target_path)
+      .map_err(|e| format!("Failed to stat target AppImage: {e}"))?
+      .permissions();
+    perms.set_mode(0o755);
+    fs::set_permissions(&target_path, perms)
+      .map_err(|e| format!("Failed to chmod target AppImage: {e}"))?;
+
+    let apps_dir = PathBuf::from(&home).join(".local/share/applications");
+    fs::create_dir_all(&apps_dir).map_err(|e| format!("Failed to create applications dir: {e}"))?;
+
+    let desktop_path = apps_dir.join("stellar-vpn.desktop");
+
+    // Minimal desktop entry (works on GNOME/KDE/etc)
+    let desktop_entry = format!(
+      "[Desktop Entry]\n\
+Type=Application\n\
+Name=Stellar VPN\n\
+Comment=Stellar VPN Desktop\n\
+Exec={}\n\
+Terminal=false\n\
+Categories=Network;Security;\n\
+StartupNotify=true\n",
+      target_path.display()
+    );
+
+    let mut f = fs::File::create(&desktop_path)
+      .map_err(|e| format!("Failed to write desktop entry: {e}"))?;
+    f.write_all(desktop_entry.as_bytes())
+      .map_err(|e| format!("Failed to write desktop entry bytes: {e}"))?;
+
+    Ok(())
+  }
+}
+
+#[tauri::command]
 async fn vpn_prefetch_config(
   app: AppHandle<RT>,
   state: tauri::State<'_, SharedState>,
@@ -1006,7 +1092,10 @@ fn main() {
   let _ = fix_path_env::fix();
 
   tauri::Builder::default()
-    // ✅ Updater plugin (desktop)
+    // Plugins
+    .plugin(tauri_plugin_fs::init())
+    .plugin(tauri_plugin_process::init()) // :contentReference[oaicite:1]{index=1}
+    .plugin(tauri_plugin_store::Builder::default().build()) // :contentReference[oaicite:2]{index=2}
     .plugin(tauri_plugin_updater::Builder::new().build())
     .setup(|app| {
       let state: SharedState = std::sync::Arc::new(Mutex::new(VpnInner::default()));
@@ -1039,6 +1128,10 @@ fn main() {
       Ok(())
     })
     .invoke_handler(tauri::generate_handler![
+      // util
+      chmod_exec,
+      install_appimage_linux,
+      // vpn
       vpn_prefetch_config,
       vpn_connect,
       vpn_disconnect,
@@ -1049,4 +1142,3 @@ fn main() {
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }
-

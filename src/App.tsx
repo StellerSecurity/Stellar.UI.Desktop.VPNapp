@@ -15,6 +15,9 @@ import { Dashboard } from "./routes/Dashboard/Dashboard";
 import { ChangeLocation } from "./routes/Dashboard/ChangeLocation";
 import { Profile } from "./routes/Dashboard/Profile";
 import { Subscribe } from "./routes/Dashboard/Subscribe";
+import { useEffect } from "react";
+
+
 
 function AppContent() {
   const location = useLocation();
