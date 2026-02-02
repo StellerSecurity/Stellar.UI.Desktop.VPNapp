@@ -6,6 +6,11 @@
   "permissions": [
     "core:default",
     "store:default",
-    "os:default"
+    "os:default",
+    "process:default",
+    "updater:default",
+    "autostart:allow-enable",
+    "autostart:allow-disable",
+    "autostart:allow-is-enabled"
   ]
 }

@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Stellar VPN",
-  "version": "0.1.0",
+  "version": "0.1.6",
   "identifier": "org.stellarsecurity.vpn.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -25,9 +25,26 @@
       "capabilities": ["main-capability"]
     }
   },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://desktopreleasesassetsprod.stellarsecurity.com/vpn/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEMyQThCODE4QkZBODZEMzUKUldRMWJhaS9HTGlvd21RRFlYL1d4dWJJNGh4NHpNU2dHcDZZbUYwUDJxVHphOUNIV3VuMDNkc0wK"
+    }
+  },
   "bundle": {
     "active": true,
-    "targets": ["deb", "rpm", "app", "dmg"],
+    "createUpdaterArtifacts": true,
+    "targets": [
+      "deb",
+      "rpm",
+      "appimage",
+      "app",
+      "dmg",
+      "msi",
+      "nsis"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -37,7 +54,8 @@
     ],
     "resources": [
       "bin/openvpn-aarch64-apple-darwin",
-      "bin/openvpn-x86_64-apple-darwin"
+      "bin/openvpn-x86_64-apple-darwin",
+      "bin/openvpn-x86_64-unknown-linux-gnu"
     ],
     "linux": {
       "deb": {
