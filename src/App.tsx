@@ -15,8 +15,6 @@ import { Dashboard } from "./routes/Dashboard/Dashboard";
 import { ChangeLocation } from "./routes/Dashboard/ChangeLocation";
 import { Profile } from "./routes/Dashboard/Profile";
 import { Subscribe } from "./routes/Dashboard/Subscribe";
-import { useEffect } from "react";
-
 
 
 function AppContent() {
@@ -116,6 +114,41 @@ function AppContent() {
   );
 }
 
+import { useEffect } from "react";
+import { enable, isEnabled } from "@tauri-apps/plugin-autostart";
+
+export function useForceAutostartAlwaysOn() {
+    useEffect(() => {
+        let cancelled = false;
+
+        (async () => {
+            try {
+                const enabled = await isEnabled();
+                if (cancelled) return;
+
+                if (!enabled) {
+                    await enable(); // ✅ force autostart ON
+                    // optional: re-check
+                    // const nowEnabled = await isEnabled();
+                    // console.log("Autostart forced ON:", nowEnabled);
+                    console.log("Autostart forced ON");
+                } else {
+                    console.log("Autostart already enabled");
+                }
+            } catch (e) {
+                // ✅ IMPORTANT: do not crash UI; just log
+                console.error("Force autostart failed:", e);
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+}
+
+
 export default function App() {
-  return <AppContent />;
+    useForceAutostartAlwaysOn();
+    return <AppContent/>;
 }

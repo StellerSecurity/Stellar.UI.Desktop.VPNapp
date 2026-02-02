@@ -8,6 +8,9 @@
     "store:default",
     "os:default",
     "process:default",
-    "updater:default"
+    "updater:default",
+    "autostart:allow-enable",
+    "autostart:allow-disable",
+    "autostart:allow-is-enabled"
   ]
 }

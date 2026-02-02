@@ -1,6 +1,6 @@
 [package]
 name = "stellar-vpn-desktop"
-version = "0.1.5"
+version = "0.1.6"
 description = "Stellar VPN Desktop"
 authors = ["Stellar Security"]
 edition = "2021"
@@ -56,3 +56,6 @@ macos-build = []
 
 [target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
 tauri-plugin-updater = "2.9.0"
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-autostart = "2"

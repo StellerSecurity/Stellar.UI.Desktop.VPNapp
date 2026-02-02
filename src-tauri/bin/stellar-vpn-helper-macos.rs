@@ -9,19 +9,19 @@
 //   sudo ./target/debug/stellar-vpn-macos-helper --socket /tmp/stellar-vpn-helper.sock
 
 use std::{
-  path::{Path, PathBuf},
-  sync::Arc,
-  time::Duration,
+    path::{Path, PathBuf},
+    sync::Arc,
+    time::Duration,
 };
 
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 use tokio::{
-  io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
-  net::{UnixListener, UnixStream},
-  process::Command,
-  sync::{broadcast, Mutex},
-  time,
+    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
+    net::{UnixListener, UnixStream},
+    process::Command,
+    sync::{broadcast, Mutex},
+    time,
 };
 
 #[derive(Parser, Debug)]

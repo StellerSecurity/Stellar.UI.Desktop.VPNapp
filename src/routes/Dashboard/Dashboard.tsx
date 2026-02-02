@@ -121,6 +121,8 @@ export const Dashboard: React.FC = () => {
   const isConnected = status === "connected";
   const isConnecting = status === "connecting";
 
+
+
   // Treat expired as either explicit `expired === true` OR days_remaining <= 0
   const isExpired =
       (subscription as any)?.expired === true ||
@@ -870,13 +872,6 @@ export const Dashboard: React.FC = () => {
               </span>
               </button>
 
-              <button
-                  className="rounded-full bg-white/10 px-3 py-1 text-[11px] text-white hover:bg-white/15 transition-colors"
-                  onClick={() => setShowLogs(true)}
-                  type="button"
-              >
-                Logs
-              </button>
 
               <button
                   className="rounded-full flex items-center justify-center"
@@ -1178,72 +1173,6 @@ export const Dashboard: React.FC = () => {
 
                 <div className="mt-3 text-[11px] text-[#62626A]">
                   Tip: users can paste it into Terminal. The app does not install updates automatically.
-                </div>
-              </div>
-            </div>
-        )}
-
-        {/* Logs Modal */}
-        {showLogs && (
-            <div className="absolute inset-0 z-[999] bg-black/50 flex items-end justify-center">
-              <div className="w-full bg-[#0B0C19] rounded-t-3xl px-5 pt-5 pb-6">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex flex-col">
-                <span className="text-white font-semibold text-sm">
-                  Connection logs
-                </span>
-                    <span className="text-white/60 text-[11px]">
-                  {isTauri() ? "Tauri (production)" : "Web preview"}
-                </span>
-                  </div>
-
-                  <button
-                      type="button"
-                      onClick={() => setShowLogs(false)}
-                      className="text-white/80 hover:text-white text-[12px] px-3 py-1 rounded-full bg-white/10 hover:bg-white/15 transition-colors"
-                  >
-                    Close
-                  </button>
-                </div>
-
-                {connectError && (
-                    <div className="mb-3 rounded-2xl bg-red-500/15 border border-red-500/30 px-4 py-3">
-                      <div className="text-red-200 text-[12px] font-semibold mb-1">
-                        Error
-                      </div>
-                      <div className="text-red-100 text-[12px] whitespace-pre-wrap break-words">
-                        {connectError}
-                      </div>
-                    </div>
-                )}
-
-                <div className="flex items-center gap-2 mb-3">
-                  <button
-                      type="button"
-                      onClick={() => copyLogs()}
-                      className="flex-1 rounded-full bg-white/10 hover:bg-white/15 transition-colors px-4 py-2 text-[12px] text-white"
-                  >
-                    Copy
-                  </button>
-                  <button
-                      type="button"
-                      onClick={() => clearLogs()}
-                      className="flex-1 rounded-full bg-white/10 hover:bg-white/15 transition-colors px-4 py-2 text-[12px] text-white"
-                  >
-                    Clear
-                  </button>
-                </div>
-
-                <div className="h-[280px] overflow-auto rounded-2xl bg-black/35 border border-white/10 px-3 py-3">
-                  {vpnLogs.length === 0 ? (
-                      <div className="text-white/60 text-[12px]">
-                        No logs yet. Try connecting and reopen this panel.
-                      </div>
-                  ) : (
-                      <pre className="text-[11px] leading-relaxed text-white/85 whitespace-pre-wrap break-words">
-                  {vpnLogs.join("\n")}
-                </pre>
-                  )}
                 </div>
               </div>
             </div>
