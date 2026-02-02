@@ -3,8 +3,7 @@
  * Handles all API communication with the backend
  */
 
-const API_BASE_URL =
-    "https://stellaruidesktopvpnapiprod.azurewebsites.net/api/v1";
+const API_BASE_URL = "https://stellaruidesktopvpnapiprod.azurewebsites.net/api/v1";
 
 export enum SubscriptionStatus {
   INACTIVE = 0,
@@ -108,8 +107,7 @@ const LS_KEYS = {
   vpnPassword: "stellar_vpn_password",
 } as const;
 
-const isTauri =
-    typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 type KVStore = {
   get<T>(key: string): Promise<T | null | undefined>;
@@ -156,10 +154,23 @@ function lsRemove(key: string): void {
   }
 }
 
+// ---------- Auth change event ----------
+
+export const AUTH_EVENT = "stellar:auth-changed";
+
+export function emitAuthChanged(): void {
+  try {
+    window.dispatchEvent(new Event(AUTH_EVENT));
+  } catch {
+    // ignore
+  }
+}
+
 // ---------- Token / identity ----------
 
 /**
- * Get bearer token from secure storage
+ * Get bearer token from storage.
+ * On Tauri, prefer plugin-store, but keep localStorage as a fallback for legacy.
  */
 export async function getBearerToken(): Promise<string | null> {
   if (isTauri) {
@@ -177,7 +188,7 @@ export async function getBearerToken(): Promise<string | null> {
 }
 
 /**
- * Get account number from secure storage
+ * Get account number from storage.
  */
 export async function getAccountNumber(): Promise<string | null> {
   if (isTauri) {
@@ -194,7 +205,7 @@ export async function getAccountNumber(): Promise<string | null> {
 }
 
 /**
- * Get device name from secure storage
+ * Get device name from storage.
  */
 export async function getDeviceName(): Promise<string | null> {
   if (isTauri) {
@@ -210,17 +221,14 @@ export async function getDeviceName(): Promise<string | null> {
   return lsGet(LS_KEYS.deviceName);
 }
 
+/**
+ * Get VPN auth (username/password) from storage.
+ */
 export async function getVpnAuth(): Promise<VpnAuth | null> {
-  // If you already have lsGet() + getStore(), use those.
-  // This mirrors your storeAuthData() logic.
-
-  // ---- TAURI STORE FIRST ----
-  try {
-    const isTauri =
-        typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-
-    if (isTauri) {
-      const store = await getStore(); // same helper you use in storeAuthData()
+  // Tauri store first
+  if (isTauri) {
+    try {
+      const store = await getStore();
       const username = await store.get<string>(LS_KEYS.vpnUsername);
       const password = await store.get<string>(LS_KEYS.vpnPassword);
 
@@ -228,12 +236,12 @@ export async function getVpnAuth(): Promise<VpnAuth | null> {
       const p = typeof password === "string" ? password.trim() : "";
 
       if (u && p) return { username: u, password: p };
+    } catch {
+      // ignore, fallback below
     }
-  } catch {
-    // ignore, fallback below
   }
 
-  // ---- FALLBACK: localStorage ----
+  // localStorage fallback
   try {
     const u = (window.localStorage.getItem(LS_KEYS.vpnUsername) || "").trim();
     const p = (window.localStorage.getItem(LS_KEYS.vpnPassword) || "").trim();
@@ -246,7 +254,8 @@ export async function getVpnAuth(): Promise<VpnAuth | null> {
 }
 
 /**
- * Store authentication data in secure storage
+ * Store authentication data in storage.
+ * IMPORTANT: Always emit AUTH_EVENT so routes/providers can re-check auth.
  */
 export async function storeAuthData(
     token: string,
@@ -257,45 +266,64 @@ export async function storeAuthData(
   if (isTauri) {
     try {
       const store = await getStore();
-      await store.set("bearer_token", token);
-      await store.set(LS_KEYS.vpnUsername, vpnAuth.username);
-      await store.set(LS_KEYS.vpnPassword, vpnAuth.password);
 
+      await store.set("bearer_token", token);
       await store.set("device_name", deviceName);
       if (accountNumber) {
         await store.set("account_number", accountNumber);
       }
+
+      // VPN credentials (used by helper / config)
+      await store.set(LS_KEYS.vpnUsername, vpnAuth.username);
+      await store.set(LS_KEYS.vpnPassword, vpnAuth.password);
+
       await store.save();
+
+      // Optional safety: remove any legacy fallback token so it cannot override later
+      lsRemove(LS_KEYS.bearerToken);
+
+      emitAuthChanged();
       return;
     } catch (error) {
       console.warn("Tauri store not available, using localStorage:", error);
+      // fall through to localStorage below
     }
-    console.log(vpnAuth.username);
-
-    lsSet(LS_KEYS.bearerToken, token);
-    lsSet(LS_KEYS.deviceName, deviceName);
-    lsSet(LS_KEYS.vpnUsername, vpnAuth.username);
-    lsSet(LS_KEYS.vpnPassword, vpnAuth.password);
-    if (accountNumber) lsSet(LS_KEYS.accountNumber, accountNumber);
-    return;
   }
 
+  // localStorage (web + fallback)
   lsSet(LS_KEYS.bearerToken, token);
   lsSet(LS_KEYS.deviceName, deviceName);
   if (accountNumber) lsSet(LS_KEYS.accountNumber, accountNumber);
+
+  // Keep parity: store VPN creds here too (important for non-tauri usage / legacy)
+  lsSet(LS_KEYS.vpnUsername, vpnAuth.username);
+  lsSet(LS_KEYS.vpnPassword, vpnAuth.password);
+
+  emitAuthChanged();
 }
 
-
 /**
- * Clear all authentication data from storage
+ * Clear all authentication data from storage.
+ * CRITICAL: Always clear localStorage even if Tauri store succeeds,
+ * because getBearerToken() falls back to localStorage.
  */
 export async function clearAuthData(): Promise<void> {
+  // Clear cached home response (if you use it)
   try {
     localStorage.removeItem("stellar_vpn_home_cache_v1");
   } catch {
     // ignore
   }
 
+  // Always clear localStorage (legacy + fallback)
+  lsRemove(LS_KEYS.bearerToken);
+  lsRemove(LS_KEYS.deviceName);
+  lsRemove(LS_KEYS.accountNumber);
+  lsRemove(LS_KEYS.vpnUsername);
+  lsRemove(LS_KEYS.vpnPassword);
+  lsRemove(LS_KEYS.autoConnect);
+
+  // Clear Tauri store as well (if available)
   if (isTauri) {
     try {
       const store = await getStore();
@@ -307,32 +335,17 @@ export async function clearAuthData(): Promise<void> {
       await store.delete(LS_KEYS.vpnUsername);
       await store.delete(LS_KEYS.vpnPassword);
 
+      await store.delete("auto_connect");
+      await store.delete("selected_server");
+
       await store.save();
-      return;
     } catch (error) {
-      console.warn("Tauri store not available, using localStorage:", error);
+      console.warn("Tauri store not available, using localStorage only:", error);
     }
-
-    lsRemove(LS_KEYS.bearerToken);
-    lsRemove(LS_KEYS.deviceName);
-    lsRemove(LS_KEYS.accountNumber);
-
-    // ✅ clear VPN credentials too (localStorage fallback)
-    lsRemove(LS_KEYS.vpnUsername);
-    lsRemove(LS_KEYS.vpnPassword);
-
-    return;
   }
 
-  lsRemove(LS_KEYS.bearerToken);
-  lsRemove(LS_KEYS.deviceName);
-  lsRemove(LS_KEYS.accountNumber);
-
-  // ✅ clear VPN credentials too (web)
-  lsRemove(LS_KEYS.vpnUsername);
-  lsRemove(LS_KEYS.vpnPassword);
+  emitAuthChanged();
 }
-
 
 // ---------- VPN preferences ----------
 
@@ -367,14 +380,12 @@ export async function setSelectedServer(
     countryCode: normalizeCountryCode(countryCode),
   };
 
-  // Prefer Tauri store when possible
   if (isTauri) {
     try {
       const store = await getStore();
       await store.set("selected_server", payload);
       await store.save();
 
-      // Same-tab refresh trigger
       window.dispatchEvent(new Event("stellar:selected-server"));
       return;
     } catch (error) {
@@ -382,11 +393,8 @@ export async function setSelectedServer(
     }
   }
 
-  // localStorage fallback
   try {
     window.localStorage.setItem(LS_SELECTED_SERVER, JSON.stringify(payload));
-
-    // Also write legacy fields to avoid breaking old reads elsewhere
     window.localStorage.setItem(LS_LEGACY_SERVER_NAME, name);
     window.localStorage.setItem(LS_LEGACY_SERVER_CFG, configUrl);
 
@@ -397,7 +405,7 @@ export async function setSelectedServer(
 }
 
 export async function getSelectedServer(): Promise<SelectedServer | null> {
-  // 1) Try Tauri store first
+  // 1) Tauri store first
   if (isTauri) {
     try {
       const store = await getStore();
@@ -486,11 +494,11 @@ export async function getSelectedServer(): Promise<SelectedServer | null> {
  */
 export async function getAutoConnect(): Promise<boolean> {
   const parse = (raw: string | null): boolean => {
-    if (raw === null) return true; // DEFAULT ON
+    if (raw === null) return true;
     const v = raw.trim().toLowerCase();
     if (v === "true" || v === "1" || v === "yes") return true;
     if (v === "false" || v === "0" || v === "no") return false;
-    return true; // fail-safe: positive default
+    return true;
   };
 
   if (isTauri) {
@@ -498,7 +506,6 @@ export async function getAutoConnect(): Promise<boolean> {
       const store = await getStore();
       const autoConnect = await store.get<boolean>("auto_connect");
 
-      // If not set, default ON + persist it
       if (autoConnect === null || autoConnect === undefined) {
         await store.set("auto_connect", true);
         await store.save();
@@ -527,10 +534,8 @@ export async function setAutoConnect(enabled: boolean): Promise<void> {
       return;
     } catch (error) {
       console.warn("Tauri store not available, using localStorage:", error);
+      // fall through
     }
-
-    lsSet(LS_KEYS.autoConnect, enabled.toString());
-    return;
   }
 
   lsSet(LS_KEYS.autoConnect, enabled.toString());
@@ -540,10 +545,8 @@ export async function setAutoConnect(enabled: boolean): Promise<void> {
 
 /**
  * Call the Home endpoint to get user and subscription status
- * @returns HomeResponse or null if request fails
  */
 export async function fetchHomeData(): Promise<HomeResponse | null> {
-  console.log('Getting home data');
   try {
     const token = await getBearerToken();
 
@@ -564,7 +567,6 @@ export async function fetchHomeData(): Promise<HomeResponse | null> {
     let data: HomeResponse;
     try {
       data = await response.json();
-      console.log('Home data', data);
     } catch (parseError) {
       console.error("Failed to parse response as JSON:", parseError);
       if (response.status === 401) {
@@ -590,10 +592,7 @@ export async function fetchHomeData(): Promise<HomeResponse | null> {
 /**
  * Login with email and password
  */
-export async function login(
-    username: string,
-    password: string
-): Promise<AuthResponse | null> {
+export async function login(username: string, password: string): Promise<AuthResponse | null> {
   try {
     const response = await fetch(`${API_BASE_URL}/logincontroller/login`, {
       method: "POST",
@@ -627,10 +626,7 @@ export async function login(
 /**
  * Register with email and password
  */
-export async function register(
-    username: string,
-    password: string
-): Promise<AuthResponse | null> {
+export async function register(username: string, password: string): Promise<AuthResponse | null> {
   try {
     const response = await fetch(`${API_BASE_URL}/logincontroller/register`, {
       method: "POST",
@@ -666,16 +662,13 @@ export async function register(
  */
 export async function registerWithAccountNumber(): Promise<AuthResponse | null> {
   try {
-    const response = await fetch(
-        `${API_BASE_URL}/logincontroller/register/withaccountnumber`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({}),
-        }
-    );
+    const response = await fetch(`${API_BASE_URL}/logincontroller/register/withaccountnumber`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({}),
+    });
 
     let data: AuthResponse;
     try {
@@ -701,20 +694,15 @@ export async function registerWithAccountNumber(): Promise<AuthResponse | null> 
 /**
  * Login with account number
  */
-export async function loginWithAccountNumber(
-    accountNumber: string
-): Promise<AuthResponse | null> {
+export async function loginWithAccountNumber(accountNumber: string): Promise<AuthResponse | null> {
   try {
-    const response = await fetch(
-        `${API_BASE_URL}/logincontroller/login/withaccountnumber`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ account_number: accountNumber }),
-        }
-    );
+    const response = await fetch(`${API_BASE_URL}/logincontroller/login/withaccountnumber`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ account_number: accountNumber }),
+    });
 
     let data: AuthResponse;
     try {
@@ -740,9 +728,7 @@ export async function loginWithAccountNumber(
 /**
  * Send password reset code to email
  */
-export async function sendPasswordResetCode(
-    email: string
-): Promise<StellarResponse | null> {
+export async function sendPasswordResetCode(email: string): Promise<StellarResponse | null> {
   try {
     const response = await fetch(`${API_BASE_URL}/password/forgot`, {
       method: "POST",
@@ -865,18 +851,10 @@ const SERVER_LIST_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 /**
  * Fetch VPN server list (with caching)
- * @param forceRefresh - If true, bypass cache and fetch fresh data
- * @returns Array of VPN servers or null if request fails
  */
-export async function fetchServerList(
-    forceRefresh: boolean = false
-): Promise<VpnServer[] | null> {
+export async function fetchServerList(forceRefresh: boolean = false): Promise<VpnServer[] | null> {
   const now = Date.now();
-  if (
-      !forceRefresh &&
-      serverListCache &&
-      now - serverListCacheTime < SERVER_LIST_CACHE_DURATION
-  ) {
+  if (!forceRefresh && serverListCache && now - serverListCacheTime < SERVER_LIST_CACHE_DURATION) {
     return serverListCache;
   }
 
@@ -901,9 +879,7 @@ export async function fetchServerList(
         await clearAuthData();
         console.error("Authentication failed: token expired or invalid");
       } else {
-        console.error(
-            `Server list API request failed: ${response.status} ${response.statusText}`
-        );
+        console.error(`Server list API request failed: ${response.status} ${response.statusText}`);
       }
       return null;
     }

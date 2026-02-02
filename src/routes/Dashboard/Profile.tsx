@@ -147,23 +147,17 @@ export const Profile: React.FC = () => {
 
   const handleLogout = async () => {
     if (isTauri()) {
-      try {
-        await invoke("vpn_disconnect");
-      } catch {
-        // ignore
-      }
-
-      // Disable kill switch on logout to avoid "no internet surprise"
-      try {
-        await setKillSwitchNative(false, null);
-      } catch {
-        // ignore
-      }
+      try { await invoke("vpn_disconnect"); } catch {}
+      try { await setKillSwitchNative(false, null); } catch {}
     }
 
     await clearAuthData();
-    navigate("/welcome");
+
+    // Force route + full state reset
+    window.location.hash = "#/welcome";
+    window.location.reload();
   };
+
 
   const toggleKillSwitch = async () => {
     const next = !killSwitch;

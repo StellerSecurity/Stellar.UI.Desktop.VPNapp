@@ -1,26 +1,32 @@
 import React, { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
-import { getBearerToken } from "../../services/api";
+import { getBearerToken, AUTH_EVENT } from "../../services/api";
 
-/**
- * Root redirect that checks authentication and redirects accordingly
- */
 export const RootRedirect: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+
     const checkAuth = async () => {
       const token = await getBearerToken();
-      setIsAuthenticated(!!token);
+      if (!cancelled) setIsAuthenticated(!!token);
     };
+
     checkAuth();
+
+    const onAuthChanged = () => {
+      checkAuth();
+    };
+
+    window.addEventListener(AUTH_EVENT, onAuthChanged);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(AUTH_EVENT, onAuthChanged);
+    };
   }, []);
 
-  // Show nothing while checking
-  if (isAuthenticated === null) {
-    return null;
-  }
+  if (isAuthenticated === null) return null;
 
-  // Redirect to dashboard if authenticated, otherwise to welcome
   return <Navigate to={isAuthenticated ? "/dashboard" : "/welcome"} replace />;
 };

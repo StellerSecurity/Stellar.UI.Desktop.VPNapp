@@ -1,36 +1,36 @@
 import React, { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
-import { getBearerToken } from "../../services/api";
+import { getBearerToken, AUTH_EVENT } from "../../services/api";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
-/**
- * Protected route that requires authentication
- * Redirects to /welcome if no token is found
- */
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+
     const checkAuth = async () => {
       const token = await getBearerToken();
-      setIsAuthenticated(!!token);
+      if (!cancelled) setIsAuthenticated(!!token);
     };
+
     checkAuth();
+
+    const onAuthChanged = () => checkAuth();
+    window.addEventListener(AUTH_EVENT, onAuthChanged);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener(AUTH_EVENT, onAuthChanged);
+    };
   }, []);
 
-  // Show nothing while checking (or show a loading spinner if desired)
-  if (isAuthenticated === null) {
-    return null; // or <LoadingSpinner />
-  }
+  if (isAuthenticated === null) return null;
 
-  // Redirect to welcome if not authenticated
-  if (!isAuthenticated) {
-    return <Navigate to="/welcome" replace />;
-  }
+  if (!isAuthenticated) return <Navigate to="/welcome" replace />;
 
-  // Render protected content if authenticated
   return <>{children}</>;
 };
