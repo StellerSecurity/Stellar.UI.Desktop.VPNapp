@@ -856,14 +856,6 @@ export const Dashboard: React.FC = () => {
             <div className="flex items-center gap-2">
 
               <button
-                  type="button"
-                  onClick={() => setShowLogs((v) => !v)}
-                  className="rounded-full bg-white/10 hover:bg-white/15 transition-colors px-3 py-1 text-[11px] text-white"
-              >
-                {showLogs ? "Hide logs" : "Show logs"}
-              </button>
-
-              <button
                   className="rounded-full bg-white px-3 py-1 text-[11px]"
                   onClick={() => navigate("/profile")}
                   type="button"
@@ -1187,69 +1179,6 @@ export const Dashboard: React.FC = () => {
             </div>
         )}
 
-        {/* Logs panel */}
-        {showLogs && (
-            <div className="absolute left-0 right-0 bottom-0 z-[999] px-4 pb-4">
-              <div className="rounded-2xl bg-black/55 backdrop-blur-md border border-white/10 overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-2">
-                  <div className="text-[12px] font-semibold text-white">
-                    Logs
-                    {connectError ? (
-                        <span className="ml-2 text-[11px] font-medium text-red-300">
-              (error)
-            </span>
-                    ) : null}
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                        type="button"
-                        onClick={copyLogs}
-                        className="text-[11px] px-3 py-1 rounded-full bg-white/10 hover:bg-white/15 text-white transition-colors"
-                    >
-                      Copy
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={clearLogs}
-                        className="text-[11px] px-3 py-1 rounded-full bg-white/10 hover:bg-white/15 text-white transition-colors"
-                    >
-                      Clear
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={() => setShowLogs(false)}
-                        className="text-[11px] px-3 py-1 rounded-full bg-white/10 hover:bg-white/15 text-white transition-colors"
-                    >
-                      Close
-                    </button>
-                  </div>
-                </div>
-
-                {connectError && (
-                    <div className="px-4 pb-2 text-[11px] text-red-200 whitespace-pre-wrap break-words">
-                      {connectError}
-                    </div>
-                )}
-
-                <div className="px-4 pb-3">
-                  <div className="h-[160px] overflow-y-auto rounded-xl bg-black/35 border border-white/10 px-3 py-2">
-                    {vpnLogs.length === 0 ? (
-                        <div className="text-[11px] text-white/70">
-                          No logs yet.
-                        </div>
-                    ) : (
-                        <div className="text-[11px] leading-relaxed text-white/90 whitespace-pre-wrap break-words">
-                          {vpnLogs.join("\n")}
-                        </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-        )}
 
 
       </div>
