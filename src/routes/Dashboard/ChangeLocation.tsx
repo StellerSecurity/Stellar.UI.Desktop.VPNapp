@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect, useRef, useState, useCallback } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { AuthShell } from "../../components/layout/AuthShell";
 import {
   fetchServerList,
@@ -28,14 +28,13 @@ type Country = {
   cities: City[];
 };
 
-// Same key your Dashboard uses (prevents auto-reconnect logic fighting you)
 const LS_MANUAL_DISABLED = "vpn_manual_disabled";
 
 // --- Server list cache (stale-while-revalidate) ---
 const SERVER_CACHE_KEY = "stellar_vpn_servers_cache_v1";
 
 // “Fresh” window: use cache instantly and still refresh in background
-const SERVER_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
+const SERVER_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days (kept for readability)
 
 // “Max stale” fallback: if network fails, still allow old list (offline mode)
 const SERVER_CACHE_MAX_STALE_MS = 1000 * 60 * 60 * 24 * 30; // 30 days
@@ -71,7 +70,7 @@ function serversRoughlyEqual(a: VpnServer[], b: VpnServer[]): boolean {
   if (!a || !b) return false;
   if (a.length !== b.length) return false;
 
-  // cheap-ish comparison: ids + config_url
+  // Cheap-ish comparison: ids + config_url
   for (let i = 0; i < a.length; i++) {
     const A = a[i] as any;
     const B = b[i] as any;
@@ -131,13 +130,13 @@ const flagSrcForCountry = (code?: string) => {
   return `/flags/${code.toLowerCase()}.svg`;
 };
 
-const isTauri = () =>
-    typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+const isTauri = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 const looksLikeUrl = (s: string) => /^https?:\/\//i.test(s.trim());
 
 export const ChangeLocation: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
 
   const [expandedCountry, setExpandedCountry] = useState<string>("");
@@ -151,12 +150,19 @@ export const ChangeLocation: React.FC = () => {
   const [selectingServerId, setSelectingServerId] = useState<string | null>(null);
   const FASTEST_ID = "__fastest__";
 
-  // ✅ Remember what user selected (for UI highlight + open correct country)
+  // Remember what user selected (for UI highlight + open correct country)
   const [selectedServerName, setSelectedServerName] = useState<string | null>(null);
   const [selectedServerConfig, setSelectedServerConfig] = useState<string | null>(null);
+  const [selectedServerId, setSelectedServerId] = useState<string | null>(null);
 
   const countryRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  const didInitExpandRef = useRef(false);
+  const serverRefs = useRef<Record<string, HTMLLIElement | null>>({});
+
+  // Re-run auto-open every time you enter this route
+  const didAutoOpenRef = useRef(false);
+  useEffect(() => {
+    didAutoOpenRef.current = false;
+  }, [location.key]);
 
   const backToDashboardAndFocusMap = useCallback(
       (countryCode?: string | null, connectNow?: boolean) => {
@@ -194,10 +200,44 @@ export const ChangeLocation: React.FC = () => {
     return localPath.trim();
   }, []);
 
+  const findCountryIdForSelected = useCallback(
+      (transformed: Country[], opts: { selectedId?: string | null; selectedName?: string | null }) => {
+        const q = (searchParams.get("country") || "").trim().toLowerCase();
+        if (q) {
+          const match = transformed.find((c) => (c.countryCode || "").toLowerCase() === q);
+          if (match) return match.id;
+        }
+
+        const sid = (opts.selectedId || "").trim();
+        if (sid) {
+          for (const c of transformed) {
+            for (const city of c.cities) {
+              for (const srv of city.servers) {
+                if ((srv.id || "").trim() === sid) return c.id;
+              }
+            }
+          }
+        }
+
+        const sn = (opts.selectedName || "").trim();
+        if (sn) {
+          for (const c of transformed) {
+            for (const city of c.cities) {
+              for (const srv of city.servers) {
+                if ((srv.name || "").trim() === sn) return c.id;
+              }
+            }
+          }
+        }
+
+        return transformed.length > 0 ? transformed[0].id : null;
+      },
+      [searchParams]
+  );
+
   useEffect(() => {
     let mounted = true;
 
-    // Read selected server once (local storage via service)
     const loadSelected = async () => {
       try {
         const selected = await getSelectedServer();
@@ -220,35 +260,21 @@ export const ChangeLocation: React.FC = () => {
                         ? (selected as any).config_path
                         : null;
 
+        const sid =
+            typeof (selected as any)?.serverId === "string"
+                ? (selected as any).serverId
+                : typeof (selected as any)?.server_id === "string"
+                    ? (selected as any).server_id
+                    : null;
+
         if (!mounted) return;
 
-        setSelectedServerName(name ? name.trim() : null);
-        setSelectedServerConfig(cfg ? cfg.trim() : null);
+        setSelectedServerName(name ? String(name).trim() : null);
+        setSelectedServerConfig(cfg ? String(cfg).trim() : null);
+        setSelectedServerId(sid ? String(sid).trim() : null);
       } catch {
         // ignore
       }
-    };
-
-    const findOpenCountryId = (transformed: Country[], selectedName?: string | null) => {
-      // Priority: query param > selected server > first
-      const q = (searchParams.get("country") || "").trim().toLowerCase();
-      if (q) {
-        const match = transformed.find((c) => (c.countryCode || "").toLowerCase() === q);
-        if (match) return match.id;
-      }
-
-      const sn = (selectedName || "").trim();
-      if (sn) {
-        for (const c of transformed) {
-          for (const city of c.cities) {
-            for (const srv of city.servers) {
-              if ((srv.name || "").trim() === sn) return c.id;
-            }
-          }
-        }
-      }
-
-      return transformed.length > 0 ? transformed[0].id : null;
     };
 
     const hydrateFromCache = () => {
@@ -264,25 +290,14 @@ export const ChangeLocation: React.FC = () => {
       setRawServers(cached.servers);
       setCountriesData(transformed);
       setError(null);
-
-      // If cache is fresh, we don’t need the big loader
       setIsLoading(false);
-
-      // Initialize expanded country once (prefer selected)
-      if (!didInitExpandRef.current && transformed.length > 0) {
-        const openId = findOpenCountryId(transformed, selectedServerName);
-        if (openId) {
-          setExpandedCountry(openId);
-          didInitExpandRef.current = true;
-        }
-      }
 
       return true;
     };
 
     const backgroundRefresh = async () => {
       const cached = readServerCache();
-      const hadCache = !!cached && (Date.now() - cached.ts) <= SERVER_CACHE_MAX_STALE_MS;
+      const hadCache = !!cached && Date.now() - cached.ts <= SERVER_CACHE_MAX_STALE_MS;
       if (hadCache) setIsRefreshing(true);
 
       try {
@@ -307,24 +322,14 @@ export const ChangeLocation: React.FC = () => {
         setRawServers(servers);
         const transformed = transformServerList(servers);
         setCountriesData(transformed);
-
-        // Expand selection logic only if not initialized yet
-        if (!didInitExpandRef.current) {
-          const openId = findOpenCountryId(transformed, selectedServerName);
-          if (openId) {
-            setExpandedCountry(openId);
-            didInitExpandRef.current = true;
-          }
-        }
-
         setError(null);
       } catch (err) {
         console.error("Server list refresh failed:", err);
 
         if (!mounted) return;
 
-        const cached = readServerCache();
-        const canFallback = !!cached && (Date.now() - cached.ts) <= SERVER_CACHE_MAX_STALE_MS;
+        const cached2 = readServerCache();
+        const canFallback = !!cached2 && Date.now() - cached2.ts <= SERVER_CACHE_MAX_STALE_MS;
 
         if (!canFallback) {
           setError("Failed to load server list");
@@ -339,7 +344,7 @@ export const ChangeLocation: React.FC = () => {
     };
 
     (async () => {
-      // Load selected first so cache hydrate can open correct country
+      // Load selection first so we can auto-open/scroll correctly
       await loadSelected();
 
       const hasCache = hydrateFromCache();
@@ -351,7 +356,48 @@ export const ChangeLocation: React.FC = () => {
     return () => {
       mounted = false;
     };
-  }, [searchParams, selectedServerName]);
+  }, [location.key]); // important: re-run on every route entry
+
+  // Auto-open + auto-scroll every time you enter ChangeLocation
+  useEffect(() => {
+    if (didAutoOpenRef.current) return;
+    if (isLoading) return;
+    if (error) return;
+    if (!countriesData || countriesData.length === 0) return;
+
+    const openId = findCountryIdForSelected(countriesData, {
+      selectedId: selectedServerId,
+      selectedName: selectedServerName,
+    });
+
+    if (!openId) return;
+
+    didAutoOpenRef.current = true;
+    setExpandedCountry(openId);
+
+    window.setTimeout(() => {
+      const container = countryRefs.current[openId];
+      if (container && typeof container.scrollIntoView === "function") {
+        container.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+
+      const sid = (selectedServerId || "").trim();
+      if (sid) {
+        const row = serverRefs.current[sid];
+        if (row && typeof row.scrollIntoView === "function") {
+          row.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }
+    }, 140);
+  }, [
+    isLoading,
+    error,
+    countriesData,
+    selectedServerId,
+    selectedServerName,
+    findCountryIdForSelected,
+    location.key,
+  ]);
 
   const normalizedSearch = searchTerm.trim().toLowerCase();
 
@@ -391,11 +437,12 @@ export const ChangeLocation: React.FC = () => {
         // ignore
       }
 
-      await setSelectedServer(s.name, cfgToStore, (s.country || "").toLowerCase() || undefined);
+      await setSelectedServer(s.name, cfgToStore, (s.country || "").toLowerCase() || undefined, s.id);
 
-      // ✅ Keep UI remembering selection
+      // Keep UI remembering selection
       setSelectedServerName(s.name);
       setSelectedServerConfig(cfgToStore);
+      setSelectedServerId(s.id);
 
       backToDashboardAndFocusMap(s.country || null, true);
     } catch (e: any) {
@@ -449,9 +496,7 @@ export const ChangeLocation: React.FC = () => {
 
             {!isLoading && (
                 <div className="px-8 pt-4 pb-2 flex items-center justify-between">
-                  <div className="text-[11px] text-[#62626A]">
-                    {isRefreshing ? "Updating server list…" : ""}
-                  </div>
+                  <div className="text-[11px] text-[#62626A]">{isRefreshing ? "Updating server list…" : ""}</div>
                   {isRefreshing && (
                       <div className="w-4 h-4 rounded-full border-2 border-[#62626A]/20 border-t-[#62626A] animate-spin" />
                   )}
@@ -529,12 +574,7 @@ export const ChangeLocation: React.FC = () => {
                                     isOpen ? "scale-[1.05]" : "scale-100",
                                   ].join(" ")}
                               />
-                              <span
-                                  className={[
-                                    "text-[13px] transition-all duration-200",
-                                    isOpen ? "font-semibold" : "font-normal",
-                                  ].join(" ")}
-                              >
+                              <span className={["text-[13px] transition-all duration-200", isOpen ? "font-semibold" : "font-normal"].join(" ")}>
                           {country.name}
                         </span>
                             </div>
@@ -562,13 +602,13 @@ export const ChangeLocation: React.FC = () => {
                                       <ul className="text-[#0B0C19] text-[12px] pl-6">
                                         {city.servers.map((server) => {
                                           const disabled =
-                                              !server.config_url ||
-                                              (selectingServerId !== null && selectingServerId !== server.id);
+                                              !server.config_url || (selectingServerId !== null && selectingServerId !== server.id);
 
                                           const isSelectingRow = selectingServerId === server.id;
 
-                                          // ✅ Highlight selected server (remember selection)
+                                          // Highlight selected server (prefer stable id)
                                           const isSelected =
+                                              (!!selectedServerId && selectedServerId.trim() === (server.id || "").trim()) ||
                                               (!!selectedServerName && selectedServerName.trim() === (server.name || "").trim()) ||
                                               (!!selectedServerConfig &&
                                                   !!server.config_url &&
@@ -576,6 +616,9 @@ export const ChangeLocation: React.FC = () => {
 
                                           return (
                                               <li
+                                                  ref={(el) => {
+                                                    serverRefs.current[server.id] = el;
+                                                  }}
                                                   key={server.id}
                                                   className={[
                                                     "py-4 flex items-center gap-2",
@@ -603,23 +646,20 @@ export const ChangeLocation: React.FC = () => {
                                                       await setSelectedServer(
                                                           server.name,
                                                           cfgToStore,
-                                                          country.countryCode ? country.countryCode.toLowerCase() : undefined
+                                                          country.countryCode ? country.countryCode.toLowerCase() : undefined,
+                                                          server.id
                                                       );
 
-                                                      // ✅ Keep UI remembering selection
                                                       setSelectedServerName(server.name);
                                                       setSelectedServerConfig(cfgToStore);
+                                                      setSelectedServerId(server.id);
 
                                                       backToDashboardAndFocusMap(country.countryCode || null, true);
                                                     } catch (e: any) {
                                                       console.error("Failed to select server:", e);
 
                                                       const msg =
-                                                          typeof e === "string"
-                                                              ? e
-                                                              : e?.message
-                                                                  ? String(e.message)
-                                                                  : "Unknown error";
+                                                          typeof e === "string" ? e : e?.message ? String(e.message) : "Unknown error";
 
                                                       alert("Could not select server.\n\n" + msg);
                                                       navigate("/dashboard");
@@ -633,9 +673,7 @@ export const ChangeLocation: React.FC = () => {
                                                 <span className="ml-1">{server.name}</span>
 
                                                 {isSelected && (
-                                                    <span className="ml-2 text-[11px] font-semibold text-[#2761FC]">
-                                          Selected
-                                        </span>
+                                                    <span className="ml-2 text-[11px] font-semibold text-[#2761FC]">Selected</span>
                                                 )}
 
                                                 {isSelectingRow && (

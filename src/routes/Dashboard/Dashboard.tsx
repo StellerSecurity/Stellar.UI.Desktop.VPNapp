@@ -854,6 +854,7 @@ export const Dashboard: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2">
+
               <button
                   className="rounded-full bg-white px-3 py-1 text-[11px]"
                   onClick={() => navigate("/profile")}
@@ -1177,6 +1178,9 @@ export const Dashboard: React.FC = () => {
               </div>
             </div>
         )}
+
+
+
       </div>
   );
 };

@@ -356,6 +356,7 @@ export type SelectedServer = {
   name: string;
   configUrl: string;
   countryCode?: string | null; // lowercase, e.g. "ch"
+  serverId?: string | null;    // ✅ stable id for UI highlight
 };
 
 const LS_SELECTED_SERVER = "stellar_vpn_selected_server_v1";
@@ -372,12 +373,14 @@ function normalizeCountryCode(cc?: string | null): string | null {
 export async function setSelectedServer(
     name: string,
     configUrl: string,
-    countryCode?: string | null
+    countryCode?: string | null,
+    serverId?: string | null
 ): Promise<void> {
-  const payload: SelectedServer = {
+  const payload: SelectedServer & { serverId?: string | null } = {
     name,
     configUrl,
     countryCode: normalizeCountryCode(countryCode),
+    serverId: serverId ? String(serverId).trim() : null,
   };
 
   if (isTauri) {
@@ -385,6 +388,11 @@ export async function setSelectedServer(
       const store = await getStore();
       await store.set("selected_server", payload);
       await store.save();
+
+      // legacy convenience key (optional but useful)
+      try {
+        window.localStorage.setItem("vpn_selected_server_id", payload.serverId || "");
+      } catch {}
 
       window.dispatchEvent(new Event("stellar:selected-server"));
       return;
@@ -398,11 +406,19 @@ export async function setSelectedServer(
     window.localStorage.setItem(LS_LEGACY_SERVER_NAME, name);
     window.localStorage.setItem(LS_LEGACY_SERVER_CFG, configUrl);
 
+    // ✅ new stable id key
+    if (payload.serverId) {
+      window.localStorage.setItem("vpn_selected_server_id", payload.serverId);
+    } else {
+      window.localStorage.removeItem("vpn_selected_server_id");
+    }
+
     window.dispatchEvent(new Event("stellar:selected-server"));
   } catch {
     // ignore
   }
 }
+
 
 export async function getSelectedServer(): Promise<SelectedServer | null> {
   // 1) Tauri store first
@@ -412,6 +428,7 @@ export async function getSelectedServer(): Promise<SelectedServer | null> {
       const obj = await store.get<any>("selected_server");
       if (obj && typeof obj === "object") {
         const name = typeof obj.name === "string" ? obj.name : "";
+
         const configUrl =
             typeof obj.configUrl === "string"
                 ? obj.configUrl
@@ -426,11 +443,19 @@ export async function getSelectedServer(): Promise<SelectedServer | null> {
                     ? obj.country_code
                     : null;
 
+        const serverId =
+            typeof obj.serverId === "string"
+                ? obj.serverId
+                : typeof obj.server_id === "string"
+                    ? obj.server_id
+                    : null;
+
         if (name && configUrl) {
           return {
             name,
             configUrl,
             countryCode: normalizeCountryCode(countryCode),
+            serverId: serverId ? String(serverId).trim() : null,
           };
         }
       }
@@ -446,6 +471,7 @@ export async function getSelectedServer(): Promise<SelectedServer | null> {
       const obj = JSON.parse(raw) as any;
 
       const name = typeof obj?.name === "string" ? obj.name : "";
+
       const configUrl =
           typeof obj?.configUrl === "string"
               ? obj.configUrl
@@ -460,11 +486,19 @@ export async function getSelectedServer(): Promise<SelectedServer | null> {
                   ? obj.country_code
                   : null;
 
+      const serverId =
+          typeof obj?.serverId === "string"
+              ? obj.serverId
+              : typeof obj?.server_id === "string"
+                  ? obj.server_id
+                  : null;
+
       if (name && configUrl) {
         return {
           name,
           configUrl,
           countryCode: normalizeCountryCode(countryCode),
+          serverId: serverId ? String(serverId).trim() : null,
         };
       }
     }
@@ -475,16 +509,27 @@ export async function getSelectedServer(): Promise<SelectedServer | null> {
   // 3) Legacy fallback (name+config separate keys)
   const legacyName = lsGet(LS_LEGACY_SERVER_NAME);
   const legacyCfg = lsGet(LS_LEGACY_SERVER_CFG);
+
+  // ✅ legacy id fallback
+  let legacyId: string | null = null;
+  try {
+    const v = window.localStorage.getItem("vpn_selected_server_id");
+    legacyId = v && v.trim().length > 0 ? v.trim() : null;
+  } catch {}
+
   if (legacyName && legacyCfg) {
     return {
       name: legacyName,
       configUrl: legacyCfg,
       countryCode: null,
+      serverId: legacyId,
     };
   }
 
+  // Optional: if only id exists (rare), still return null to avoid broken state
   return null;
 }
+
 
 // ---------- Auto connect preference ----------
 
