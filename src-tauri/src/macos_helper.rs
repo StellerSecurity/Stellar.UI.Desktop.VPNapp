@@ -1,309 +1,209 @@
 // src-tauri/src/macos_helper.rs
-#![cfg(target_os = "macos")]
+//
+// macOS client-side helper bridge (runs inside Tauri app):
+// - connects to privileged helper via Unix socket
+// - sends Connect/Disconnect/Subscribe commands
+// - forwards helper log/status events to UI
+//
+// IMPORTANT: Use tauri::async_runtime::spawn (NOT tokio::spawn) from sync contexts.
 
-use std::{
-    fs,
-    io::{Read, Seek, SeekFrom},
-    path::{Path, PathBuf},
-    process::Command,
-    thread,
-    time::Duration,
-};
+use std::path::PathBuf;
+use std::time::Duration;
 
-use once_cell::sync::Lazy;
-use tauri::AppHandle;
+use serde::{Deserialize, Serialize};
+use tauri::{AppHandle, Emitter, Runtime};
 
-use super::{emit_log, set_error_and_disconnect, set_status, SharedState, UiStatus, RT};
+const HELPER_SOCK: &str = "/tmp/stellar-vpn-helper.sock";
 
-static OPENVPN_PID: Lazy<std::sync::Mutex<Option<u32>>> = Lazy::new(|| std::sync::Mutex::new(None));
-static OPENVPN_LOG: Lazy<std::sync::Mutex<Option<PathBuf>>> =
-    Lazy::new(|| std::sync::Mutex::new(None));
-static OPENVPN_PIDFILE: Lazy<std::sync::Mutex<Option<PathBuf>>> =
-    Lazy::new(|| std::sync::Mutex::new(None));
-static OPENVPN_LOG_POS: Lazy<std::sync::Mutex<u64>> = Lazy::new(|| std::sync::Mutex::new(0));
-static OPENVPN_START_MS: Lazy<std::sync::Mutex<Option<u64>>> =
-    Lazy::new(|| std::sync::Mutex::new(None));
-
-fn escape_applescript(s: &str) -> String {
-    s.replace('\\', "\\\\").replace('"', "\\\"")
+#[derive(Debug, Serialize)]
+#[serde(tag = "cmd", rename_all = "lowercase")]
+enum HelperReq {
+  Connect {
+    openvpn: String,
+    config: String,
+    username: String,
+    password: String,
+  },
+  Disconnect,
+  Subscribe,
+  Status,
 }
 
-fn run_applescript_admin(shell_cmd: &str) -> Result<(), String> {
-    let cmd_escaped = escape_applescript(shell_cmd);
-    let script = format!(
-        "do shell script \"{}\" with administrator privileges",
-        cmd_escaped
-    );
-
-    let out = Command::new("osascript")
-        .arg("-e")
-        .arg(script)
-        .output()
-        .map_err(|e| format!("Failed to run osascript: {e}"))?;
-
-    if out.status.success() {
-        Ok(())
-    } else {
-        let stderr = String::from_utf8_lossy(&out.stderr).to_string();
-        Err(if stderr.trim().is_empty() {
-            "osascript failed (no stderr)".to_string()
-        } else {
-            format!("osascript failed: {}", stderr.trim())
-        })
-    }
+#[derive(Debug, Deserialize)]
+struct HelperResp {
+  ok: bool,
+  #[serde(default)]
+  error: Option<String>,
+  #[serde(default)]
+  status: Option<String>,
 }
 
-fn ensure_parent_dir(p: &Path) -> Result<(), String> {
-    if let Some(parent) = p.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create dir {}: {e}", parent.display()))?;
-    }
-    Ok(())
+#[derive(Debug, Deserialize)]
+#[serde(tag = "type", rename_all = "lowercase")]
+enum HelperEvent {
+  Log { line: String },
+  Status { status: String },
 }
 
-fn make_log_path() -> PathBuf {
-    super::temp_dir().join(format!("openvpn-macos-{}.log", super::now_ms()))
+fn emit_log<RT: Runtime>(app: &AppHandle<RT>, line: &str) {
+  let _ = app.emit("vpn-log", line.to_string());
 }
 
-fn make_pid_path() -> PathBuf {
-    super::temp_dir().join(format!("openvpn-macos-{}.pid", super::now_ms()))
+fn emit_status<RT: Runtime>(app: &AppHandle<RT>, status: &str) {
+  let _ = app.emit("vpn-status", status.to_string());
 }
 
-fn read_pid(pid_path: &Path) -> Option<u32> {
-    let s = fs::read_to_string(pid_path).ok()?;
-    s.trim().parse::<u32>().ok()
+async fn write_json_line(stream: &mut tokio::net::UnixStream, v: &impl Serialize) -> Result<(), String> {
+  use tokio::io::AsyncWriteExt;
+
+  let s = serde_json::to_string(v).map_err(|e| format!("json encode failed: {e}"))?;
+  stream
+    .write_all(format!("{s}\n").as_bytes())
+    .await
+    .map_err(|e| format!("socket write failed: {e}"))?;
+  Ok(())
 }
 
-fn pid_alive(pid: u32) -> bool {
-    // ps -p PID returnerer 0 hvis processen findes
-    match Command::new("ps").arg("-p").arg(pid.to_string()).output() {
-        Ok(o) => o.status.success(),
-        Err(_) => false,
-    }
+async fn read_json_line<T: for<'de> Deserialize<'de>>(stream: &mut tokio::net::UnixStream) -> Result<T, String> {
+  use tokio::io::{AsyncBufReadExt, BufReader};
+
+  let mut reader = BufReader::new(stream);
+  let mut line = String::new();
+  let n = reader
+    .read_line(&mut line)
+    .await
+    .map_err(|e| format!("socket read failed: {e}"))?;
+  if n == 0 {
+    return Err("socket closed".to_string());
+  }
+  serde_json::from_str::<T>(line.trim()).map_err(|e| format!("json decode failed: {e}"))
 }
 
-fn tail_last_bytes(path: &Path, max_bytes: usize) -> String {
-    let mut f = match fs::File::open(path) {
-        Ok(f) => f,
-        Err(_) => return "".to_string(),
-    };
-    let len = f.metadata().map(|m| m.len()).unwrap_or(0);
-    let start = len.saturating_sub(max_bytes as u64);
-
-    if f.seek(SeekFrom::Start(start)).is_err() {
-        return "".to_string();
-    }
-    let mut buf = Vec::new();
-    let _ = f.read_to_end(&mut buf);
-    String::from_utf8_lossy(&buf).to_string()
+async fn connect_socket() -> Result<tokio::net::UnixStream, String> {
+  tokio::net::UnixStream::connect(HELPER_SOCK)
+    .await
+    .map_err(|e| format!("Failed to connect to helper socket {HELPER_SOCK}: {e}"))
 }
 
-pub async fn helper_connect(
-    app: &AppHandle<RT>,
-    state: &SharedState,
-    openvpn_bin: PathBuf,
-    cfg_path: PathBuf,
-    auth_path: PathBuf,
+pub async fn helper_connect<RT: Runtime>(
+  app: &AppHandle<RT>,
+  _state: &std::sync::Arc<tokio::sync::Mutex<crate::VpnInner>>,
+  openvpn_bin: PathBuf,
+  cfg_path: PathBuf,
+  username: String,
+  password: String,
 ) -> Result<(), String> {
-    emit_log(app, "[macos] helper_connect called");
+  emit_log(app, "[macos] helper_connect -> using root helper socket");
 
-    let log_path = make_log_path();
-    let pid_path = make_pid_path();
+  let mut s = connect_socket().await?;
 
-    ensure_parent_dir(&log_path)?;
-    ensure_parent_dir(&pid_path)?;
+  // Send Connect request
+  write_json_line(
+    &mut s,
+    &HelperReq::Connect {
+      openvpn: openvpn_bin.to_string_lossy().to_string(),
+      config: cfg_path.to_string_lossy().to_string(),
+      username,
+      password,
+    },
+  )
+  .await?;
 
-    // Pre-create files so your user can read them even if root writes later
-    let _ = fs::write(&log_path, b"");
-    let _ = fs::write(&pid_path, b"");
+  // Read response
+  let resp: HelperResp = read_json_line(&mut s).await?;
+  if !resp.ok {
+    return Err(format!(
+      "Helper connect failed: {}",
+      resp.error.unwrap_or_else(|| "unknown error".to_string())
+    ));
+  }
 
-    // OpenVPN as a daemon with explicit log + pidfile (stable)
-    let ovpn = openvpn_bin.to_string_lossy();
-    let cfg = cfg_path.to_string_lossy();
-    let auth = auth_path.to_string_lossy();
-    let log = log_path.to_string_lossy();
-    let pidf = pid_path.to_string_lossy();
+  Ok(())
+}
 
-    // Use --daemon + --writepid + --log (no nohup voodoo)
-    let shell_cmd = format!(
-    "'{}' --config '{}' --auth-user-pass '{}' --auth-nocache --redirect-gateway def1 --verb 3 --log '{}' --writepid '{}' --daemon",
-    ovpn, cfg, auth, log, pidf
-  );
+pub async fn helper_disconnect<RT: Runtime>(
+  app: &AppHandle<RT>,
+  _state: &std::sync::Arc<tokio::sync::Mutex<crate::VpnInner>>,
+) -> Result<(), String> {
+  let mut s = connect_socket().await?;
+  write_json_line(&mut s, &HelperReq::Disconnect).await?;
+  let resp: HelperResp = read_json_line(&mut s).await?;
+  if !resp.ok {
+    return Err(format!(
+      "Helper disconnect failed: {}",
+      resp.error.unwrap_or_else(|| "unknown error".to_string())
+    ));
+  }
+  emit_status(app, "disconnected");
+  Ok(())
+}
 
-    emit_log(app, &format!("[macos] Starting OpenVPN via admin prompt."));
-    emit_log(app, &format!("[macos] Log: {}", log));
-    emit_log(app, &format!("[macos] Pidfile: {}", pidf));
+/// Spawns a background subscriber that:
+/// - connects to helper
+/// - sends Subscribe
+/// - forwards Event::Log and Event::Status into UI
+///
+/// IMPORTANT: this function is called from sync Tauri setup; must use tauri::async_runtime::spawn
+pub fn spawn_helper_subscriber<RT: Runtime>(
+  app: AppHandle<RT>,
+  _state: std::sync::Arc<tokio::sync::Mutex<crate::VpnInner>>,
+) {
+  tauri::async_runtime::spawn(async move {
+    loop {
+      // try connect
+      let mut s = match connect_socket().await {
+        Ok(s) => s,
+        Err(e) => {
+          emit_log(&app, &format!("[macos] helper subscribe connect failed: {e}"));
+          tokio::time::sleep(Duration::from_millis(800)).await;
+          continue;
+        }
+      };
 
-    run_applescript_admin(&shell_cmd)?;
+      // send subscribe
+      if let Err(e) = write_json_line(&mut s, &HelperReq::Subscribe).await {
+        emit_log(&app, &format!("[macos] subscribe write failed: {e}"));
+        tokio::time::sleep(Duration::from_millis(800)).await;
+        continue;
+      }
 
-    // Wait briefly for pidfile to populate
-    let mut pid: Option<u32> = None;
-    for _ in 0..30 {
-        pid = read_pid(&pid_path);
-        if pid.is_some() {
+      // Now read streaming event lines until it breaks
+      let mut reader = tokio::io::BufReader::new(s);
+      loop {
+        let mut line = String::new();
+        let n = match tokio::io::AsyncBufReadExt::read_line(&mut reader, &mut line).await {
+          Ok(n) => n,
+          Err(e) => {
+            emit_log(&app, &format!("[macos] subscribe read failed: {e}"));
             break;
-        }
-        std::thread::sleep(Duration::from_millis(50));
-    }
-
-    let Some(pid) = pid else {
-        let tail = tail_last_bytes(&log_path, 12_000);
-        let msg = if tail.trim().is_empty() {
-            "OpenVPN startede ikke (ingen PID i pidfile). Tjek log.".to_string()
-        } else {
-            format!("OpenVPN startede ikke (ingen PID i pidfile). Log:\n{tail}")
+          }
         };
-        set_error_and_disconnect(state, app, msg).await;
-        return Err("OpenVPN did not write pidfile".to_string());
-    };
-
-    {
-        *OPENVPN_PID.lock().unwrap() = Some(pid);
-        *OPENVPN_LOG.lock().unwrap() = Some(log_path.clone());
-        *OPENVPN_PIDFILE.lock().unwrap() = Some(pid_path.clone());
-        *OPENVPN_LOG_POS.lock().unwrap() = 0;
-        *OPENVPN_START_MS.lock().unwrap() = Some(super::now_ms());
-    }
-
-    emit_log(app, &format!("[macos] OpenVPN daemon started (pid={pid})"));
-
-    // If it already died, fail fast with log tail
-    if !pid_alive(pid) {
-        let tail = tail_last_bytes(&log_path, 12_000);
-        let msg = if tail.trim().is_empty() {
-            "OpenVPN døde med det samme på macOS. (Ingen log-output)".to_string()
-        } else {
-            format!("OpenVPN døde med det samme på macOS. Log:\n{tail}")
-        };
-        set_error_and_disconnect(state, app, msg).await;
-        return Err("OpenVPN exited immediately".to_string());
-    }
-
-    set_status(state, app, UiStatus::Connecting).await;
-    Ok(())
-}
-
-pub async fn helper_disconnect(app: &AppHandle<RT>, state: &SharedState) -> Result<(), String> {
-    let pid_opt = { *OPENVPN_PID.lock().unwrap() };
-
-    if let Some(pid) = pid_opt {
-        emit_log(
-            app,
-            &format!("[macos] Disconnect: killing pid={pid} via admin prompt"),
-        );
-        let _ = run_applescript_admin(&format!("kill -TERM {} >/dev/null 2>&1 || true", pid));
-        // give it a moment, then hard kill if needed
-        std::thread::sleep(Duration::from_millis(400));
-        let _ = run_applescript_admin(&format!("kill -KILL {} >/dev/null 2>&1 || true", pid));
-    } else {
-        emit_log(app, "[macos] Disconnect requested but no PID tracked");
-    }
-
-    *OPENVPN_PID.lock().unwrap() = None;
-    *OPENVPN_LOG.lock().unwrap() = None;
-    *OPENVPN_PIDFILE.lock().unwrap() = None;
-    *OPENVPN_LOG_POS.lock().unwrap() = 0;
-    *OPENVPN_START_MS.lock().unwrap() = None;
-
-    set_status(state, app, UiStatus::Disconnected).await;
-    Ok(())
-}
-
-pub fn spawn_helper_subscriber(app: AppHandle<RT>, state: SharedState) {
-    thread::spawn(move || {
-        emit_log(&app, "[macos] helper subscriber thread started");
-
-        loop {
-            thread::sleep(Duration::from_millis(250));
-
-            let log_path_opt = { OPENVPN_LOG.lock().unwrap().clone() };
-            let Some(log_path) = log_path_opt else {
-                continue;
-            };
-
-            // Watchdog: if connecting too long and process is dead, emit readable error
-            let start_ms_opt = { *OPENVPN_START_MS.lock().unwrap() };
-            if let Some(start_ms) = start_ms_opt {
-                let elapsed = super::now_ms().saturating_sub(start_ms);
-                if elapsed > super::CONNECT_WATCHDOG_MS + 2_000 {
-                    let pid_opt = { *OPENVPN_PID.lock().unwrap() };
-                    if let Some(pid) = pid_opt {
-                        if !pid_alive(pid) {
-                            let tail = tail_last_bytes(&log_path, 16_000);
-                            let app2 = app.clone();
-                            let st2 = state.clone();
-                            tauri::async_runtime::spawn(async move {
-                                set_error_and_disconnect(
-                                    &st2,
-                                    &app2,
-                                    format!("OpenVPN døde under connect på macOS. Log:\n{tail}"),
-                                )
-                                .await;
-                            });
-
-                            *OPENVPN_PID.lock().unwrap() = None;
-                            *OPENVPN_START_MS.lock().unwrap() = None;
-                        }
-                    }
-                }
-            }
-
-            let mut pos = *OPENVPN_LOG_POS.lock().unwrap();
-
-            let mut f = match fs::File::open(&log_path) {
-                Ok(f) => f,
-                Err(_) => continue,
-            };
-
-            if f.seek(SeekFrom::Start(pos)).is_err() {
-                continue;
-            }
-
-            let mut buf = Vec::new();
-            if f.read_to_end(&mut buf).is_err() {
-                continue;
-            }
-
-            if buf.is_empty() {
-                continue;
-            }
-
-            pos += buf.len() as u64;
-            *OPENVPN_LOG_POS.lock().unwrap() = pos;
-
-            let chunk = String::from_utf8_lossy(&buf);
-            for line in chunk.lines() {
-                let line = line.trim_end();
-                if line.is_empty() {
-                    continue;
-                }
-
-                emit_log(&app, line);
-
-                if line.contains("Initialization Sequence Completed") {
-                    let app2 = app.clone();
-                    let st2 = state.clone();
-                    tauri::async_runtime::spawn(async move {
-                        emit_log(&app2, "[macos] OpenVPN init completed");
-                        set_status(&st2, &app2, UiStatus::Connected).await;
-                    });
-                    *OPENVPN_START_MS.lock().unwrap() = None;
-                }
-
-                if line.contains("AUTH_FAILED") || line.contains("auth-failure") {
-                    let app2 = app.clone();
-                    let st2 = state.clone();
-                    tauri::async_runtime::spawn(async move {
-                        set_error_and_disconnect(
-                            &st2,
-                            &app2,
-                            "OpenVPN authentication failed (AUTH_FAILED).".to_string(),
-                        )
-                        .await;
-                    });
-                    *OPENVPN_START_MS.lock().unwrap() = None;
-                }
-            }
+        if n == 0 {
+          emit_log(&app, "[macos] subscribe socket closed");
+          break;
         }
-    });
+
+        let msg = line.trim();
+        if msg.is_empty() {
+          continue;
+        }
+
+        match serde_json::from_str::<HelperEvent>(msg) {
+          Ok(HelperEvent::Log { line }) => {
+            emit_log(&app, &line);
+          }
+          Ok(HelperEvent::Status { status }) => {
+            emit_status(&app, &status);
+          }
+          Err(_) => {
+            // If helper prints plain text, forward it as log.
+            emit_log(&app, msg);
+          }
+        }
+      }
+
+      // reconnect loop backoff
+      tokio::time::sleep(Duration::from_millis(800)).await;
+    }
+  });
 }

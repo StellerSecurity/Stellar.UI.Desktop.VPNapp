@@ -4,6 +4,9 @@
 #[cfg(target_os = "macos")]
 mod macos_helper;
 
+#[cfg(target_os = "macos")]
+mod macos_installer;
+
 use tauri::Wry;
 type RT = Wry;
 
@@ -38,6 +41,10 @@ const TRAY_ICON_ONLINE_BYTES: &[u8] = include_bytes!("../icons/tray-online.png")
 
 #[cfg(target_os = "linux")]
 const LINUX_HELPER_PATH: &str = "/usr/libexec/stellar-vpn/stellar-vpn-helper";
+
+// ✅ NEW: fixed socket path (do NOT use /tmp on macOS for root daemon socket)
+#[cfg(target_os = "macos")]
+const MACOS_HELPER_SOCKET: &str = "/var/run/stellar-vpn/stellar-vpn-helper.sock";
 
 // --- Status exposed to UI ---
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -396,16 +403,8 @@ async fn run_helper_direct(enable: bool, cfg: Option<&str>) -> Result<(), String
     let stderr = String::from_utf8_lossy(&out.stderr).to_string();
     Err(format!(
         "Direct helper failed.\n{}\n{}",
-        if stdout.trim().is_empty() {
-            ""
-        } else {
-            &stdout
-        },
-        if stderr.trim().is_empty() {
-            ""
-        } else {
-            &stderr
-        }
+        if stdout.trim().is_empty() { "" } else { &stdout },
+        if stderr.trim().is_empty() { "" } else { &stderr }
     ))
 }
 
@@ -442,16 +441,8 @@ async fn run_helper_pkexec(enable: bool, cfg: Option<&str>) -> Result<(), String
     let stderr = String::from_utf8_lossy(&out.stderr).to_string();
     Err(format!(
         "Kill switch helper failed.\n{}\n{}",
-        if stdout.trim().is_empty() {
-            ""
-        } else {
-            &stdout
-        },
-        if stderr.trim().is_empty() {
-            ""
-        } else {
-            &stderr
-        }
+        if stdout.trim().is_empty() { "" } else { &stdout },
+        if stderr.trim().is_empty() { "" } else { &stderr }
     ))
 }
 
@@ -467,16 +458,13 @@ async fn apply_kill_switch(enable: bool, config_path: Option<&str>) -> Result<()
             return Err(format!("config_path does not exist: {cfg}"));
         }
 
-        // Try no-password helper first (requires file caps).
         if let Ok(()) = run_helper_direct(true, Some(cfg)).await {
             return Ok(());
         }
 
-        // Fallback to pkexec (password dialog) only if absolutely needed.
         return run_helper_pkexec(true, Some(cfg)).await;
     }
 
-    // disable
     if let Ok(()) = run_helper_direct(false, None).await {
         return Ok(());
     }
@@ -512,10 +500,8 @@ async fn cleanup_killswitch_when_disabled(app: &AppHandle<RT>, state: &SharedSta
         return;
     }
 
-    // No password popups during disconnect: try direct helper only.
     let _ = run_helper_direct(false, None).await;
 
-    // Verify. If it's still there, warn loudly.
     if killswitch_table_exists().await {
         emit_log(app, "[ui] WARNING: kill switch nft table still exists after disable attempt. Internet may remain blocked.");
     }
@@ -598,7 +584,6 @@ async fn run_openvpn_session(
         .arg("--auth-user-pass")
         .arg(&auth_path)
         .arg("--auth-nocache")
-        // IMPORTANT: full-tunnel, otherwise kill-switch will block “normal internet”
         .arg("--redirect-gateway")
         .arg("def1")
         .arg("--verb")
@@ -714,7 +699,6 @@ async fn run_openvpn_session(
 
     let _ = fs::remove_file(&auth_path);
 
-    // Do not delete temp config while kill switch is enabled, otherwise reconnection can fail.
     let ks_enabled = { state.lock().await.kill_switch_enabled };
     if cfg_path.starts_with(temp_dir()) && !ks_enabled {
         let _ = tokio::fs::remove_file(&cfg_path).await;
@@ -740,12 +724,6 @@ fn chmod_exec(path: String) -> Result<(), String> {
     std::fs::set_permissions(&path, perms).map_err(|e| e.to_string())
 }
 
-/// Install current running AppImage "permanently" for the user:
-/// - Copies to ~/.local/bin/stellar-vpn.AppImage
-/// - Creates ~/.local/share/applications/stellar-vpn.desktop
-/// - chmod 755 target
-///
-/// Frontend should pass APPIMAGE path (env APPIMAGE) as `appimage_path`.
 #[tauri::command]
 fn install_appimage_linux(appimage_path: String) -> Result<(), String> {
     #[cfg(not(target_os = "linux"))]
@@ -776,11 +754,9 @@ fn install_appimage_linux(appimage_path: String) -> Result<(), String> {
 
         let target_path = bin_dir.join("stellar-vpn.AppImage");
 
-        // Always overwrite (ensures "latest run" matches installed)
         fs::copy(&src_path, &target_path)
             .map_err(|e| format!("Failed to copy AppImage to {}: {e}", target_path.display()))?;
 
-        // chmod 755
         let mut perms = fs::metadata(&target_path)
             .map_err(|e| format!("Failed to stat target AppImage: {e}"))?
             .permissions();
@@ -794,7 +770,6 @@ fn install_appimage_linux(appimage_path: String) -> Result<(), String> {
 
         let desktop_path = apps_dir.join("stellar-vpn.desktop");
 
-        // Minimal desktop entry (works on GNOME/KDE/etc)
         let desktop_entry = format!(
             "[Desktop Entry]\n\
 Type=Application\n\
@@ -827,7 +802,6 @@ async fn vpn_prefetch_config(
         return Err("configPath is required".to_string());
     }
 
-    // only makes sense when connected if kill switch is on
     let (ks, st) = {
         let g = state.lock().await;
         (g.kill_switch_enabled, g.status)
@@ -873,7 +847,6 @@ async fn vpn_connect(
         return Err("username/password are required".to_string());
     }
 
-    // Snapshot current state BEFORE stopping current session
     let (ks_enabled, cur_status, last_src, last_cached) = {
         let g = state.lock().await;
         (
@@ -884,7 +857,6 @@ async fn vpn_connect(
         )
     };
 
-    // Allocate sid early
     let sid = {
         let mut g = state.lock().await;
         let sid = g.next_sid;
@@ -892,7 +864,6 @@ async fn vpn_connect(
         sid
     };
 
-    // If kill switch ON and we're currently connected, prefetch new config over the tunnel BEFORE disconnect.
     let mut prefetched_cfg: Option<PathBuf> = None;
     if ks_enabled && cur_status == UiStatus::Connected && looks_like_url(cfg_source.as_str()) {
         emit_log(&app, "[ui] Kill switch ON + VPN connected: prefetching new config over tunnel before switching...");
@@ -900,7 +871,6 @@ async fn vpn_connect(
         prefetched_cfg = Some(p);
     }
 
-    // Stop current session (may drop tunnel)
     stop_current_session(&app, state.inner()).await;
 
     {
@@ -914,29 +884,27 @@ async fn vpn_connect(
         &format!("[ui] Connecting using config: {}", cfg_source),
     );
 
-    // Decide config path
     let cfg_path: PathBuf = if let Some(p) = prefetched_cfg {
         p
     } else if ks_enabled && looks_like_url(cfg_source.as_str()) {
-        // KS ON + URL + not connected now -> cannot fetch unless cached.
         if last_src.as_deref() == Some(cfg_source.as_str()) {
             let cached = last_cached.ok_or_else(|| {
-        "Kill switch is ON but no cached config exists yet. Disable kill switch once, connect, then enable it."
-          .to_string()
-      })?;
+                "Kill switch is ON but no cached config exists yet. Disable kill switch once, connect, then enable it."
+                    .to_string()
+            })?;
             let p = PathBuf::from(&cached);
             if !p.exists() {
                 return Err(
-          "Kill switch is ON but cached config file is missing. Disable kill switch once, connect, then enable it."
-            .to_string(),
-        );
+                    "Kill switch is ON but cached config file is missing. Disable kill switch once, connect, then enable it."
+                        .to_string(),
+                );
             }
             p
         } else {
             return Err(
-        "Kill switch is ON and VPN is disconnected, so internet is intentionally blocked. Switch server while connected (so we can prefetch), or disable kill switch once to cache the new config."
-          .to_string(),
-      );
+                "Kill switch is ON and VPN is disconnected, so internet is intentionally blocked. Switch server while connected (so we can prefetch), or disable kill switch once to cache the new config."
+                    .to_string(),
+            );
         }
     } else {
         prepare_config(cfg_source.as_str(), sid).await?
@@ -944,14 +912,12 @@ async fn vpn_connect(
 
     let auth_path = write_auth_file(&username, &password, sid)?;
 
-    // Persist last config source/path
     {
         let mut g = state.lock().await;
         g.last_config_path = Some(cfg_path.to_string_lossy().to_string());
         g.last_config_source = Some(cfg_source.clone());
     }
 
-    // If kill switch enabled, re-apply rules for THIS config before starting OpenVPN.
     let ks_enabled_now = { state.lock().await.kill_switch_enabled };
     if ks_enabled_now {
         let cfg_str = cfg_path.to_string_lossy().to_string();
@@ -970,15 +936,30 @@ async fn vpn_connect(
     // --- macOS: delegate to privileged helper (does NOT break Linux) ---
     #[cfg(target_os = "macos")]
     {
+        // ✅ NEW: force correct socket for BOTH subscriber + connect paths
+        std::env::set_var("STELLAR_VPN_HELPER_SOCKET", MACOS_HELPER_SOCKET);
+
+        if let Err(e) = macos_installer::ensure_root_helper_installed(&app) {
+            set_error_and_disconnect(state.inner(), &app, e.clone()).await;
+            return Err(format!("Failed to install/start helper: {e}"));
+        }
+
         let openvpn_bin = resolve_openvpn_binary(&app)?;
-        if let Err(e) =
-            macos_helper::helper_connect(&app, state.inner(), openvpn_bin, cfg_path, auth_path)
-                .await
+
+        if let Err(e) = macos_helper::helper_connect(
+            &app,
+            state.inner(),
+            openvpn_bin,
+            cfg_path,
+            username.to_string(),
+            password.to_string(),
+        )
+        .await
         {
-            // Keep state sane if helper failed
             set_error_and_disconnect(state.inner(), &app, e.clone()).await;
             return Err(e);
         }
+
         return Ok(());
     }
 
@@ -1047,7 +1028,6 @@ async fn vpn_set_kill_switch(
     args: KillSwitchArgs,
 ) -> Result<(), String> {
     if args.enabled {
-        // Prefer config_path from UI, else fallback to last prepared config path.
         let cfg_in: String = if let Some(s) = args
             .config_path
             .as_deref()
@@ -1069,7 +1049,6 @@ async fn vpn_set_kill_switch(
             sid
         };
 
-        // If cfg_in is URL, we download it NOW (requires internet). That’s fine because enabling KS should happen while net is up.
         let cfg_path = prepare_config(&cfg_in, sid).await?;
         let cfg_str = cfg_path.to_string_lossy().to_string();
 
@@ -1095,13 +1074,11 @@ async fn vpn_set_kill_switch(
         return Ok(());
     }
 
-    // disable
     apply_kill_switch(false, None).await.map_err(|e| {
         emit_log(&app, &format!("[ui] Kill switch disable failed: {e}"));
         e
     })?;
 
-    // Verify nft table is gone (otherwise internet may stay dead).
     #[cfg(target_os = "linux")]
     {
         if killswitch_table_exists().await {
@@ -1125,7 +1102,6 @@ async fn vpn_kill_switch_enabled(state: tauri::State<'_, SharedState>) -> Result
 }
 
 // ---------------- Main ----------------
-
 fn main() {
     let _ = fix_path_env::fix();
 
@@ -1135,17 +1111,13 @@ fn main() {
                 .args(["--flag1", "--flag2"])
                 .build(),
         )
-        // Plugins
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let state: SharedState = std::sync::Arc::new(Mutex::new(VpnInner::default()));
-            #[cfg(target_os = "macos")]
-            let state_for_helper = state.clone();
-
-            app.manage(state);
+            app.manage(state.clone());
 
             let tray_handles = setup_tray(&app.handle())?;
             app.manage(tray_handles);
@@ -1154,8 +1126,18 @@ fn main() {
 
             #[cfg(target_os = "macos")]
             {
+                // ✅ NEW: force correct socket path for subscriber too
+                std::env::set_var("STELLAR_VPN_HELPER_SOCKET", MACOS_HELPER_SOCKET);
+
+                // Install/start helper first (may prompt)
+                let handle = app.handle().clone();
+                if let Err(e) = macos_installer::ensure_root_helper_installed(&handle) {
+                    eprintln!("[macos] ensure_root_helper_installed failed: {e}");
+                }
+
+                // Then start subscriber (it will read STELLAR_VPN_HELPER_SOCKET)
                 let app_handle = app.handle().clone();
-                macos_helper::spawn_helper_subscriber(app_handle, state_for_helper);
+                macos_helper::spawn_helper_subscriber(app_handle, state.clone());
             }
 
             if let Some(w) = app.get_webview_window("main") {
@@ -1168,7 +1150,7 @@ fn main() {
                 });
             }
 
-            #[cfg(desktop)]
+            #[cfg(not(any(target_os = "ios", target_os = "android")))]
             {
                 use tauri_plugin_autostart::ManagerExt;
                 let autostart_manager = app.autolaunch();
@@ -1181,10 +1163,8 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            // util
             chmod_exec,
             install_appimage_linux,
-            // vpn
             vpn_prefetch_config,
             vpn_connect,
             vpn_disconnect,
