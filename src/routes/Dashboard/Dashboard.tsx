@@ -1180,6 +1180,57 @@ export const Dashboard: React.FC = () => {
         )}
 
 
+        {/* Logs Panel */}
+        {showLogs && (
+            <div className="absolute inset-x-0 bottom-0 z-[997] bg-[#0B0C19] text-white rounded-t-3xl px-4 pt-4 pb-4 max-h-[55%] flex flex-col shadow-2xl">
+
+              {/* Header */}
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-[13px] font-semibold">Connection Logs</div>
+                <div className="flex items-center gap-2">
+                  <button
+                      onClick={copyLogs}
+                      className="text-[11px] px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 transition"
+                  >
+                    Copy
+                  </button>
+                  <button
+                      onClick={clearLogs}
+                      className="text-[11px] px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 transition"
+                  >
+                    Clear
+                  </button>
+                  <button
+                      onClick={() => setShowLogs(false)}
+                      className="text-[11px] px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 transition"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+
+              {/* Error */}
+              {connectError && (
+                  <div className="mb-2 text-[11px] text-red-400">
+                    ERROR: {connectError}
+                  </div>
+              )}
+
+              {/* Log Output */}
+              <div className="flex-1 overflow-y-auto bg-black/40 rounded-xl p-3 text-[11px] font-mono leading-relaxed space-y-1">
+                {vpnLogs.length === 0 ? (
+                    <div className="text-white/50">No logs yet…</div>
+                ) : (
+                    vpnLogs.map((line, i) => (
+                        <div key={i} className="break-words">
+                          {line}
+                        </div>
+                    ))
+                )}
+              </div>
+            </div>
+        )}
+
 
       </div>
   );
