@@ -87,13 +87,16 @@ export const Dashboard: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
 
+
+  // Navigation flags
+  const navState = (location.state as any) || {};
+  const skipAutoConnect = navState?.skipAutoConnect === true;
+
   const [showCongrats, setShowCongrats] = useState(false);
   const [accountNumber, setAccountNumber] = useState<string | null>(null);
 
   const [selectedServerName, setSelectedServerName] = useState<string | null>(null);
-  const [selectedServerCountryCode, setSelectedServerCountryCode] = useState<string | null>(
-      null
-  );
+  const [selectedServerCountryCode, setSelectedServerCountryCode] = useState<string | null>(null);
 
   const [showCopiedToast, setShowCopiedToast] = useState(false);
   const [deviceName, setDeviceName] = useState<string | null>(null);
@@ -128,6 +131,12 @@ export const Dashboard: React.FC = () => {
     const v = s?.configUrl ?? s?.config_url; // support both shapes
     return typeof v === "string" ? v.trim() : "";
   };
+
+  // Clear skipAutoConnect state immediately so it never lingers
+  useEffect(() => {
+    if (!skipAutoConnect) return;
+    navigate(location.pathname, { replace: true, state: {} });
+  }, [skipAutoConnect, navigate, location.pathname]);
 
   useEffect(() => {
     const st = (location.state as any) || {};
@@ -232,12 +241,7 @@ export const Dashboard: React.FC = () => {
       const s = await invoke<string>("vpn_status");
       const ui = normalizeStatus(s);
 
-      if (ui) {
-        setStatus(ui);
-        return;
-      }
-
-      if (typeof s === "string" && s.startsWith("error")) {
+      if (s.startsWith("error")) {
         console.error("VPN backend error:", s);
         setConnectError(s);
         setShowLogs(true);
@@ -260,7 +264,8 @@ export const Dashboard: React.FC = () => {
       setSelectedServerName(server?.name ?? null);
       setSelectedServerCountryCode(server?.countryCode ?? null);
 
-      const isNewUser = searchParams.get("newUser") === "true" && searchParams.get("oneClick") === "true";
+      const isNewUser =
+          searchParams.get("newUser") === "true" && searchParams.get("oneClick") === "true";
 
       if (isNewUser) {
         setHasConnectedOnce(false);
@@ -319,12 +324,12 @@ export const Dashboard: React.FC = () => {
 
         const v = String(update.version ?? "").trim() || "unknown";
 
-        // We distribute deb. Use a deterministic URL scheme:
-        // https://.../vpn/<version>/Stellar%20VPN_<version>_amd64.deb
         const url = `https://desktopreleasesprod.stellarsecurity.com/vpn/${v}/Stellar%20VPN_${v}_amd64.deb`;
 
         const cmd =
-            `cd /tmp && ` + `wget -O stellar-vpn.deb "${url}" && ` + `sudo apt-get install -y ./stellar-vpn.deb`;
+            `cd /tmp && ` +
+            `wget -O stellar-vpn.deb "${url}" && ` +
+            `sudo apt-get install -y ./stellar-vpn.deb`;
 
         appendLog(`[ui] Update available: ${v}`);
         appendLog(`[ui] Download URL: ${url}`);
@@ -375,7 +380,7 @@ export const Dashboard: React.FC = () => {
         const attemptId = connectAttemptIdRef.current;
 
         setConnectError(null);
-        setShowLogs(true); // Always show logs during connect attempts (production debugging)
+        setShowLogs(true);
         setStatus("connecting");
         startConnectWatchdog(attemptId);
 
@@ -438,7 +443,7 @@ export const Dashboard: React.FC = () => {
           return;
         }
 
-        if (typeof s === "string" && s.startsWith("error")) {
+        if (s.startsWith("error")) {
           console.error("VPN error:", s);
           setConnectError(s);
           setShowLogs(true);
@@ -453,6 +458,7 @@ export const Dashboard: React.FC = () => {
       if (!mounted) return;
 
       setListenersReady(true);
+      console.log('sync', 1);
       await syncBackendStatus();
     })();
 
@@ -467,7 +473,6 @@ export const Dashboard: React.FC = () => {
   const trayConnect = useCallback(async () => {
     if (!isTauri()) return;
 
-    // Manual action: allow auto-connect logic again
     setManualDisabled(false);
 
     await syncBackendStatus();
@@ -488,7 +493,6 @@ export const Dashboard: React.FC = () => {
   const trayDisconnect = useCallback(async () => {
     if (!isTauri()) return;
 
-    // Manual disconnect: block auto reconnect loops
     setManualDisabled(true);
 
     await invoke("vpn_disconnect").catch(() => {});
@@ -542,9 +546,7 @@ export const Dashboard: React.FC = () => {
     };
   }, [trayConnect, trayDisconnect, trayReconnect]);
 
-  // --------------------------
-  // FIX 1: connectNow runs once per navigation, then clears state
-  // --------------------------
+  // connectNow runs once per navigation, then clears state
   const connectNowHandledKeyRef = useRef<string | null>(null);
   useEffect(() => {
     if (!isTauri()) return;
@@ -553,11 +555,9 @@ export const Dashboard: React.FC = () => {
     const st = (location.state as any) || {};
     if (st?.connectNow !== true) return;
 
-    // Only once per navigation entry
     if (connectNowHandledKeyRef.current === location.key) return;
     connectNowHandledKeyRef.current = location.key;
 
-    // Clear navigation state immediately (prevents re-trigger on subsequent navigations)
     navigate(location.pathname, { replace: true, state: {} });
 
     (async () => {
@@ -573,7 +573,6 @@ export const Dashboard: React.FC = () => {
       const selectedServer = await getSelectedServer();
       const configPath = getSelectedConfigPath(selectedServer) || DEFAULT_OVPN_URL;
 
-      // If we're already connected/connecting, we must tear down first
       const current = statusRef.current;
       if (current === "connected" || current === "connecting") {
         await invoke("vpn_disconnect").catch(() => {});
@@ -595,12 +594,11 @@ export const Dashboard: React.FC = () => {
     navigate,
   ]);
 
-  // --------------------------
-  // FIX 2: Auto-connect adds a hard guard against "connecting"
-  // --------------------------
+  // Auto-connect (blocked when skipAutoConnect is set)
   useEffect(() => {
     if (!isTauri()) return;
     if (!listenersReady) return;
+    if (skipAutoConnect) return;
 
     let cancelled = false;
 
@@ -614,14 +612,12 @@ export const Dashboard: React.FC = () => {
 
         if (manualDisabledRef.current) return;
         if (!hasConnectedOnceRef.current) return;
-
         if (isExpired) return;
 
         const backend = await invoke<string>("vpn_status").catch(() => "");
         const backendUi = normalizeStatus(backend);
         const current = backendUi ?? statusRef.current;
 
-        // Critical guard: never start another connect while connecting
         if (current === "connecting") return;
         if (current !== "disconnected") return;
 
@@ -638,17 +634,15 @@ export const Dashboard: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [listenersReady, searchParams, setStatus, startConnect, isExpired]);
+  }, [listenersReady, searchParams, setStatus, startConnect, isExpired, skipAutoConnect]);
 
-  // --------------------------
-  // FIX 3: Reconnect-on-drop does NOT run on first mount
-  // --------------------------
+  // Reconnect on unexpected drops (blocked when skipAutoConnect is set)
   const didMountRef = useRef(false);
   useEffect(() => {
     if (!isTauri()) return;
     if (!listenersReady) return;
+    if (skipAutoConnect) return;
 
-    // Prevent running on first mount (avoids "navigate to Dashboard => connecting")
     if (!didMountRef.current) {
       didMountRef.current = true;
       return;
@@ -667,7 +661,6 @@ export const Dashboard: React.FC = () => {
 
         if (manualDisabledRef.current) return;
         if (!hasConnectedOnceRef.current) return;
-
         if (isExpired) return;
 
         const backend = await invoke<string>("vpn_status").catch(() => "");
@@ -687,7 +680,7 @@ export const Dashboard: React.FC = () => {
       cancelled = true;
       clearTimeout(t);
     };
-  }, [status, listenersReady, searchParams, startConnect, isExpired]);
+  }, [status, listenersReady, searchParams, startConnect, isExpired, skipAutoConnect]);
 
   const formatAccountNumber = (account: string | null): string => {
     if (!account) return "N/A";
