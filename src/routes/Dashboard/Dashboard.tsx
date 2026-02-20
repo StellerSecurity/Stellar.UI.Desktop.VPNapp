@@ -18,7 +18,6 @@ import { VpnWorldMap } from "../../components/VpnWorldMap";
 // OTA updater (Tauri)
 import { check } from "@tauri-apps/plugin-updater";
 
-
 const isTauri = () =>
     typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -50,11 +49,7 @@ const lsSetBool = (key: string, v: boolean) => {
 };
 
 const Spinner: React.FC<{ className?: string }> = ({ className = "" }) => (
-    <svg
-        className={`animate-spin ${className}`}
-        viewBox="0 0 24 24"
-        aria-label="Loading"
-    >
+    <svg className={`animate-spin ${className}`} viewBox="0 0 24 24" aria-label="Loading">
       <circle
           className="opacity-20"
           cx="12"
@@ -95,12 +90,10 @@ export const Dashboard: React.FC = () => {
   const [showCongrats, setShowCongrats] = useState(false);
   const [accountNumber, setAccountNumber] = useState<string | null>(null);
 
-  const [selectedServerName, setSelectedServerName] = useState<string | null>(
+  const [selectedServerName, setSelectedServerName] = useState<string | null>(null);
+  const [selectedServerCountryCode, setSelectedServerCountryCode] = useState<string | null>(
       null
   );
-  const [selectedServerCountryCode, setSelectedServerCountryCode] = useState<
-      string | null
-  >(null);
 
   const [showCopiedToast, setShowCopiedToast] = useState(false);
   const [deviceName, setDeviceName] = useState<string | null>(null);
@@ -121,19 +114,14 @@ export const Dashboard: React.FC = () => {
   const isConnected = status === "connected";
   const isConnecting = status === "connecting";
 
-
-
   // Treat expired as either explicit `expired === true` OR days_remaining <= 0
   const isExpired =
-      (subscription as any)?.expired === true ||
-      (subscription?.days_remaining ?? 0) <= 0;
+      (subscription as any)?.expired === true || (subscription?.days_remaining ?? 0) <= 0;
 
   // Focus country (temporary animation target when returning from ChangeLocation)
   const [focusCountryCode, setFocusCountryCode] = useState<string | null>(null);
 
-  const [mapFocusCountryCode, setMapFocusCountryCode] = useState<string | null>(
-      null
-  );
+  const [mapFocusCountryCode, setMapFocusCountryCode] = useState<string | null>(null);
   const [mapAnimateKey, setMapAnimateKey] = useState(0);
 
   const getSelectedConfigPath = (s: any): string => {
@@ -188,11 +176,7 @@ export const Dashboard: React.FC = () => {
   }, []);
 
   const copyLogs = useCallback(async () => {
-    const text = [
-      "=== Stellar VPN Logs ===",
-      connectError ? `ERROR: ${connectError}` : "",
-      ...vpnLogs,
-    ]
+    const text = ["=== Stellar VPN Logs ===", connectError ? `ERROR: ${connectError}` : "", ...vpnLogs]
         .filter(Boolean)
         .join("\n");
 
@@ -276,9 +260,7 @@ export const Dashboard: React.FC = () => {
       setSelectedServerName(server?.name ?? null);
       setSelectedServerCountryCode(server?.countryCode ?? null);
 
-      const isNewUser =
-          searchParams.get("newUser") === "true" &&
-          searchParams.get("oneClick") === "true";
+      const isNewUser = searchParams.get("newUser") === "true" && searchParams.get("oneClick") === "true";
 
       if (isNewUser) {
         setHasConnectedOnce(false);
@@ -342,9 +324,7 @@ export const Dashboard: React.FC = () => {
         const url = `https://desktopreleasesprod.stellarsecurity.com/vpn/${v}/Stellar%20VPN_${v}_amd64.deb`;
 
         const cmd =
-            `cd /tmp && ` +
-            `wget -O stellar-vpn.deb "${url}" && ` +
-            `sudo apt-get install -y ./stellar-vpn.deb`;
+            `cd /tmp && ` + `wget -O stellar-vpn.deb "${url}" && ` + `sudo apt-get install -y ./stellar-vpn.deb`;
 
         appendLog(`[ui] Update available: ${v}`);
         appendLog(`[ui] Download URL: ${url}`);
@@ -356,11 +336,7 @@ export const Dashboard: React.FC = () => {
         setUpdateCmd(cmd);
       } catch (e: any) {
         const msg =
-            typeof e === "string"
-                ? e
-                : e?.message
-                    ? String(e.message)
-                    : JSON.stringify(e);
+            typeof e === "string" ? e : e?.message ? String(e.message) : JSON.stringify(e);
         console.warn("Update check failed:", e);
         appendLog(`[ui] Update check failed: ${msg}`);
         setShowLogs(true);
@@ -378,14 +354,10 @@ export const Dashboard: React.FC = () => {
           if (statusRef.current !== "connecting") return;
 
           try {
-            appendLog(
-                `[ui] Connect watchdog fired after ${CONNECT_TIMEOUT_MS}ms`
-            );
+            appendLog(`[ui] Connect watchdog fired after ${CONNECT_TIMEOUT_MS}ms`);
             await invoke("vpn_disconnect").catch(() => {});
           } finally {
-            setConnectError(
-                "VPN connect timed out. Check OpenVPN logs and kill switch permissions."
-            );
+            setConnectError("VPN connect timed out. Check OpenVPN logs and kill switch permissions.");
             setShowLogs(true);
             setStatus("disconnected");
             setManualDisabled(true);
@@ -429,11 +401,7 @@ export const Dashboard: React.FC = () => {
           });
         } catch (e: any) {
           const msg =
-              typeof e === "string"
-                  ? e
-                  : e?.message
-                      ? String(e.message)
-                      : "Unknown error";
+              typeof e === "string" ? e : e?.message ? String(e.message) : "Unknown error";
 
           appendLog(`[ui] vpn_connect failed: ${msg}`);
           setConnectError(msg);
@@ -559,15 +527,11 @@ export const Dashboard: React.FC = () => {
       });
 
       unlistenDisconnect = await listen("tray-disconnect", () => {
-        trayDisconnect().catch((e) =>
-            console.error("tray-disconnect failed:", e)
-        );
+        trayDisconnect().catch((e) => console.error("tray-disconnect failed:", e));
       });
 
       unlistenReconnect = await listen("tray-reconnect", () => {
-        trayReconnect().catch((e) =>
-            console.error("tray-reconnect failed:", e)
-        );
+        trayReconnect().catch((e) => console.error("tray-reconnect failed:", e));
       });
     })();
 
@@ -578,7 +542,9 @@ export const Dashboard: React.FC = () => {
     };
   }, [trayConnect, trayDisconnect, trayReconnect]);
 
-  // Connect now (from ChangeLocation)
+  // --------------------------
+  // FIX 1: connectNow runs once per navigation, then clears state
+  // --------------------------
   const connectNowHandledKeyRef = useRef<string | null>(null);
   useEffect(() => {
     if (!isTauri()) return;
@@ -590,6 +556,9 @@ export const Dashboard: React.FC = () => {
     // Only once per navigation entry
     if (connectNowHandledKeyRef.current === location.key) return;
     connectNowHandledKeyRef.current = location.key;
+
+    // Clear navigation state immediately (prevents re-trigger on subsequent navigations)
+    navigate(location.pathname, { replace: true, state: {} });
 
     (async () => {
       await syncBackendStatus();
@@ -616,15 +585,19 @@ export const Dashboard: React.FC = () => {
     })().catch((e) => console.error("connectNow failed:", e));
   }, [
     location.key,
+    location.pathname,
     listenersReady,
     syncBackendStatus,
     startConnect,
     setManualDisabled,
     isExpired,
     setStatus,
+    navigate,
   ]);
 
-  // Auto-connect only when allowed
+  // --------------------------
+  // FIX 2: Auto-connect adds a hard guard against "connecting"
+  // --------------------------
   useEffect(() => {
     if (!isTauri()) return;
     if (!listenersReady) return;
@@ -648,6 +621,8 @@ export const Dashboard: React.FC = () => {
         const backendUi = normalizeStatus(backend);
         const current = backendUi ?? statusRef.current;
 
+        // Critical guard: never start another connect while connecting
+        if (current === "connecting") return;
         if (current !== "disconnected") return;
 
         const selectedServer = await getSelectedServer();
@@ -665,10 +640,19 @@ export const Dashboard: React.FC = () => {
     };
   }, [listenersReady, searchParams, setStatus, startConnect, isExpired]);
 
-  // Reconnect on unexpected drops, but never after manual disconnect
+  // --------------------------
+  // FIX 3: Reconnect-on-drop does NOT run on first mount
+  // --------------------------
+  const didMountRef = useRef(false);
   useEffect(() => {
     if (!isTauri()) return;
     if (!listenersReady) return;
+
+    // Prevent running on first mount (avoids "navigate to Dashboard => connecting")
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      return;
+    }
 
     if (statusRef.current !== "disconnected") return;
 
@@ -800,13 +784,11 @@ export const Dashboard: React.FC = () => {
       appendLog("[ui] Opened download URL.");
       setShowLogs(true);
     } catch (e: any) {
-      const msg =
-          typeof e === "string" ? e : e?.message ? String(e.message) : JSON.stringify(e);
+      const msg = typeof e === "string" ? e : e?.message ? String(e.message) : JSON.stringify(e);
       appendLog(`[ui] Failed to open URL: ${msg}`);
       setShowLogs(true);
     }
   }, [updateUrl, appendLog]);
-
 
   return (
       <div className="w-[312px] h-[640px] overflow-hidden relative bg-[#0037A3]">
@@ -843,18 +825,11 @@ export const Dashboard: React.FC = () => {
           {/* Header */}
           <div className="px-6 pt-10 flex items-center justify-between">
             <div className="flex items-center logo-container">
-              <img
-                  src="/icons/dashboard-icon.svg"
-                  alt="Dashboard"
-                  className="h-20 w-20 inline-block"
-              />
-              <span className="text-[14px] font-semibold font-silka">
-              Stellar VPN
-            </span>
+              <img src="/icons/dashboard-icon.svg" alt="Dashboard" className="h-20 w-20 inline-block" />
+              <span className="text-[14px] font-semibold font-silka">Stellar VPN</span>
             </div>
 
             <div className="flex items-center gap-2">
-
               <button
                   className="rounded-full bg-white px-3 py-1 text-[11px]"
                   onClick={() => navigate("/profile")}
@@ -862,37 +837,26 @@ export const Dashboard: React.FC = () => {
               >
               <span
                   className={`font-semibold flex items-center gap-1 ${
-                      (subscription?.days_remaining ?? 0) === 0
-                          ? "!text-red-500"
-                          : "text-[#00B252]"
+                      (subscription?.days_remaining ?? 0) === 0 ? "!text-red-500" : "text-[#00B252]"
                   }`}
               >
-                {subscription?.days_remaining !== undefined
-                    ? `${subscription.days_remaining} days`
-                    : "0 days"}
+                {subscription?.days_remaining !== undefined ? `${subscription.days_remaining} days` : "0 days"}
               </span>
               </button>
-
 
               <button
                   className="rounded-full flex items-center justify-center"
                   onClick={() => navigate("/profile")}
                   type="button"
               >
-                <img
-                    src="/icons/user.svg"
-                    alt="Profile"
-                    className="w-[25px] h-[25px]"
-                />
+                <img src="/icons/user.svg" alt="Profile" className="w-[25px] h-[25px]" />
               </button>
             </div>
           </div>
 
           <div className="px-6 mt-4 text-[11px] text-white/80">
             <span className="text-[#D6D6E0] text-[12px]">Device Name: </span>
-            <span className="font-semibold text-[12px] text-white">
-            {deviceName || "N/A"}
-          </span>
+            <span className="font-semibold text-[12px] text-white">{deviceName || "N/A"}</span>
           </div>
 
           {/* Status pill */}
@@ -900,22 +864,14 @@ export const Dashboard: React.FC = () => {
             <div className="bg-[rgba(0,0,0,0.10)] inline-flex items-center gap-2 rounded-full px-4 pr-6 py-2 text-md text-white font-semibold backdrop-blur-[18px]">
               {isConnected ? (
                   <>
-                    <img
-                        src="/icons/secured.svg"
-                        alt="Secured"
-                        className="w-10 h-10"
-                    />
+                    <img src="/icons/secured.svg" alt="Secured" className="w-10 h-10" />
                     <span>Secured connection</span>
                   </>
               ) : isConnecting ? (
                   <span>Connecting...</span>
               ) : (
                   <>
-                    <img
-                        src="/icons/unsecured.svg"
-                        alt="Unsecured"
-                        className="w-10 h-10"
-                    />
+                    <img src="/icons/unsecured.svg" alt="Unsecured" className="w-10 h-10" />
                     <span>Unsecured connection</span>
                   </>
               )}
@@ -967,9 +923,7 @@ export const Dashboard: React.FC = () => {
                 className="mb-4 w-full rounded-full bg-white/10 px-5 py-4 text-xs flex items-center justify-between hover:bg-white/15 transition-colors"
             >
               <div className="flex flex-col">
-              <span className="text-[#D6D6E0] text-[12px]">
-                Fastest Server
-              </span>
+                <span className="text-[#D6D6E0] text-[12px]">Fastest Server</span>
                 <span className="mt-1 text-sm font-semibold text-[#EAEAF0] flex items-center gap-2">
                 <img
                     src={flagSrcForCountryCode(selectedServerCountryCode)}
@@ -991,8 +945,7 @@ export const Dashboard: React.FC = () => {
                 className={`!text-[15px] h-[46px] ${
                     isConnected && "!bg-white border border-[#E10000] !text-[#E10000]"
                 } ${
-                    isConnecting &&
-                    "!bg-white border !disabled:opacity-100 border-gray-300 !text-gray-500"
+                    isConnecting && "!bg-white border !disabled:opacity-100 border-gray-300 !text-gray-500"
                 }`}
                 onClick={handleConnectToggle}
                 disabled={isConnecting}
@@ -1015,20 +968,12 @@ export const Dashboard: React.FC = () => {
               <div className="absolute inset-0 flex items-end justify-center bg-black/40 z-50">
                 <div className="w-full bg-white rounded-t-3xl px-6 pt-6 pb-12 animate-slide-up">
                   <div className="flex flex-col items-center">
-                    <img
-                        src="/icons/green-tick.svg"
-                        alt="Success"
-                        className="w-12 h-12 mb-2"
-                    />
+                    <img src="/icons/green-tick.svg" alt="Success" className="w-12 h-12 mb-2" />
 
-                    <h2 className="text-xl font-bold text-[#0B0C19] mb-2 font-poppins">
-                      Congrats!
-                    </h2>
+                    <h2 className="text-xl font-bold text-[#0B0C19] mb-2 font-poppins">Congrats!</h2>
 
                     <p className="text-sm text-[#62626A] mb-6 text-center font-poppins">
-                      {accountNumber
-                          ? "Here's your account number. Save it!"
-                          : "Welcome! Your account has been created."}
+                      {accountNumber ? "Here's your account number. Save it!" : "Welcome! Your account has been created."}
                     </p>
 
                     <div className="w-full mb-6 relative">
@@ -1066,11 +1011,7 @@ export const Dashboard: React.FC = () => {
                       </div>
                     </div>
 
-                    <Button
-                        fullWidth
-                        onClick={() => setShowCongrats(false)}
-                        className="h-[42px] text-base font-poppins"
-                    >
+                    <Button fullWidth onClick={() => setShowCongrats(false)} className="h-[42px] text-base font-poppins">
                       Got It
                     </Button>
                   </div>
@@ -1084,13 +1025,7 @@ export const Dashboard: React.FC = () => {
                 <div className="w-full bg-white rounded-t-3xl px-6 pt-6 pb-12 animate-slide-up">
                   <div className="flex flex-col items-center text-center">
                     <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mb-3">
-                      <svg
-                          width="22"
-                          height="22"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          className="text-red-500"
-                      >
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="text-red-500">
                         <path
                             d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10
                          10-4.48 10-10S17.52 2 12 2Zm3.54 13.54-1.41 1.41L12 13.41
@@ -1101,19 +1036,13 @@ export const Dashboard: React.FC = () => {
                       </svg>
                     </div>
 
-                    <h2 className="text-xl font-bold text-[#0B0C19] mb-2 font-poppins">
-                      Subscription expired
-                    </h2>
+                    <h2 className="text-xl font-bold text-[#0B0C19] mb-2 font-poppins">Subscription expired</h2>
 
                     <p className="text-sm text-[#62626A] mb-6 font-poppins">
                       No time available. Renew your plan to connect.
                     </p>
 
-                    <Button
-                        fullWidth
-                        onClick={() => setShowExpiredModal(false)}
-                        className="h-[42px] text-base font-poppins"
-                    >
+                    <Button fullWidth onClick={() => setShowExpiredModal(false)} className="h-[42px] text-base font-poppins">
                       OK
                     </Button>
                   </div>
@@ -1128,13 +1057,9 @@ export const Dashboard: React.FC = () => {
               <div className="w-full bg-white rounded-t-3xl px-6 pt-6 pb-8">
                 <div className="flex items-start justify-between">
                   <div className="pr-4">
-                    <div className="text-[#0B0C19] font-bold text-[16px]">
-                      Update available
-                    </div>
+                    <div className="text-[#0B0C19] font-bold text-[16px]">Update available</div>
                     <div className="text-[#62626A] text-[12px] mt-1">
-                      Version{" "}
-                      <span className="font-semibold">{updateVersion}</span> is ready.
-                      Install it in terminal.
+                      Version <span className="font-semibold">{updateVersion}</span> is ready. Install it in terminal.
                     </div>
                   </div>
 
@@ -1149,9 +1074,7 @@ export const Dashboard: React.FC = () => {
 
                 <div className="mt-4 rounded-2xl bg-[#0B0C19] text-white px-4 py-3">
                   <div className="text-[11px] text-white/70 mb-2">Run this:</div>
-                  <pre className="text-[11px] whitespace-pre-wrap break-words leading-relaxed">
-                {updateCmd}
-              </pre>
+                  <pre className="text-[11px] whitespace-pre-wrap break-words leading-relaxed">{updateCmd}</pre>
                 </div>
 
                 <div className="mt-4 flex items-center gap-2">
@@ -1179,11 +1102,9 @@ export const Dashboard: React.FC = () => {
             </div>
         )}
 
-
         {/* Logs Panel */}
         {showLogs && (
             <div className="absolute inset-x-0 bottom-0 z-[997] bg-[#0B0C19] text-white rounded-t-3xl px-4 pt-4 pb-4 max-h-[55%] flex flex-col shadow-2xl">
-
               {/* Header */}
               <div className="flex items-center justify-between mb-3">
                 <div className="text-[13px] font-semibold">Connection Logs</div>
@@ -1210,11 +1131,7 @@ export const Dashboard: React.FC = () => {
               </div>
 
               {/* Error */}
-              {connectError && (
-                  <div className="mb-2 text-[11px] text-red-400">
-                    ERROR: {connectError}
-                  </div>
-              )}
+              {connectError && <div className="mb-2 text-[11px] text-red-400">ERROR: {connectError}</div>}
 
               {/* Log Output */}
               <div className="flex-1 overflow-y-auto bg-black/40 rounded-xl p-3 text-[11px] font-mono leading-relaxed space-y-1">
@@ -1230,8 +1147,6 @@ export const Dashboard: React.FC = () => {
               </div>
             </div>
         )}
-
-
       </div>
   );
 };
