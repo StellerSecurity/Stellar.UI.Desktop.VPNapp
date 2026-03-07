@@ -26,6 +26,9 @@ import { check } from "@tauri-apps/plugin-updater";
 const isTauri = () =>
     typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
+const SHOW_VPN_LOGS =
+    import.meta.env.DEV || import.meta.env.VITE_SHOW_VPN_LOGS === "true";
+
 const DEFAULT_OVPN_URL =
     "https://stellarvpnserverstorage.blob.core.windows.net/openvpn/stellar-switzerland.ovpn";
 
@@ -91,7 +94,6 @@ export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
-
 
   // Navigation flags
   const navState = (location.state as any) || {};
@@ -497,7 +499,6 @@ export const Dashboard: React.FC = () => {
       void ensureVpnNotificationPermission().catch(() => {});
 
       setListenersReady(true);
-      console.log('sync', 1);
       await syncBackendStatus();
     })();
 
@@ -1094,7 +1095,7 @@ export const Dashboard: React.FC = () => {
         )}
 
         {/* Logs Panel */}
-        {showLogs && (
+        {SHOW_VPN_LOGS && showLogs && (
             <div className="absolute inset-x-0 bottom-0 z-[997] bg-[#0B0C19] text-white rounded-t-3xl px-4 pt-4 pb-4 max-h-[55%] flex flex-col shadow-2xl">
               {/* Header */}
               <div className="flex items-center justify-between mb-3">

@@ -129,9 +129,13 @@ fn emit_status(app: &AppHandle<RT>, s: &str) {
     let _ = app.emit("vpn-status", s.to_string());
 }
 
+#[cfg(not(feature = "customer-build"))]
 fn emit_log(app: &AppHandle<RT>, line: &str) {
     let _ = app.emit("vpn-log", line.to_string());
 }
+
+#[cfg(feature = "customer-build")]
+fn emit_log(_app: &AppHandle<RT>, _line: &str) {}
 
 #[allow(dead_code)]
 fn now_ms() -> u64 {

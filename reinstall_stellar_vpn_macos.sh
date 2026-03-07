@@ -36,6 +36,54 @@ if [[ ! -f "${HELPER_SRC}" ]]; then
   exit 1
 fi
 
+BUILD_MODE="internal"
+TAURI_FEATURE_ARGS=()
+CARGO_FEATURE_ARGS=()
+VITE_SHOW_VPN_LOGS_VALUE="true"
+
+usage() {
+  cat <<EOF
+Usage:
+  ./reinstall_stellar_vpn_macos.sh [--internal|--customer]
+
+Modes:
+  --internal   Build internal version with VPN logs visible in dashboard
+  --customer   Build customer version with VPN logs hidden in dashboard
+
+Default:
+  --internal
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --customer)
+      BUILD_MODE="customer"
+      TAURI_FEATURE_ARGS=(--features customer-build)
+      CARGO_FEATURE_ARGS=(--features "macos-build,customer-build")
+      VITE_SHOW_VPN_LOGS_VALUE="false"
+      shift
+      ;;
+    --internal)
+      BUILD_MODE="internal"
+      TAURI_FEATURE_ARGS=()
+      CARGO_FEATURE_ARGS=(--features macos-build)
+      VITE_SHOW_VPN_LOGS_VALUE="true"
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Error: unknown argument: $1" >&2
+      echo >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+done
+
 choose_package_manager() {
   if command -v pnpm >/dev/null 2>&1 && [[ -f pnpm-lock.yaml ]]; then
     echo "pnpm"
@@ -61,19 +109,32 @@ fi
 run_tauri_build() {
   case "${PM}" in
     pnpm)
-      STELLAR_HELPER_BUILDING=1 pnpm tauri build -- --no-sign
+      STELLAR_HELPER_BUILDING=1 \
+      VITE_SHOW_VPN_LOGS="${VITE_SHOW_VPN_LOGS_VALUE}" \
+      pnpm tauri build -- --no-sign "${TAURI_FEATURE_ARGS[@]}"
       ;;
     yarn)
-      STELLAR_HELPER_BUILDING=1 yarn tauri build -- --no-sign
+      STELLAR_HELPER_BUILDING=1 \
+      VITE_SHOW_VPN_LOGS="${VITE_SHOW_VPN_LOGS_VALUE}" \
+      yarn tauri build -- --no-sign "${TAURI_FEATURE_ARGS[@]}"
       ;;
     npm)
-      STELLAR_HELPER_BUILDING=1 npm run tauri:build -- --no-sign
+      STELLAR_HELPER_BUILDING=1 \
+      VITE_SHOW_VPN_LOGS="${VITE_SHOW_VPN_LOGS_VALUE}" \
+      npm run tauri:build -- --no-sign "${TAURI_FEATURE_ARGS[@]}"
       ;;
   esac
 }
 
 echo "==> Repo root: ${REPO_ROOT}"
 echo "==> Package manager: ${PM}"
+echo "==> Build mode: ${BUILD_MODE}"
+echo "==> VITE_SHOW_VPN_LOGS: ${VITE_SHOW_VPN_LOGS_VALUE}"
+if [[ ${#TAURI_FEATURE_ARGS[@]} -gt 0 ]]; then
+  echo "==> Tauri feature args: ${TAURI_FEATURE_ARGS[*]}"
+else
+  echo "==> Tauri feature args: none"
+fi
 
 echo "==> Requesting sudo access"
 sudo -v
@@ -83,7 +144,6 @@ sudo launchctl bootout system "${SYSTEM_PLIST_PATH}" 2>/dev/null || true
 sudo pkill -f "${HELPER_BIN_NAME}" || true
 sudo pkill -f openvpn || true
 pkill -f stellar-vpn-desktop || true
-
 
 echo "==> Removing old helper sockets"
 sudo rm -f "${TMP_SOCKET_1}" || true
@@ -95,7 +155,10 @@ mkdir -p "${REPO_ROOT}/src-tauri/bin"
 
 echo "==> Building privileged helper"
 cd "${REPO_ROOT}/src-tauri"
-STELLAR_HELPER_BUILDING=1 cargo build --release --bin "${HELPER_BIN_NAME}" --features macos-build
+STELLAR_HELPER_BUILDING=1 \
+VITE_SHOW_VPN_LOGS="${VITE_SHOW_VPN_LOGS_VALUE}" \
+cargo build --release --bin "${HELPER_BIN_NAME}" "${CARGO_FEATURE_ARGS[@]}"
+
 cp -f "target/release/${HELPER_BIN_NAME}" "bin/${HELPER_BIN_NAME}"
 ls -l "bin/${HELPER_BIN_NAME}"
 
