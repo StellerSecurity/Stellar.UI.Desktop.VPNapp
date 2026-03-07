@@ -1,14 +1,22 @@
 // src-tauri/bin/stellar-vpn-helper-macos.rs
 //
 // Privileged macOS helper (runs as root via LaunchDaemon)
-// - Listens on a Unix socket (default: /tmp/stellar-vpn-helper.sock)
+// - Listens on a Unix socket
 // - Accepts JSON lines: connect / disconnect / subscribe / status
 // - Starts/stops OpenVPN as root
 // - Broadcasts logs + status to all subscribers
 //
-// IMPORTANT FIXES:
-// - Socket permissions are set to 0666 so the non-root GUI app can connect (avoids os error 13).
-// - Child watcher uses try_wait() (does NOT move the child out), so disconnect can still kill it.
+// Important behavior:
+// - Socket permissions are set so the non-root GUI app can connect.
+// - Child watcher uses try_wait() so disconnect can still kill the child.
+// - Runtime network failure recovery only triggers after the tunnel is already connected,
+//   and only for the real post-connect macOS Wi-Fi error:
+//   "write UDPv4: Can't assign requested address (fd=...,code=49)"
+//
+// Notes:
+// - The normal macOS line
+//   "ifconfig: ioctl (SIOCDIFADDR): Can't assign requested address"
+//   during utun setup is NOT treated as a failure.
 
 use std::{
     path::{Path, PathBuf},
@@ -62,6 +70,7 @@ enum St {
     Connecting,
     Connected,
 }
+
 impl St {
     fn as_str(&self) -> &'static str {
         match self {
@@ -90,11 +99,12 @@ fn is_safe_openvpn_path(p: &str) -> bool {
     if s.is_empty() {
         return false;
     }
+
     let path = Path::new(s);
     if !path.is_file() {
         return false;
     }
-    // basic hardening: require filename starts with "openvpn"
+
     path.file_name()
         .and_then(|x| x.to_str())
         .map(|n| n.starts_with("openvpn"))
@@ -106,14 +116,19 @@ fn is_safe_config_path(p: &str) -> bool {
     if s.is_empty() {
         return false;
     }
+
     let path = Path::new(s);
     if path.is_file() {
         return true;
     }
-    // Allow temp paths commonly used by your app
+
     s.starts_with("/var/folders/")
         || s.starts_with("/tmp/stellar-vpn-desktop")
         || s.starts_with("/tmp/")
+}
+
+fn is_runtime_network_path_broken(line: &str) -> bool {
+    line.contains("write UDPv4") && line.contains("code=49")
 }
 
 async fn write_json(stream: &mut UnixStream, v: &impl Serialize) -> std::io::Result<()> {
@@ -134,6 +149,7 @@ fn make_auth_path() -> PathBuf {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis();
+
     PathBuf::from(format!("/tmp/stellar-vpn-desktop/auth-{t}.txt"))
 }
 
@@ -203,7 +219,9 @@ async fn terminate_child_gracefully(
                 send_event(
                     ev_tx,
                     Event::Log {
-                        line: format!("[mac-helper] {label} did not exit after SIGTERM, sending SIGKILL"),
+                        line: format!(
+                            "[mac-helper] {label} did not exit after SIGTERM, sending SIGKILL"
+                        ),
                     },
                 )
                 .await;
@@ -215,6 +233,52 @@ async fn terminate_child_gracefully(
         let _ = child.kill().await;
         let _ = child.wait().await;
     }
+}
+
+async fn handle_broken_network_path(
+    inner: Arc<Mutex<Inner>>,
+    ev_tx: &broadcast::Sender<String>,
+    line: &str,
+) {
+    let child_to_stop = {
+        let mut g = inner.lock().await;
+        if g.status == St::Disconnected {
+            None
+        } else {
+            g.status = St::Disconnected;
+            g.child.take()
+        }
+    };
+
+    send_event(
+        ev_tx,
+        Event::Log {
+            line: format!(
+                "[mac-helper] Detected broken network path after Wi-Fi change: {line}"
+            ),
+        },
+    )
+    .await;
+
+    send_event(
+        ev_tx,
+        Event::Log {
+            line: "[mac-helper] Stopping OpenVPN so the desktop app can reconnect cleanly.".into(),
+        },
+    )
+    .await;
+
+    if let Some(mut c) = child_to_stop {
+        terminate_child_gracefully(ev_tx, &mut c, "OpenVPN").await;
+    }
+
+    send_event(
+        ev_tx,
+        Event::Status {
+            status: "disconnected".into(),
+        },
+    )
+    .await;
 }
 
 async fn spawn_child_watcher(inner: Arc<Mutex<Inner>>, ev_tx: broadcast::Sender<String>) {
@@ -238,7 +302,6 @@ async fn spawn_child_watcher(inner: Arc<Mutex<Inner>>, ev_tx: broadcast::Sender<
                         }
                     }
                 } else {
-                    // nothing running
                     return;
                 }
             };
@@ -298,7 +361,6 @@ async fn handle_conn(
 
     match req {
         Req::Subscribe => {
-            // send current status immediately
             let st = { inner.lock().await.status };
             let _ = reader
                 .get_mut()
@@ -314,7 +376,6 @@ async fn handle_conn(
                 )
                 .await;
 
-            // stream events
             loop {
                 match ev_rx.recv().await {
                     Ok(msg) => {
@@ -408,7 +469,6 @@ async fn handle_conn(
                 return;
             }
 
-            // kill existing
             let existing_child = {
                 let mut g = inner.lock().await;
                 g.status = St::Connecting;
@@ -430,12 +490,11 @@ async fn handle_conn(
             send_event(
                 &ev_tx,
                 Event::Log {
-                    line: "[mac-helper] starting OpenVPN…".into(),
+                    line: "[mac-helper] starting OpenVPN...".into(),
                 },
             )
             .await;
 
-            // auth file
             let auth_path = make_auth_path();
             if let Err(e) = write_auth_file(&auth_path, &username, &password).await {
                 {
@@ -507,7 +566,6 @@ async fn handle_conn(
                 }
             };
 
-            // pipe logs
             if let Some(out) = child.stdout.take() {
                 let tx = ev_tx.clone();
                 let inner2 = inner.clone();
@@ -515,6 +573,7 @@ async fn handle_conn(
                     let mut r = BufReader::new(out).lines();
                     while let Ok(Some(l)) = r.next_line().await {
                         send_event(&tx, Event::Log { line: l.clone() }).await;
+
                         if l.contains("Initialization Sequence Completed") {
                             {
                                 let mut g = inner2.lock().await;
@@ -527,7 +586,19 @@ async fn handle_conn(
                                 },
                             )
                             .await;
+                            continue;
                         }
+
+                        let should_force_recover = {
+                            let g = inner2.lock().await;
+                            g.status == St::Connected && is_runtime_network_path_broken(&l)
+                        };
+
+                        if should_force_recover {
+                            handle_broken_network_path(inner2.clone(), &tx, &l).await;
+                            break;
+                        }
+
                         if l.contains("AUTH_FAILED") || l.contains("auth-failure") {
                             send_event(
                                 &tx,
@@ -543,22 +614,32 @@ async fn handle_conn(
 
             if let Some(err) = child.stderr.take() {
                 let tx = ev_tx.clone();
+                let inner3 = inner.clone();
                 tokio::spawn(async move {
                     let mut r = BufReader::new(err).lines();
                     while let Ok(Some(l)) = r.next_line().await {
-                        send_event(&tx, Event::Log { line: l }).await;
+                        send_event(&tx, Event::Log { line: l.clone() }).await;
+
+                        let should_force_recover = {
+                            let g = inner3.lock().await;
+                            g.status == St::Connected && is_runtime_network_path_broken(&l)
+                        };
+
+                        if should_force_recover {
+                            handle_broken_network_path(inner3.clone(), &tx, &l).await;
+                            break;
+                        }
                     }
                 });
             }
 
-            // store child + start watcher (try_wait based)
             {
                 let mut g = inner.lock().await;
                 g.child = Some(child);
             }
+
             spawn_child_watcher(inner.clone(), ev_tx.clone()).await;
 
-            // delete auth after a small delay (avoid race)
             let auth_to_delete = auth_path.clone();
             tokio::spawn(async move {
                 tokio::time::sleep(Duration::from_secs(2)).await;
@@ -582,7 +663,6 @@ fn set_socket_perms(socket_path: &str) {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        // 0666 so non-root GUI can connect
         let _ = std::fs::set_permissions(socket_path, std::fs::Permissions::from_mode(0o666));
     }
 }
@@ -596,13 +676,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let args = Args::parse();
 
-    // remove old socket
     let _ = std::fs::remove_file(&args.socket);
 
-    // bind
     let listener = UnixListener::bind(&args.socket)?;
 
-    // IMPORTANT: make socket connectable by the GUI app
     set_socket_perms(&args.socket);
 
     let (ev_tx, _ev_rx) = broadcast::channel::<String>(512);

@@ -51,7 +51,7 @@ const TRAY_ICON_ONLINE_BYTES: &[u8] = include_bytes!("../icons/tray-online.png")
 const LINUX_HELPER_PATH: &str = "/usr/libexec/stellar-vpn/stellar-vpn-helper";
 
 #[cfg(target_os = "macos")]
-const MACOS_HELPER_SOCKET: &str = "/var/run/stellar-vpn/stellar-vpn-helper.sock";
+const MACOS_HELPER_SOCKET: &str = macos_installer::SOCKET_PATH;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum UiStatus {
@@ -853,9 +853,6 @@ async fn auto_reconnect_after_network_change(
             return;
         }
 
-        let should_recover = matches!(g.status, UiStatus::Connected | UiStatus::Connecting)
-            || g.session.is_some();
-
         let Some(cfg) = g.last_config_source.clone() else {
             return;
         };
@@ -865,10 +862,6 @@ async fn auto_reconnect_after_network_change(
         let Some(password) = g.last_password.clone() else {
             return;
         };
-
-        if !should_recover {
-            return;
-        }
 
         g.auto_reconnect_running = true;
         g.last_connected_at_ms = None;
@@ -884,10 +877,9 @@ async fn auto_reconnect_after_network_change(
 
     #[cfg(target_os = "macos")]
     {
-        if let Err(e) = macos_helper::helper_disconnect(&app, &state).await {
-            emit_log(&app, &format!("[ui] Automatic recovery disconnect failed: {e}"));
-        }
-        set_status(&state, &app, UiStatus::Disconnected).await;
+        let mut g = state.lock().await;
+        g.disconnect_requested = false;
+        drop(g);
     }
 
     #[cfg(not(target_os = "macos"))]
@@ -1570,10 +1562,21 @@ async fn vpn_disconnect(
 ) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
+        {
+            let mut g = state.lock().await;
+            g.disconnect_requested = true;
+            g.last_connected_at_ms = None;
+        }
+
         if let Err(e) = macos_helper::helper_disconnect(&app, state.inner()).await {
+            {
+                let mut g = state.lock().await;
+                g.disconnect_requested = false;
+            }
             set_error_and_disconnect(state.inner(), &app, e.clone()).await;
             return Err(e);
         }
+
         set_status(state.inner(), &app, UiStatus::Disconnected).await;
         return Ok(());
     }
