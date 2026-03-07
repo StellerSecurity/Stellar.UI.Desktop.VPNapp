@@ -158,6 +158,11 @@ fn tray_icon_for_status(st: UiStatus) -> Option<Image<'static>> {
     Image::from_bytes(bytes).ok()
 }
 
+#[cfg(target_os = "linux")]
+fn tray_temp_dir() -> PathBuf {
+    temp_dir().join("tray-icon")
+}
+
 fn update_tray_ui_inner(app: &AppHandle<RT>, st: UiStatus) {
     let handles = app.state::<TrayHandles>();
 
@@ -169,8 +174,13 @@ fn update_tray_ui_inner(app: &AppHandle<RT>, st: UiStatus) {
     let _ = handles.disconnect.set_enabled(can_disconnect);
 
     if let Some(tray) = app.tray_by_id(TRAY_ID) {
+        #[cfg(target_os = "linux")]
+        {
+            let _ = fs::create_dir_all(tray_temp_dir());
+            let _ = tray.set_temp_dir_path(Some(tray_temp_dir()));
+        }
+
         if let Some(img) = tray_icon_for_status(st) {
-            let _ = tray.set_icon(None);
             let _ = tray.set_icon(Some(img));
         }
     }
@@ -223,7 +233,16 @@ fn setup_tray(app: &AppHandle<RT>) -> tauri::Result<TrayHandles> {
     let menu = Menu::with_items(app, &[&open, &connect, &reconnect, &disconnect, &quit])?;
     let icon = Image::from_bytes(TRAY_ICON_OFFLINE_BYTES)?;
 
-    TrayIconBuilder::with_id(TRAY_ID)
+    #[cfg(target_os = "linux")]
+    let builder = {
+        let _ = fs::create_dir_all(tray_temp_dir());
+        TrayIconBuilder::with_id(TRAY_ID).temp_dir_path(tray_temp_dir())
+    };
+
+    #[cfg(not(target_os = "linux"))]
+    let builder = TrayIconBuilder::with_id(TRAY_ID);
+
+    builder
         .icon(icon)
         .menu(&menu)
         .on_menu_event(|app, event| match event.id().as_ref() {
@@ -1270,160 +1289,160 @@ async fn vpn_connect_inner(
     }
 
     let result: Result<(), String> = async {
+        let cfg_source = config_path.trim().to_string();
+        if cfg_source.is_empty() {
+            return Err("configPath is required".to_string());
+        }
+        if username.trim().is_empty() || password.trim().is_empty() {
+            return Err("username/password are required".to_string());
+        }
 
-    let cfg_source = config_path.trim().to_string();
-    if cfg_source.is_empty() {
-        return Err("configPath is required".to_string());
-    }
-    if username.trim().is_empty() || password.trim().is_empty() {
-        return Err("username/password are required".to_string());
-    }
+        let current_base_network = get_primary_network_path().await;
 
-    let current_base_network = get_primary_network_path().await;
+        let (ks_enabled, cur_status, last_src, last_cached) = {
+            let g = state.lock().await;
+            (
+                g.kill_switch_enabled,
+                g.status,
+                g.last_config_source.clone(),
+                g.last_config_path.clone(),
+            )
+        };
 
-    let (ks_enabled, cur_status, last_src, last_cached) = {
-        let g = state.lock().await;
-        (
-            g.kill_switch_enabled,
-            g.status,
-            g.last_config_source.clone(),
-            g.last_config_path.clone(),
-        )
-    };
+        let sid = {
+            let mut g = state.lock().await;
+            let sid = g.next_sid;
+            g.next_sid += 1;
+            sid
+        };
 
-    let sid = {
-        let mut g = state.lock().await;
-        let sid = g.next_sid;
-        g.next_sid += 1;
-        sid
-    };
+        let mut prefetched_cfg: Option<PathBuf> = None;
+        if ks_enabled && cur_status == UiStatus::Connected && looks_like_url(cfg_source.as_str()) {
+            emit_log(&app, "[ui] Kill switch ON + VPN connected: prefetching new config over tunnel before switching...");
+            let p = prepare_config(cfg_source.as_str(), sid).await?;
+            prefetched_cfg = Some(p);
+        }
 
-    let mut prefetched_cfg: Option<PathBuf> = None;
-    if ks_enabled && cur_status == UiStatus::Connected && looks_like_url(cfg_source.as_str()) {
-        emit_log(&app, "[ui] Kill switch ON + VPN connected: prefetching new config over tunnel before switching...");
-        let p = prepare_config(cfg_source.as_str(), sid).await?;
-        prefetched_cfg = Some(p);
-    }
+        stop_current_session(&app, state).await;
 
-    stop_current_session(&app, state).await;
+        {
+            let mut g = state.lock().await;
+            g.disconnect_requested = false;
+        }
 
-    {
-        let mut g = state.lock().await;
-        g.disconnect_requested = false;
-    }
+        set_status(state, &app, UiStatus::Connecting).await;
+        emit_log(
+            &app,
+            &format!("[ui] Connecting using config: {}", cfg_source),
+        );
 
-    set_status(state, &app, UiStatus::Connecting).await;
-    emit_log(
-        &app,
-        &format!("[ui] Connecting using config: {}", cfg_source),
-    );
-
-    let cfg_path: PathBuf = if let Some(p) = prefetched_cfg {
-        p
-    } else if ks_enabled && looks_like_url(cfg_source.as_str()) {
-        if last_src.as_deref() == Some(cfg_source.as_str()) {
-            let cached = last_cached.ok_or_else(|| {
-                "Kill switch is ON but no cached config exists yet. Disable kill switch once, connect, then enable it."
-                    .to_string()
-            })?;
-            let p = PathBuf::from(&cached);
-            if !p.exists() {
+        let cfg_path: PathBuf = if let Some(p) = prefetched_cfg {
+            p
+        } else if ks_enabled && looks_like_url(cfg_source.as_str()) {
+            if last_src.as_deref() == Some(cfg_source.as_str()) {
+                let cached = last_cached.ok_or_else(|| {
+                    "Kill switch is ON but no cached config exists yet. Disable kill switch once, connect, then enable it."
+                        .to_string()
+                })?;
+                let p = PathBuf::from(&cached);
+                if !p.exists() {
+                    return Err(
+                        "Kill switch is ON but cached config file is missing. Disable kill switch once, connect, then enable it."
+                            .to_string(),
+                    );
+                }
+                p
+            } else {
                 return Err(
-                    "Kill switch is ON but cached config file is missing. Disable kill switch once, connect, then enable it."
+                    "Kill switch is ON and VPN is disconnected, so internet is intentionally blocked. Switch server while connected (so we can prefetch), or disable kill switch once to cache the new config."
                         .to_string(),
                 );
             }
-            p
         } else {
-            return Err(
-                "Kill switch is ON and VPN is disconnected, so internet is intentionally blocked. Switch server while connected (so we can prefetch), or disable kill switch once to cache the new config."
-                    .to_string(),
-            );
-        }
-    } else {
-        prepare_config(cfg_source.as_str(), sid).await?
-    };
+            prepare_config(cfg_source.as_str(), sid).await?
+        };
 
-    let auth_path = write_auth_file(&username, &password, sid)?;
+        let auth_path = write_auth_file(&username, &password, sid)?;
 
-    {
-        let mut g = state.lock().await;
-        g.last_config_path = Some(cfg_path.to_string_lossy().to_string());
-        g.last_config_source = Some(cfg_source.clone());
-        g.last_username = Some(username.clone());
-        g.last_password = Some(password.clone());
-        g.last_connected_at_ms = None;
-        if let Some(path) = current_base_network {
-            g.last_base_network_path = Some(path);
-        }
-        g.network_loss_streak = 0;
-        g.base_network_interrupted = false;
-    }
-
-    let ks_enabled_now = { state.lock().await.kill_switch_enabled };
-    if ks_enabled_now {
-        let cfg_str = cfg_path.to_string_lossy().to_string();
-        emit_log(
-            &app,
-            &format!("[ui] Kill switch enabled: applying for config {}", cfg_str),
-        );
-        apply_kill_switch(true, Some(cfg_str.as_str()))
-            .await
-            .map_err(|e| {
-                emit_log(&app, &format!("[ui] Kill switch apply failed: {e}"));
-                e
-            })?;
-    }
-
-    #[cfg(target_os = "macos")]
-    {
-        std::env::set_var("STELLAR_VPN_HELPER_SOCKET", MACOS_HELPER_SOCKET);
-
-        if let Err(e) = macos_installer::ensure_root_helper_installed(&app) {
-            set_error_and_disconnect(state, &app, e.clone()).await;
-            return Err(format!("Failed to install/start helper: {e}"));
-        }
-
-        let openvpn_bin = resolve_openvpn_binary(&app)?;
-
-        if let Err(e) = macos_helper::helper_connect(
-            &app,
-            state,
-            openvpn_bin,
-            cfg_path,
-            username.to_string(),
-            password.to_string(),
-        )
-        .await
-        {
-            set_error_and_disconnect(state, &app, e.clone()).await;
-            return Err(e);
-        }
-
-        return Ok(());
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    {
-        let (stop_tx, stop_rx) = tokio::sync::watch::channel(false);
         {
             let mut g = state.lock().await;
-            g.session = Some(Session { sid, stop_tx });
+            g.last_config_path = Some(cfg_path.to_string_lossy().to_string());
+            g.last_config_source = Some(cfg_source.clone());
+            g.last_username = Some(username.clone());
+            g.last_password = Some(password.clone());
+            g.last_connected_at_ms = None;
+            if let Some(path) = current_base_network {
+                g.last_base_network_path = Some(path);
+            }
+            g.network_loss_streak = 0;
+            g.base_network_interrupted = false;
         }
 
-        tokio::spawn(run_openvpn_session(
-            app,
-            state.clone(),
-            sid,
-            cfg_path,
-            auth_path,
-            stop_rx,
-            CONNECT_WATCHDOG_MS,
-        ));
+        let ks_enabled_now = { state.lock().await.kill_switch_enabled };
+        if ks_enabled_now {
+            let cfg_str = cfg_path.to_string_lossy().to_string();
+            emit_log(
+                &app,
+                &format!("[ui] Kill switch enabled: applying for config {}", cfg_str),
+            );
+            apply_kill_switch(true, Some(cfg_str.as_str()))
+                .await
+                .map_err(|e| {
+                    emit_log(&app, &format!("[ui] Kill switch apply failed: {e}"));
+                    e
+                })?;
+        }
 
-        Ok(())
+        #[cfg(target_os = "macos")]
+        {
+            std::env::set_var("STELLAR_VPN_HELPER_SOCKET", MACOS_HELPER_SOCKET);
+
+            if let Err(e) = macos_installer::ensure_root_helper_installed(&app) {
+                set_error_and_disconnect(state, &app, e.clone()).await;
+                return Err(format!("Failed to install/start helper: {e}"));
+            }
+
+            let openvpn_bin = resolve_openvpn_binary(&app)?;
+
+            if let Err(e) = macos_helper::helper_connect(
+                &app,
+                state,
+                openvpn_bin,
+                cfg_path,
+                username.to_string(),
+                password.to_string(),
+            )
+            .await
+            {
+                set_error_and_disconnect(state, &app, e.clone()).await;
+                return Err(e);
+            }
+
+            return Ok(());
+        }
+
+        #[cfg(not(target_os = "macos"))]
+        {
+            let (stop_tx, stop_rx) = tokio::sync::watch::channel(false);
+            {
+                let mut g = state.lock().await;
+                g.session = Some(Session { sid, stop_tx });
+            }
+
+            tokio::spawn(run_openvpn_session(
+                app,
+                state.clone(),
+                sid,
+                cfg_path,
+                auth_path,
+                stop_rx,
+                CONNECT_WATCHDOG_MS,
+            ));
+
+            Ok(())
+        }
     }
-    }.await;
+    .await;
 
     {
         let mut g = state.lock().await;
