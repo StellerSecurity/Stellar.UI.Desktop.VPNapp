@@ -152,6 +152,13 @@ export const Dashboard: React.FC = () => {
     return () => clearTimeout(t);
   }, [location.key]);
 
+  // Connect attempt tracking + watchdog (prevents infinite "Connecting...")
+  const connectAttemptIdRef = useRef<number>(0);
+  const connectInFlightRef = useRef(false);
+  const clearConnectInFlight = useCallback(() => {
+    connectInFlightRef.current = false;
+  }, []);
+
   // Keep latest status in a ref (avoids stale closure problems)
   const statusRef = useRef<UiStatus>("disconnected");
   useEffect(() => {
@@ -241,8 +248,18 @@ export const Dashboard: React.FC = () => {
       const s = await invoke<string>("vpn_status");
       const ui = normalizeStatus(s);
 
+      if (ui) {
+        setStatus(ui);
+        if (ui === "connecting") {
+          connectInFlightRef.current = true;
+        } else {
+          clearConnectInFlight();
+        }
+      }
+
       if (s.startsWith("error")) {
         console.error("VPN backend error:", s);
+        clearConnectInFlight();
         setConnectError(s);
         setShowLogs(true);
         setStatus("disconnected");
@@ -250,7 +267,7 @@ export const Dashboard: React.FC = () => {
     } catch (e) {
       console.warn("vpn_status sync failed:", e);
     }
-  }, [setStatus]);
+  }, [clearConnectInFlight, setStatus]);
 
   // Load account number, device name, and selected server
   useEffect(() => {
@@ -349,9 +366,6 @@ export const Dashboard: React.FC = () => {
     })();
   }, [location.key, appendLog]);
 
-  // Connect attempt tracking + watchdog (prevents infinite "Connecting...")
-  const connectAttemptIdRef = useRef<number>(0);
-
   const startConnectWatchdog = useCallback(
       (attemptId: number) => {
         window.setTimeout(async () => {
@@ -375,7 +389,9 @@ export const Dashboard: React.FC = () => {
   const startConnect = useCallback(
       async (configPath: string) => {
         if (!isTauri()) return;
+        if (connectInFlightRef.current) return;
 
+        connectInFlightRef.current = true;
         connectAttemptIdRef.current += 1;
         const attemptId = connectAttemptIdRef.current;
 
@@ -390,6 +406,7 @@ export const Dashboard: React.FC = () => {
 
         if (!vpnAuth?.username || !vpnAuth?.password) {
           const msg = "Missing VPN credentials. Please log in again.";
+          clearConnectInFlight();
           appendLog(`[ui] ${msg}`);
           setConnectError(msg);
           setShowLogs(true);
@@ -408,6 +425,7 @@ export const Dashboard: React.FC = () => {
           const msg =
               typeof e === "string" ? e : e?.message ? String(e.message) : "Unknown error";
 
+          clearConnectInFlight();
           appendLog(`[ui] vpn_connect failed: ${msg}`);
           setConnectError(msg);
           setShowLogs(true);
@@ -415,7 +433,7 @@ export const Dashboard: React.FC = () => {
           setManualDisabled(true);
         }
       },
-      [appendLog, setStatus, startConnectWatchdog, setManualDisabled]
+      [appendLog, clearConnectInFlight, setStatus, startConnectWatchdog, setManualDisabled]
   );
 
   // Register listeners FIRST, then sync backend status
@@ -432,6 +450,12 @@ export const Dashboard: React.FC = () => {
 
         const ui = normalizeStatus(s);
         if (ui) {
+          if (ui === "connecting") {
+            connectInFlightRef.current = true;
+          } else {
+            clearConnectInFlight();
+          }
+
           setStatus(ui);
 
           if (ui === "connected") {
@@ -445,6 +469,7 @@ export const Dashboard: React.FC = () => {
 
         if (s.startsWith("error")) {
           console.error("VPN error:", s);
+          clearConnectInFlight();
           setConnectError(s);
           setShowLogs(true);
           setStatus("disconnected");
@@ -467,7 +492,7 @@ export const Dashboard: React.FC = () => {
       if (unlistenStatus) unlistenStatus();
       if (unlistenLog) unlistenLog();
     };
-  }, [appendLog, setStatus, syncBackendStatus, setHasConnectedOnce, setManualDisabled]);
+  }, [appendLog, clearConnectInFlight, setStatus, syncBackendStatus, setHasConnectedOnce, setManualDisabled]);
 
   // Tray events (Mullvad-style menu)
   const trayConnect = useCallback(async () => {
@@ -495,6 +520,7 @@ export const Dashboard: React.FC = () => {
 
     setManualDisabled(true);
 
+    clearConnectInFlight();
     await invoke("vpn_disconnect").catch(() => {});
     setStatus("disconnected");
   }, [setStatus, setManualDisabled]);
@@ -509,6 +535,7 @@ export const Dashboard: React.FC = () => {
       return;
     }
 
+    clearConnectInFlight();
     await invoke("vpn_disconnect").catch(() => {});
     await new Promise((r) => setTimeout(r, 250));
 
@@ -575,6 +602,7 @@ export const Dashboard: React.FC = () => {
 
       const current = statusRef.current;
       if (current === "connected" || current === "connecting") {
+        clearConnectInFlight();
         await invoke("vpn_disconnect").catch(() => {});
         setStatus("disconnected");
         await new Promise((r) => setTimeout(r, 250));
@@ -635,52 +663,6 @@ export const Dashboard: React.FC = () => {
       cancelled = true;
     };
   }, [listenersReady, searchParams, setStatus, startConnect, isExpired, skipAutoConnect]);
-
-  // Reconnect on unexpected drops (blocked when skipAutoConnect is set)
-  const didMountRef = useRef(false);
-  useEffect(() => {
-    if (!isTauri()) return;
-    if (!listenersReady) return;
-    if (skipAutoConnect) return;
-
-    if (!didMountRef.current) {
-      didMountRef.current = true;
-      return;
-    }
-
-    if (statusRef.current !== "disconnected") return;
-
-    let cancelled = false;
-    const t = window.setTimeout(async () => {
-      try {
-        const isNewUser = searchParams.get("newUser") === "true";
-        if (isNewUser) return;
-
-        const autoConnectEnabled = await getAutoConnect();
-        if (!autoConnectEnabled || cancelled) return;
-
-        if (manualDisabledRef.current) return;
-        if (!hasConnectedOnceRef.current) return;
-        if (isExpired) return;
-
-        const backend = await invoke<string>("vpn_status").catch(() => "");
-        const backendUi = normalizeStatus(backend) ?? statusRef.current;
-        if (backendUi !== "disconnected") return;
-
-        const selectedServer = await getSelectedServer();
-        const configPath = getSelectedConfigPath(selectedServer) || DEFAULT_OVPN_URL;
-
-        await startConnect(configPath);
-      } catch {
-        // ignore
-      }
-    }, 1200);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-    };
-  }, [status, listenersReady, searchParams, startConnect, isExpired, skipAutoConnect]);
 
   const formatAccountNumber = (account: string | null): string => {
     if (!account) return "N/A";
@@ -747,12 +729,14 @@ export const Dashboard: React.FC = () => {
 
         await startConnect(configPath);
       } else {
+        clearConnectInFlight();
         await invoke("vpn_disconnect").catch(() => {});
         setManualDisabled(true);
         setStatus("disconnected");
       }
     } catch (e) {
       console.error("VPN connect error:", e);
+      clearConnectInFlight();
       setStatus("disconnected");
     }
   };

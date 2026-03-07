@@ -35,13 +35,14 @@ type SharedState = std::sync::Arc<Mutex<VpnInner>>;
 
 const CONNECT_WATCHDOG_MS: u64 = 10_000;
 const TRAY_ID: &str = "stellar-vpn-tray";
-const NETWORK_HEALTH_POLL_SECS: u64 = 2;
-const NETWORK_LOSS_THRESHOLD: u32 = 5;
+const NETWORK_HEALTH_POLL_MS: u64 = 500;
+const NETWORK_LOSS_THRESHOLD: u32 = 3;
 const RESUME_GAP_SECS: u64 = 15;
 const NETWORK_RECOVERY_WAIT_SECS: u64 = 45;
 const NETWORK_RECONNECT_RETRIES: u32 = 3;
 const NETWORK_RECONNECT_RETRY_DELAY_SECS: u64 = 3;
 const POST_CONNECT_MONITOR_COOLDOWN_MS: u64 = 20_000;
+const POST_CONNECT_LOSS_GRACE_MS: u64 = 3_000;
 
 const TRAY_ICON_OFFLINE_BYTES: &[u8] = include_bytes!("../icons/tray-offline.png");
 const TRAY_ICON_ONLINE_BYTES: &[u8] = include_bytes!("../icons/tray-online.png");
@@ -94,7 +95,9 @@ struct VpnInner {
     last_password: Option<String>,
     last_base_network_path: Option<NetworkPath>,
     network_loss_streak: u32,
+    base_network_interrupted: bool,
     auto_reconnect_running: bool,
+    connect_request_running: bool,
     last_connected_at_ms: Option<u64>,
 }
 
@@ -112,7 +115,9 @@ impl Default for VpnInner {
             last_password: None,
             last_base_network_path: None,
             network_loss_streak: 0,
+            base_network_interrupted: false,
             auto_reconnect_running: false,
+            connect_request_running: false,
             last_connected_at_ms: None,
         }
     }
@@ -542,6 +547,27 @@ fn network_path_label(path: &NetworkPath) -> String {
 }
 
 #[cfg(target_os = "linux")]
+async fn linux_interface_carrier_up(interface: &str) -> Option<bool> {
+    let path = format!("/sys/class/net/{interface}/carrier");
+    let content = tokio::fs::read_to_string(path).await.ok()?;
+    match content.trim() {
+        "1" => Some(true),
+        "0" => Some(false),
+        _ => None,
+    }
+}
+
+#[cfg(target_os = "linux")]
+async fn base_network_path_is_usable(path: &NetworkPath) -> bool {
+    linux_interface_carrier_up(&path.interface).await.unwrap_or(true)
+}
+
+#[cfg(not(target_os = "linux"))]
+async fn base_network_path_is_usable(_path: &NetworkPath) -> bool {
+    true
+}
+
+#[cfg(target_os = "linux")]
 async fn get_primary_network_path() -> Option<NetworkPath> {
     let out = Command::new("ip")
         .args(["route", "show", "default"])
@@ -762,25 +788,30 @@ async fn wait_for_base_network(
 
     loop {
         if let Some(current) = get_primary_network_path().await {
-            if stable_path.as_ref() == Some(&current) {
-                stable_hits += 1;
-            } else {
-                emit_log(
-                    app,
-                    &format!(
-                        "[ui] Found base network {}. Waiting for it to stabilize...",
-                        network_path_label(&current)
-                    ),
-                );
-                stable_path = Some(current.clone());
-                stable_hits = 1;
-            }
+            if base_network_path_is_usable(&current).await {
+                if stable_path.as_ref() == Some(&current) {
+                    stable_hits += 1;
+                } else {
+                    emit_log(
+                        app,
+                        &format!(
+                            "[ui] Found base network {}. Waiting for it to stabilize...",
+                            network_path_label(&current)
+                        ),
+                    );
+                    stable_path = Some(current.clone());
+                    stable_hits = 1;
+                }
 
-            if stable_hits >= 2 {
-                let mut g = state.lock().await;
-                g.last_base_network_path = Some(current.clone());
-                g.network_loss_streak = 0;
-                return Some(current);
+                if stable_hits >= 2 {
+                    let mut g = state.lock().await;
+                    g.last_base_network_path = Some(current.clone());
+                    g.network_loss_streak = 0;
+                    return Some(current);
+                }
+            } else {
+                stable_path = None;
+                stable_hits = 0;
             }
         } else {
             stable_path = None;
@@ -840,6 +871,7 @@ async fn auto_reconnect_after_network_change(
         }
 
         g.auto_reconnect_running = true;
+        g.last_connected_at_ms = None;
         (cfg, username, password)
     };
 
@@ -919,6 +951,17 @@ async fn monitor_network_health_once(
     had_resume_gap: bool,
 ) {
     let current_path = get_primary_network_path().await;
+    let last_path_snapshot = { state.lock().await.last_base_network_path.clone() };
+    let current_usable = match &current_path {
+        Some(path) => base_network_path_is_usable(path).await,
+        None => false,
+    };
+    let tracked_path = current_path.clone().or(last_path_snapshot.clone());
+    let tracked_usable = match &tracked_path {
+        Some(path) => base_network_path_is_usable(path).await,
+        None => false,
+    };
+
     let mut reason: Option<String> = None;
 
     {
@@ -933,54 +976,88 @@ async fn monitor_network_health_once(
 
         if !should_monitor {
             g.network_loss_streak = 0;
+            g.base_network_interrupted = false;
             if let Some(path) = current_path.clone() {
-                g.last_base_network_path = Some(path);
+                if current_usable {
+                    g.last_base_network_path = Some(path);
+                }
             }
             return;
         }
 
-        if let Some(last_connected_at_ms) = g.last_connected_at_ms {
-            if now_ms().saturating_sub(last_connected_at_ms) < POST_CONNECT_MONITOR_COOLDOWN_MS {
-                g.network_loss_streak = 0;
-                if let Some(path) = current_path.clone() {
-                    g.last_base_network_path = Some(path);
+        if !tracked_usable {
+            if !g.base_network_interrupted {
+                if let Some(last_connected_at_ms) = g.last_connected_at_ms {
+                    if now_ms().saturating_sub(last_connected_at_ms) < POST_CONNECT_LOSS_GRACE_MS {
+                        return;
+                    }
                 }
-                return;
+                let label = tracked_path
+                    .as_ref()
+                    .map(network_path_label)
+                    .unwrap_or_else(|| "unknown interface".to_string());
+                emit_log(
+                    app,
+                    &format!("[ui] Base network lost on {label}. Waiting for it to return..."),
+                );
             }
+            g.base_network_interrupted = true;
+            g.network_loss_streak = 0;
+            return;
         }
 
-        if had_resume_gap {
-            reason = Some(
-                "System resume detected. Rebuilding VPN on the current network.".to_string(),
-            );
+        if g.base_network_interrupted {
+            let label = current_path
+                .as_ref()
+                .or(tracked_path.as_ref())
+                .map(network_path_label)
+                .unwrap_or_else(|| "current network".to_string());
+            reason = Some(format!(
+                "Base network returned on {label}. Rebuilding VPN.",
+            ));
+            g.base_network_interrupted = false;
+            g.network_loss_streak = 0;
+            if let Some(path) = current_path.clone() {
+                if current_usable {
+                    g.last_base_network_path = Some(path);
+                }
+            }
         } else {
-            match current_path.clone() {
-                Some(current) => {
-                    if let Some(previous) = g.last_base_network_path.clone() {
-                        if previous != current {
-                            reason = Some(format!(
-                                "Base network changed from {} to {}. Rebuilding VPN.",
-                                network_path_label(&previous),
-                                network_path_label(&current)
-                            ));
+            if let Some(last_connected_at_ms) = g.last_connected_at_ms {
+                if now_ms().saturating_sub(last_connected_at_ms) < POST_CONNECT_MONITOR_COOLDOWN_MS {
+                    g.network_loss_streak = 0;
+                    if let Some(path) = current_path.clone() {
+                        if current_usable {
+                            g.last_base_network_path = Some(path);
+                        }
+                    }
+                    return;
+                }
+            }
+
+            if had_resume_gap {
+                reason = Some(
+                    "System resume detected. Rebuilding VPN on the current network.".to_string(),
+                );
+            } else {
+                g.network_loss_streak = 0;
+                match current_path.clone() {
+                    Some(current) if current_usable => {
+                        if let Some(previous) = g.last_base_network_path.clone() {
+                            if previous != current {
+                                reason = Some(format!(
+                                    "Base network changed from {} to {}. Rebuilding VPN.",
+                                    network_path_label(&previous),
+                                    network_path_label(&current)
+                                ));
+                            } else {
+                                g.last_base_network_path = Some(current);
+                            }
                         } else {
                             g.last_base_network_path = Some(current);
-                            g.network_loss_streak = 0;
                         }
-                    } else {
-                        g.last_base_network_path = Some(current);
-                        g.network_loss_streak = 0;
                     }
-                }
-                None => {
-                    g.network_loss_streak = g.network_loss_streak.saturating_add(1);
-                    if g.network_loss_streak >= NETWORK_LOSS_THRESHOLD {
-                        reason = Some(
-                            "Base network disappeared. Waiting for it to come back and rebuilding VPN."
-                                .to_string(),
-                        );
-                        g.network_loss_streak = 0;
-                    }
+                    _ => {}
                 }
             }
         }
@@ -996,7 +1073,7 @@ fn spawn_network_health_watcher(app: AppHandle<RT>, state: SharedState) {
         let mut last_tick = time::Instant::now();
 
         loop {
-            time::sleep(Duration::from_secs(NETWORK_HEALTH_POLL_SECS)).await;
+            time::sleep(Duration::from_millis(NETWORK_HEALTH_POLL_MS)).await;
             let now = time::Instant::now();
             let gap = now.duration_since(last_tick);
             last_tick = now;
@@ -1186,6 +1263,16 @@ async fn vpn_connect_inner(
     username: String,
     password: String,
 ) -> Result<(), String> {
+    {
+        let mut g = state.lock().await;
+        if g.connect_request_running {
+            return Err("VPN connect already in progress.".to_string());
+        }
+        g.connect_request_running = true;
+    }
+
+    let result: Result<(), String> = async {
+
     let cfg_source = config_path.trim().to_string();
     if cfg_source.is_empty() {
         return Err("configPath is required".to_string());
@@ -1272,6 +1359,7 @@ async fn vpn_connect_inner(
             g.last_base_network_path = Some(path);
         }
         g.network_loss_streak = 0;
+        g.base_network_interrupted = false;
     }
 
     let ks_enabled_now = { state.lock().await.kill_switch_enabled };
@@ -1337,6 +1425,14 @@ async fn vpn_connect_inner(
 
         Ok(())
     }
+    }.await;
+
+    {
+        let mut g = state.lock().await;
+        g.connect_request_running = false;
+    }
+
+    result
 }
 
 #[tauri::command]
