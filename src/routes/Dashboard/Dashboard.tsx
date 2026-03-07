@@ -16,6 +16,7 @@ import {
   ensureVpnNotificationPermission,
   handleVpnLogNotification,
   handleVpnStatusNotification,
+  markManualVpnDisconnect,
 } from "../../lib/vpnNotifications";
 import { listen } from "@tauri-apps/api/event";
 import { VpnWorldMap } from "../../components/VpnWorldMap";
@@ -533,6 +534,7 @@ export const Dashboard: React.FC = () => {
   const trayDisconnect = useCallback(async () => {
     if (!isTauri()) return;
 
+    markManualVpnDisconnect();
     setManualDisabled(true);
 
     clearConnectInFlight();
@@ -550,6 +552,7 @@ export const Dashboard: React.FC = () => {
       return;
     }
 
+    markManualVpnDisconnect();
     clearConnectInFlight();
     await invoke("vpn_disconnect").catch(() => {});
     await new Promise((r) => setTimeout(r, 250));
@@ -617,6 +620,7 @@ export const Dashboard: React.FC = () => {
 
       const current = statusRef.current;
       if (current === "connected" || current === "connecting") {
+        markManualVpnDisconnect();
         clearConnectInFlight();
         await invoke("vpn_disconnect").catch(() => {});
         setStatus("disconnected");
@@ -722,6 +726,10 @@ export const Dashboard: React.FC = () => {
         setStatus("connecting");
         setTimeout(() => setStatus("connected"), 1500);
       } else {
+        markManualVpnDisconnect();
+        clearConnectInFlight();
+        await invoke("vpn_disconnect").catch(() => {});
+        setManualDisabled(true);
         setStatus("disconnected");
       }
       return;
