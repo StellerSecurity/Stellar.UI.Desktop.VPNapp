@@ -161,6 +161,62 @@ async fn write_auth_file(path: &Path, username: &str, password: &str) -> Result<
     Ok(())
 }
 
+async fn terminate_child_gracefully(
+    ev_tx: &broadcast::Sender<String>,
+    child: &mut tokio::process::Child,
+    label: &str,
+) {
+    if let Some(pid) = child.id() {
+        send_event(
+            ev_tx,
+            Event::Log {
+                line: format!("[mac-helper] Sending SIGTERM to {label} pid={pid}"),
+            },
+        )
+        .await;
+
+        unsafe {
+            libc::kill(pid as i32, libc::SIGTERM);
+        }
+
+        match time::timeout(Duration::from_secs(5), child.wait()).await {
+            Ok(Ok(status)) => {
+                let code = status.code().unwrap_or(-1);
+                send_event(
+                    ev_tx,
+                    Event::Log {
+                        line: format!("[mac-helper] {label} exited after SIGTERM (code={code})"),
+                    },
+                )
+                .await;
+            }
+            Ok(Err(e)) => {
+                send_event(
+                    ev_tx,
+                    Event::Log {
+                        line: format!("[mac-helper] Failed waiting for {label} after SIGTERM: {e}"),
+                    },
+                )
+                .await;
+            }
+            Err(_) => {
+                send_event(
+                    ev_tx,
+                    Event::Log {
+                        line: format!("[mac-helper] {label} did not exit after SIGTERM, sending SIGKILL"),
+                    },
+                )
+                .await;
+                let _ = child.kill().await;
+                let _ = child.wait().await;
+            }
+        }
+    } else {
+        let _ = child.kill().await;
+        let _ = child.wait().await;
+    }
+}
+
 async fn spawn_child_watcher(inner: Arc<Mutex<Inner>>, ev_tx: broadcast::Sender<String>) {
     tokio::spawn(async move {
         loop {
@@ -291,13 +347,14 @@ async fn handle_conn(
         }
 
         Req::Disconnect => {
-            {
+            let child_to_stop = {
                 let mut g = inner.lock().await;
-                if let Some(mut c) = g.child.take() {
-                    let _ = c.kill().await;
-                    let _ = c.wait().await;
-                }
                 g.status = St::Disconnected;
+                g.child.take()
+            };
+
+            if let Some(mut c) = child_to_stop {
+                terminate_child_gracefully(&ev_tx, &mut c, "OpenVPN").await;
             }
 
             send_event(
@@ -352,13 +409,14 @@ async fn handle_conn(
             }
 
             // kill existing
-            {
+            let existing_child = {
                 let mut g = inner.lock().await;
-                if let Some(mut c) = g.child.take() {
-                    let _ = c.kill().await;
-                    let _ = c.wait().await;
-                }
                 g.status = St::Connecting;
+                g.child.take()
+            };
+
+            if let Some(mut c) = existing_child {
+                terminate_child_gracefully(&ev_tx, &mut c, "OpenVPN").await;
             }
 
             send_event(
