@@ -12,6 +12,11 @@ import {
   getVpnAuth,
 } from "../../services/api";
 import { invoke } from "@tauri-apps/api/core";
+import {
+  ensureVpnNotificationPermission,
+  handleVpnLogNotification,
+  handleVpnStatusNotification,
+} from "../../lib/vpnNotifications";
 import { listen } from "@tauri-apps/api/event";
 import { VpnWorldMap } from "../../components/VpnWorldMap";
 
@@ -448,6 +453,10 @@ export const Dashboard: React.FC = () => {
       unlistenStatus = await listen<string>("vpn-status", (event) => {
         const s = event.payload;
 
+        void handleVpnStatusNotification(s).catch((error) => {
+          console.error("VPN status notification failed:", error);
+        });
+
         const ui = normalizeStatus(s);
         if (ui) {
           if (ui === "connecting") {
@@ -478,9 +487,14 @@ export const Dashboard: React.FC = () => {
 
       unlistenLog = await listen<string>("vpn-log", (event) => {
         appendLog(event.payload);
+        void handleVpnLogNotification(event.payload).catch((error) => {
+          console.error("VPN log notification failed:", error);
+        });
       });
 
       if (!mounted) return;
+
+      void ensureVpnNotificationPermission().catch(() => {});
 
       setListenersReady(true);
       console.log('sync', 1);

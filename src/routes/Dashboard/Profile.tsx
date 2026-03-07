@@ -11,6 +11,11 @@ import {
   getSelectedServer,
 } from "../../services/api";
 import { invoke } from "@tauri-apps/api/core";
+import {
+  ensureVpnNotificationPermission,
+  getVpnNotificationsEnabled,
+  setVpnNotificationsEnabled,
+} from "../../lib/vpnNotifications";
 
 const isTauri = () =>
     typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -60,14 +65,17 @@ export const Profile: React.FC = () => {
 
   const [autoConnect, setAutoConnectState] = useState(true);
   const [killSwitch, setKillSwitch] = useState(false);
+  const [vpnNotificationsEnabled, setVpnNotificationsEnabledState] =
+      useState(true);
 
   const [accountNumber, setAccountNumber] = useState<string | null>(null);
   const [deviceName, setDeviceName] = useState<string | null>(null);
   const [showCopiedToast, setShowCopiedToast] = useState(false);
 
-  // IMPORTANT: Rust command expects `args` wrapper:
-  // vpn_set_kill_switch(app, state, args: KillSwitchArgs)
-  const setKillSwitchNative = async (enabled: boolean, configPath?: string | null) => {
+  const setKillSwitchNative = async (
+      enabled: boolean,
+      configPath?: string | null
+  ) => {
     if (!isTauri()) return;
 
     await invoke("vpn_set_kill_switch", {
@@ -87,6 +95,7 @@ export const Profile: React.FC = () => {
       setAccountNumber(account);
       setDeviceName(device);
       setAutoConnectState(autoConnectPref ?? true);
+      setVpnNotificationsEnabledState(getVpnNotificationsEnabled());
 
       if (isTauri()) {
         try {
@@ -147,17 +156,33 @@ export const Profile: React.FC = () => {
 
   const handleLogout = async () => {
     if (isTauri()) {
-      try { await invoke("vpn_disconnect"); } catch {}
-      try { await setKillSwitchNative(false, null); } catch {}
+      try {
+        await invoke("vpn_disconnect");
+      } catch {}
+      try {
+        await setKillSwitchNative(false, null);
+      } catch {}
     }
 
     await clearAuthData();
 
-    // Force route + full state reset
     window.location.hash = "#/welcome";
     window.location.reload();
   };
 
+  const toggleVpnNotifications = async () => {
+    const next = !vpnNotificationsEnabled;
+    setVpnNotificationsEnabled(next);
+    setVpnNotificationsEnabledState(next);
+
+    if (next) {
+      try {
+        await ensureVpnNotificationPermission();
+      } catch (e) {
+        console.error("Notification permission error:", e);
+      }
+    }
+  };
 
   const toggleKillSwitch = async () => {
     const next = !killSwitch;
@@ -170,11 +195,11 @@ export const Profile: React.FC = () => {
         const server = await getSelectedServer().catch(() => null);
 
         const cfg =
-            (typeof (server as any)?.configUrl === "string" && (server as any).configUrl.trim())
-                ? (server as any).configUrl.trim()
-                : (typeof (server as any)?.config_url === "string" && (server as any).config_url.trim())
-                    ? (server as any).config_url.trim()
-                    : DEFAULT_OVPN_URL;
+            (typeof (server as any)?.configUrl === "string" &&
+                (server as any).configUrl.trim()) ||
+            (typeof (server as any)?.config_url === "string" &&
+                (server as any).config_url.trim()) ||
+            DEFAULT_OVPN_URL;
 
         await setKillSwitchNative(true, cfg);
       } else {
@@ -183,7 +208,6 @@ export const Profile: React.FC = () => {
     } catch (e: any) {
       console.error("Kill switch error (raw):", e);
 
-      // revert UI
       setKillSwitch(!next);
 
       const msg =
@@ -205,185 +229,257 @@ export const Profile: React.FC = () => {
 
   return (
       <AuthShell title="Profile" onBack={() => navigate("/dashboard")}>
-        <div className="space-y-4 flex-1 flex flex-col">
-          <div className="px-6 flex flex-col gap-4">
-            <div className="bg-white rounded-2xl p-4 text-sm border border-[#EAEAF0] transition-all duration-200 hover:shadow-[0_10px_30px_rgba(11,12,25,0.06)] hover:-translate-y-[1px]">
-              <div className="flex justify-between items-center mb-2">
-                <div>
-                  <div className="text-[11px] font-normal text-[#62626A] mb-1">
-                    Account Name / Number
-                  </div>
-                  <div className="text-[12px] font-semibold text-[#0B0C19]">
-                    {formatAccountNumber(accountNumber)}
-                  </div>
-                </div>
-
-                {accountNumber && (
-                    <div className="relative">
-                      <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleCopyAccount();
-                          }}
-                          className="text-xs flex items-center gap-2 hover:opacity-80 active:scale-[0.98] transition-all"
-                      >
-                        <img src="/icons/copy.svg" alt="Copy" className="w-8 h-8" />
-                      </button>
-
-                      {showCopiedToast && (
-                          <div className="absolute bottom-full right-0 mb-1 z-[9999] pointer-events-none">
-                            <div className="bg-[#0B0C19] text-white px-3 py-1.5 rounded-lg text-[10px] font-medium shadow-lg whitespace-nowrap">
-                              Copied!
-                            </div>
-                          </div>
-                      )}
+        <div className="relative h-full min-h-0 flex flex-col overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <div className="space-y-4 px-0 pb-24">
+              <div className="px-6 flex flex-col gap-4">
+                <div className="bg-white rounded-2xl p-4 text-sm border border-[#EAEAF0] transition-all duration-200 hover:shadow-[0_10px_30px_rgba(11,12,25,0.06)] hover:-translate-y-[1px]">
+                  <div className="flex justify-between items-center mb-2">
+                    <div>
+                      <div className="text-[11px] font-normal text-[#62626A] mb-1">
+                        Account Name / Number
+                      </div>
+                      <div className="text-[12px] font-semibold text-[#0B0C19]">
+                        {formatAccountNumber(accountNumber)}
+                      </div>
                     </div>
-                )}
-              </div>
 
-              <div className="text-[11px] font-normal text-[#62626A] mb-1">
-                Device name:
-              </div>
-              <div className="text-[14px] text-[#0B0C19] font-semibold">
-                {deviceName || "N/A"}
-              </div>
+                    {accountNumber && (
+                        <div className="relative">
+                          <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleCopyAccount();
+                              }}
+                              className="text-xs flex items-center gap-2 hover:opacity-80 active:scale-[0.98] transition-all"
+                          >
+                            <img
+                                src="/icons/copy.svg"
+                                alt="Copy"
+                                className="w-8 h-8"
+                            />
+                          </button>
 
-              <div className="text-[12px] text-[#62626A] mt-3 pt-3 border-t border-[#EAEAF0]">
-                Available for <span className="text-[#2761FC]">6</span> devices
-              </div>
-            </div>
+                          {showCopiedToast && (
+                              <div className="absolute bottom-full right-0 mb-1 z-[9999] pointer-events-none">
+                                <div className="bg-[#0B0C19] text-white px-3 py-1.5 rounded-lg text-[10px] font-medium shadow-lg whitespace-nowrap">
+                                  Copied!
+                                </div>
+                              </div>
+                          )}
+                        </div>
+                    )}
+                  </div>
 
-            <div className="bg-white rounded-2xl flex-col p-4 text-sm flex items-center justify-between border border-[#EAEAF0] transition-all duration-200 hover:shadow-[0_10px_30px_rgba(11,12,25,0.06)] hover:-translate-y-[1px]">
-              <div className="w-full">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="text-sm text-[#62626A]">Subscription</div>
-                  <span
-                      className={[
-                        "text-[11px] px-2 py-1 rounded-full border",
-                        pillClassForStatus(expiresStatus),
-                        "transition-colors duration-200",
-                      ].join(" ")}
-                  >
-                  {expiresStatus === "ok"
-                      ? "Active"
-                      : expiresStatus === "warning"
-                          ? "Expiring soon"
-                          : expiresStatus === "expired"
-                              ? "Expired"
-                              : "Unknown"}
-                </span>
+                  <div className="text-[11px] font-normal text-[#62626A] mb-1">
+                    Device name:
+                  </div>
+                  <div className="text-[14px] text-[#0B0C19] font-semibold">
+                    {deviceName || "N/A"}
+                  </div>
+
+                  <div className="text-[12px] text-[#62626A] mt-3 pt-3 border-t border-[#EAEAF0]">
+                    Available for <span className="text-[#2761FC]">6</span>{" "}
+                    devices
+                  </div>
                 </div>
 
-                <div className="flex items-center justify-between w-full">
-                  <div className="font-semibold text-[#0B0C19]">{expiresLabel}</div>
-                  <div className="text-sm text-[#62626A]">
-                    {formatExpirationDate(subscription?.expires_at)}
+                <div className="bg-white rounded-2xl flex-col p-4 text-sm flex items-center justify-between border border-[#EAEAF0] transition-all duration-200 hover:shadow-[0_10px_30px_rgba(11,12,25,0.06)] hover:-translate-y-[1px]">
+                  <div className="w-full">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="text-sm text-[#62626A]">Subscription</div>
+                      <span
+                          className={[
+                            "text-[11px] px-2 py-1 rounded-full border",
+                            pillClassForStatus(expiresStatus),
+                            "transition-colors duration-200",
+                          ].join(" ")}
+                      >
+                      {expiresStatus === "ok"
+                          ? "Active"
+                          : expiresStatus === "warning"
+                              ? "Expiring soon"
+                              : expiresStatus === "expired"
+                                  ? "Expired"
+                                  : "Unknown"}
+                    </span>
+                    </div>
+
+                    <div className="flex items-center justify-between w-full">
+                      <div className="font-semibold text-[#0B0C19]">
+                        {expiresLabel}
+                      </div>
+                      <div className="text-sm text-[#62626A]">
+                        {formatExpirationDate(subscription?.expires_at)}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
 
-          <div className="px-5 mt-10 bg-white rounded-2xl flex-1 pt-6 pb-6 border border-[#EAEAF0]">
-            <div className="flex items-center justify-between text-sm mb-6 pb-6 border-b border-[#EAEAF0]">
-            <span className="text-[14px] font-semibold text-[#0B0C19] flex items-center gap-2">
-              <img src="/icons/network.svg" alt="Network" className="w-11 h-11" />
-              Auto connect
-            </span>
+              <div className="px-5 mt-10 bg-white rounded-2xl pt-6 pb-6 border border-[#EAEAF0] mx-6">
+                <div className="flex items-center justify-between text-sm mb-6 pb-6 border-b border-[#EAEAF0]">
+                <span className="text-[14px] font-semibold text-[#0B0C19] flex items-center gap-2">
+                  <img
+                      src="/icons/network.svg"
+                      alt="Network"
+                      className="w-11 h-11"
+                  />
+                  Auto connect
+                </span>
 
-              <button
-                  type="button"
-                  onClick={async () => {
-                    const newValue = !autoConnect;
-                    setAutoConnectState(newValue);
-                    await setAutoConnect(newValue);
-                  }}
-                  className={`w-[42px] h-[26px] rounded-full flex items-center px-1 transition-colors ${
-                      autoConnect ? "bg-[#2761FC]" : "bg-gray-300"
-                  }`}
-              >
-              <span
-                  className={`w-[20px] h-[20px] rounded-full bg-white flex items-center justify-center transition-transform ${
-                      autoConnect ? "translate-x-4" : "translate-x-0"
-                  }`}
-              >
-                {autoConnect && (
-                    <img src="/icons/blue-tick.svg" alt="Tick" className="w-4 h-4" />
-                )}
-              </span>
-              </button>
-            </div>
-
-            <div className="flex items-center justify-between text-sm mb-6 pb-6 border-b border-[#EAEAF0]">
-              <div className="flex flex-col">
-              <span className="text-[14px] font-semibold text-[#0B0C19] flex items-center gap-2">
-                <img src="/icons/network.svg" alt="Kill switch" className="w-11 h-11" />
-                Kill switch
-              </span>
-                <span className="text-[11px] text-[#62626A] mt-1">
-                Blocks internet when VPN is down.
-              </span>
-              </div>
-
-              <button
-                  type="button"
-                  onClick={toggleKillSwitch}
-                  className={`w-[42px] h-[26px] rounded-full flex items-center px-1 transition-colors ${
-                      killSwitch ? "bg-[#2761FC]" : "bg-gray-300"
-                  }`}
-              >
-              <span
-                  className={`w-[20px] h-[20px] rounded-full bg-white flex items-center justify-center transition-transform ${
-                      killSwitch ? "translate-x-4" : "translate-x-0"
-                  }`}
-              >
-                {killSwitch && (
-                    <img src="/icons/blue-tick.svg" alt="Tick" className="w-4 h-4" />
-                )}
-              </span>
-              </button>
-            </div>
-
-            <button
-                type="button"
-                onClick={() => setShowLogout(true)}
-                className="text-sm text-[#62626A] flex items-center gap-3 pl-2 hover:opacity-90 active:scale-[0.99] transition-all"
-            >
-              <img src="/icons/logout.svg" alt="Logout" className="w-7 h-7" />
-              <span className="text-[14px] font-semibold text-[#62626A]">Logout</span>
-            </button>
-          </div>
-        </div>
-
-        {showLogout && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-50">
-              <div className="text-center rounded-2xl pt-12 pb-8 px-6 w-full max-w-[280px] mx-4 logout-screen bg-[#F6F6FD] border border-[#EAEAF0] shadow-[0_20px_60px_rgba(0,0,0,0.18)]">
-                <img src="/icons/logout.svg" alt="Logout" className="w-10 h-10 mx-auto mb-4" />
-                <h2 className="text-xl font-bold mb-2">Log out</h2>
-                <p className="text-sm text-[#62626A] pb-4 mb-6 border-b border-[#EAEAF0]">
-                  Are you sure you want to log out?
-                </p>
-                <div className="flex justify-end gap-5">
                   <button
                       type="button"
-                      className="text-sm font-semibold text-[#62626A] hover:opacity-80 transition-opacity"
-                      onClick={() => setShowLogout(false)}
+                      onClick={async () => {
+                        const newValue = !autoConnect;
+                        setAutoConnectState(newValue);
+                        await setAutoConnect(newValue);
+                      }}
+                      className={`w-[42px] h-[26px] rounded-full flex items-center px-1 transition-colors ${
+                          autoConnect ? "bg-[#2761FC]" : "bg-gray-300"
+                      }`}
                   >
-                    Cancel
-                  </button>
-                  <button
-                      type="button"
-                      className="text-sm text-[#2761FC] font-semibold hover:opacity-80 transition-opacity"
-                      onClick={handleLogout}
+                  <span
+                      className={`w-[20px] h-[20px] rounded-full bg-white flex items-center justify-center transition-transform ${
+                          autoConnect ? "translate-x-4" : "translate-x-0"
+                      }`}
                   >
-                    Log out
+                    {autoConnect && (
+                        <img
+                            src="/icons/blue-tick.svg"
+                            alt="Tick"
+                            className="w-4 h-4"
+                        />
+                    )}
+                  </span>
                   </button>
                 </div>
+
+                <div className="flex items-center justify-between text-sm mb-6 pb-6 border-b border-[#EAEAF0]">
+                  <div className="flex flex-col">
+                  <span className="text-[14px] font-semibold text-[#0B0C19] flex items-center gap-2">
+                    <img
+                        src="/icons/network.svg"
+                        alt="Kill switch"
+                        className="w-11 h-11"
+                    />
+                    Kill switch
+                  </span>
+                    <span className="text-[11px] text-[#62626A] mt-1">
+                    Blocks internet when VPN is down.
+                  </span>
+                  </div>
+
+                  <button
+                      type="button"
+                      onClick={toggleKillSwitch}
+                      className={`w-[42px] h-[26px] rounded-full flex items-center px-1 transition-colors ${
+                          killSwitch ? "bg-[#2761FC]" : "bg-gray-300"
+                      }`}
+                  >
+                  <span
+                      className={`w-[20px] h-[20px] rounded-full bg-white flex items-center justify-center transition-transform ${
+                          killSwitch ? "translate-x-4" : "translate-x-0"
+                      }`}
+                  >
+                    {killSwitch && (
+                        <img
+                            src="/icons/blue-tick.svg"
+                            alt="Tick"
+                            className="w-4 h-4"
+                        />
+                    )}
+                  </span>
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between text-sm mb-6 pb-6 border-b border-[#EAEAF0]">
+                  <div className="flex flex-col">
+                  <span className="text-[14px] font-semibold text-[#0B0C19] flex items-center gap-2">
+                    <img
+                        src="/icons/network.svg"
+                        alt="Notifications"
+                        className="w-11 h-11"
+                    />
+                    Notifications
+                  </span>
+                  </div>
+
+                  <button
+                      type="button"
+                      onClick={toggleVpnNotifications}
+                      className={`w-[42px] h-[26px] rounded-full flex items-center px-1 transition-colors ${
+                          vpnNotificationsEnabled ? "bg-[#2761FC]" : "bg-gray-300"
+                      }`}
+                  >
+                  <span
+                      className={`w-[20px] h-[20px] rounded-full bg-white flex items-center justify-center transition-transform ${
+                          vpnNotificationsEnabled ? "translate-x-4" : "translate-x-0"
+                      }`}
+                  >
+                    {vpnNotificationsEnabled && (
+                        <img
+                            src="/icons/blue-tick.svg"
+                            alt="Tick"
+                            className="w-4 h-4"
+                        />
+                    )}
+                  </span>
+                  </button>
+                </div>
+
+                <button
+                    type="button"
+                    onClick={() => setShowLogout(true)}
+                    className="text-sm text-[#62626A] flex items-center gap-3 pl-2 hover:opacity-90 active:scale-[0.99] transition-all"
+                >
+                  <img
+                      src="/icons/logout.svg"
+                      alt="Logout"
+                      className="w-7 h-7"
+                  />
+                  <span className="text-[14px] font-semibold text-[#62626A]">
+                  Logout
+                </span>
+                </button>
               </div>
             </div>
-        )}
+          </div>
+
+          {showLogout && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-50">
+                <div className="text-center rounded-2xl pt-12 pb-8 px-6 w-full max-w-[280px] mx-4 logout-screen bg-[#F6F6FD] border border-[#EAEAF0] shadow-[0_20px_60px_rgba(0,0,0,0.18)]">
+                  <img
+                      src="/icons/logout.svg"
+                      alt="Logout"
+                      className="w-10 h-10 mx-auto mb-4"
+                  />
+                  <h2 className="text-xl font-bold mb-2">Log out</h2>
+                  <p className="text-sm text-[#62626A] pb-4 mb-6 border-b border-[#EAEAF0]">
+                    Are you sure you want to log out?
+                  </p>
+                  <div className="flex justify-end gap-5">
+                    <button
+                        type="button"
+                        className="text-sm font-semibold text-[#62626A] hover:opacity-80 transition-opacity"
+                        onClick={() => setShowLogout(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                        type="button"
+                        className="text-sm text-[#2761FC] font-semibold hover:opacity-80 transition-opacity"
+                        onClick={handleLogout}
+                    >
+                      Log out
+                    </button>
+                  </div>
+                </div>
+              </div>
+          )}
+        </div>
       </AuthShell>
   );
 };

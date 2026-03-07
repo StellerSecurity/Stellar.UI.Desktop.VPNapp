@@ -195,6 +195,9 @@ fn update_tray_ui(app: &AppHandle<RT>, st: UiStatus) {
 // ---------------- Tray helpers ----------------
 
 fn show_main(app: &AppHandle<RT>) {
+    #[cfg(target_os = "macos")]
+    let _ = app.set_dock_visibility(true);
+
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.show();
         let _ = w.set_focus();
@@ -205,6 +208,9 @@ fn hide_main(app: &AppHandle<RT>) {
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.hide();
     }
+
+    #[cfg(target_os = "macos")]
+    let _ = app.set_dock_visibility(false);
 }
 
 fn setup_tray(app: &AppHandle<RT>) -> tauri::Result<TrayHandles> {
@@ -1691,6 +1697,7 @@ fn main() {
                 .args(["--flag1", "--flag2"])
                 .build(),
         )
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_store::Builder::default().build())
