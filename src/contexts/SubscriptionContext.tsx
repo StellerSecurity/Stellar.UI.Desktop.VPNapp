@@ -8,6 +8,7 @@ import React, {
   useCallback,
 } from "react";
 import { useLocation } from "react-router-dom";
+import { invoke } from "@tauri-apps/api/core";
 import {
   fetchHomeData,
   type HomeResponse,
@@ -39,6 +40,21 @@ type HomeCachePayload = {
   ts: number;
   data: HomeResponse;
 };
+
+function isTauri(): boolean {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
+function getDaysRemaining(subscription: Subscription | null): number {
+  const raw = (subscription as any)?.days_remaining;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function isSubscriptionExpired(subscription: Subscription | null): boolean {
+  if (!subscription) return false;
+  return (subscription as any)?.expired === true || getDaysRemaining(subscription) <= 0;
+}
 
 function pushDashboardDebugLog(line: string) {
   if (typeof window === "undefined") return;
@@ -112,6 +128,36 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({
   const tokenRef = useRef<string | null>(null);
   const refreshInFlightRef = useRef(false);
   const lastForegroundRefreshAtRef = useRef(0);
+  const expiryDisconnectInFlightRef = useRef(false);
+
+  const disconnectIfExpired = useCallback(async (nextSubscription: Subscription | null) => {
+    if (!isTauri()) return;
+    if (!isSubscriptionExpired(nextSubscription)) return;
+    if (expiryDisconnectInFlightRef.current) return;
+
+    expiryDisconnectInFlightRef.current = true;
+
+    try {
+      debugLog("[subscription] expiry detected, checking VPN status");
+
+      const vpnStatus = await invoke<string>("vpn_status").catch(() => "");
+      debugLog("[subscription] vpn_status =", vpnStatus);
+
+      if (vpnStatus === "connected" || vpnStatus === "connecting") {
+        debugLog("[subscription] disconnecting VPN because days_remaining <= 0");
+        await invoke("vpn_disconnect");
+        debugLog("[subscription] vpn_disconnect completed");
+      } else {
+        debugLog("[subscription] VPN already disconnected, no action needed");
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("[subscription] expiry disconnect failed:", err);
+      pushDashboardDebugLog(`[subscription] expiry disconnect failed: ${message}`);
+    } finally {
+      expiryDisconnectInFlightRef.current = false;
+    }
+  }, []);
 
   const refreshSubscription = useCallback(async () => {
     if (refreshInFlightRef.current) return;
@@ -144,6 +190,8 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({
               }`
           );
         });
+
+        await disconnectIfExpired(data.subscription);
       } else {
         setError("Failed to fetch subscription data");
         pushDashboardDebugLog("[subscription] fetchHomeData returned null");
@@ -161,7 +209,7 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({
       refreshInFlightRef.current = false;
       pushDashboardDebugLog("[subscription] refreshSubscription finished");
     }
-  }, []);
+  }, [disconnectIfExpired]);
 
   const startPolling = useCallback(() => {
     if (isPollingRef.current) return;
