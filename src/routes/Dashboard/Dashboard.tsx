@@ -25,6 +25,7 @@ import { VpnWorldMap } from "../../components/VpnWorldMap";
 
 // OTA updater (Tauri)
 import { check } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
 
 const isTauri = () =>
     typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -32,12 +33,19 @@ const isTauri = () =>
 const SHOW_VPN_LOGS =
     import.meta.env.DEV || import.meta.env.VITE_SHOW_VPN_LOGS === "true";
 
+const OTA_TARGET = String(import.meta.env.VITE_OTA_TARGET || "")
+    .trim()
+    .toLowerCase();
+const OTA_ENABLED = OTA_TARGET === "macos-app" || OTA_TARGET === "appimage";
+const OTA_MANUAL_ONLY = OTA_TARGET === "deb" || OTA_TARGET === "rpm";
+
 const DEFAULT_OVPN_URL =
     "https://stellarvpnserverstorage.blob.core.windows.net/openvpn/stellar-switzerland.ovpn";
 
 const CONNECT_TIMEOUT_MS = 10_000;
 
 type UiStatus = "disconnected" | "connecting" | "connected";
+type UpdateMode = "none" | "ota" | "manual";
 
 const normalizeStatus = (s: unknown): UiStatus | null => {
   if (typeof s !== "string") return null;
@@ -118,11 +126,16 @@ export const Dashboard: React.FC = () => {
 
   const [showExpiredModal, setShowExpiredModal] = useState(false);
 
-  // --- Mullvad-style update UI (manual install) ---
+  // --- Updater UI ---
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [updateVersion, setUpdateVersion] = useState<string | null>(null);
   const [updateUrl, setUpdateUrl] = useState<string | null>(null);
   const [updateCmd, setUpdateCmd] = useState<string | null>(null);
+  const [updateMode, setUpdateMode] = useState<UpdateMode>("none");
+  const [updateBusy, setUpdateBusy] = useState(false);
+  const [updateError, setUpdateError] = useState<string | null>(null);
+
+  const pendingUpdateRef = useRef<any>(null);
 
   const isConnected = status === "connected";
   const isConnecting = status === "connecting";
@@ -213,6 +226,27 @@ export const Dashboard: React.FC = () => {
       return next.length > 250 ? next.slice(next.length - 250) : next;
     });
   }, []);
+
+  // Debug logs pushed from other files via window.dispatchEvent(new CustomEvent("stellar-debug-log", ...))
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<string>).detail;
+
+      if (typeof detail !== "string" || !detail.trim()) return;
+
+      appendLog(detail);
+
+      if (SHOW_VPN_LOGS) {
+        setShowLogs(true);
+      }
+    };
+
+    window.addEventListener("stellar-debug-log", handler as EventListener);
+
+    return () => {
+      window.removeEventListener("stellar-debug-log", handler as EventListener);
+    };
+  }, [appendLog]);
 
   const clearLogs = useCallback(() => {
     if (!SHOW_VPN_LOGS) return;
@@ -347,8 +381,7 @@ export const Dashboard: React.FC = () => {
     });
   }, []);
 
-  // OTA update check (runs when user enters Dashboard)
-  // Mullvad-style: show Update available, user installs manually (deb)
+  // OTA / update check
   const otaCheckedKeyRef = useRef<string | null>(null);
   useEffect(() => {
     if (!isTauri()) return;
@@ -369,30 +402,53 @@ export const Dashboard: React.FC = () => {
 
         if (!update) {
           appendLog("[ui] No updates available.");
+          pendingUpdateRef.current = null;
           setUpdateAvailable(false);
           setUpdateVersion(null);
           setUpdateUrl(null);
           setUpdateCmd(null);
+          setUpdateMode("none");
+          setUpdateError(null);
           return;
         }
 
         const v = String(update.version ?? "").trim() || "unknown";
-
-        const url = `https://desktopreleasesprod.stellarsecurity.com/vpn/${v}/Stellar%20VPN_${v}_amd64.deb`;
-
-        const cmd =
-            `cd /tmp && ` +
-            `wget -O stellar-vpn.deb "${url}" && ` +
-            `sudo apt-get install -y ./stellar-vpn.deb`;
-
-        appendLog(`[ui] Update available: ${v}`);
-        appendLog(`[ui] Download URL: ${url}`);
-        appendLog("[ui] Waiting for user to install (manual).");
-
-        setUpdateAvailable(true);
         setUpdateVersion(v);
-        setUpdateUrl(url);
-        setUpdateCmd(cmd);
+        setUpdateError(null);
+
+        if (OTA_ENABLED) {
+          pendingUpdateRef.current = update;
+          setUpdateMode("ota");
+          setUpdateAvailable(true);
+          setUpdateUrl(null);
+          setUpdateCmd(null);
+          appendLog(`[ui] OTA update available: ${v}`);
+          return;
+        }
+
+        if (OTA_MANUAL_ONLY) {
+          pendingUpdateRef.current = null;
+          const url = `https://desktopreleasesprod.stellarsecurity.com/vpn/${v}/Stellar%20VPN_${v}_amd64.deb`;
+          const cmd =
+              `cd /tmp && ` +
+              `wget -O stellar-vpn.deb "${url}" && ` +
+              `sudo apt-get install -y ./stellar-vpn.deb`;
+
+          setUpdateMode("manual");
+          setUpdateAvailable(true);
+          setUpdateUrl(url);
+          setUpdateCmd(cmd);
+          appendLog(`[ui] Manual package update available: ${v}`);
+          appendLog(`[ui] Download URL: ${url}`);
+          return;
+        }
+
+        pendingUpdateRef.current = null;
+        setUpdateMode("none");
+        setUpdateAvailable(false);
+        appendLog(
+            `[ui] Update ${v} detected, but OTA is disabled for VITE_OTA_TARGET=${OTA_TARGET || "unset"}.`
+        );
       } catch (e: any) {
         const msg =
             typeof e === "string" ? e : e?.message ? String(e.message) : JSON.stringify(e);
@@ -404,6 +460,30 @@ export const Dashboard: React.FC = () => {
       }
     })();
   }, [location.key, appendLog]);
+
+  const installOtaUpdate = useCallback(async () => {
+    const update = pendingUpdateRef.current;
+    if (!update || updateBusy) return;
+
+    try {
+      setUpdateBusy(true);
+      setUpdateError(null);
+      appendLog("[ui] Starting OTA install...");
+      await update.downloadAndInstall();
+      appendLog("[ui] OTA install completed. Relaunching app...");
+      await relaunch();
+    } catch (e: any) {
+      const msg = typeof e === "string" ? e : e?.message ? String(e.message) : JSON.stringify(e);
+      console.error("OTA install failed:", e);
+      setUpdateError(msg);
+      appendLog(`[ui] OTA install failed: ${msg}`);
+      if (SHOW_VPN_LOGS) {
+        setShowLogs(true);
+      }
+    } finally {
+      setUpdateBusy(false);
+    }
+  }, [appendLog, updateBusy]);
 
   const startConnectWatchdog = useCallback(
       (attemptId: number) => {
@@ -596,10 +676,7 @@ export const Dashboard: React.FC = () => {
       return;
     }
 
-    await notifyVpnAction(
-        "Stellar VPN",
-        "Connecting to your selected server..."
-    );
+    await notifyVpnAction("Stellar VPN", "Connecting to your selected server...");
 
     const selectedServer = await getSelectedServer();
     const configPath = getSelectedConfigPath(selectedServer) || DEFAULT_OVPN_URL;
@@ -618,10 +695,7 @@ export const Dashboard: React.FC = () => {
     await invoke("vpn_disconnect").catch(() => {});
     setStatus("disconnected");
 
-    await notifyVpnAction(
-        "Stellar VPN",
-        "VPN disconnected."
-    );
+    await notifyVpnAction("Stellar VPN", "VPN disconnected.");
   }, [setStatus, setManualDisabled, clearConnectInFlight]);
 
   const trayReconnect = useCallback(async () => {
@@ -634,10 +708,7 @@ export const Dashboard: React.FC = () => {
       return;
     }
 
-    await notifyVpnAction(
-        "Stellar VPN",
-        "Reconnecting to your selected server..."
-    );
+    await notifyVpnAction("Stellar VPN", "Reconnecting to your selected server...");
 
     clearPendingConnectedNotification();
     markManualVpnDisconnect();
@@ -1054,7 +1125,8 @@ export const Dashboard: React.FC = () => {
                 className={`!text-[15px] h-[46px] ${
                     isConnected && "!bg-white border border-[#E10000] !text-[#E10000]"
                 } ${
-                    isConnecting && "!bg-white border !disabled:opacity-100 border-gray-300 !text-gray-500"
+                    isConnecting &&
+                    "!bg-white border !disabled:opacity-100 border-gray-300 !text-gray-500"
                 }`}
                 onClick={handleConnectToggle}
                 disabled={isConnecting}
@@ -1160,15 +1232,15 @@ export const Dashboard: React.FC = () => {
           )}
         </div>
 
-        {/* Update Modal (manual .deb install) */}
-        {updateAvailable && updateVersion && updateUrl && updateCmd && (
+        {/* Update Modal */}
+        {updateAvailable && updateVersion && (
             <div className="absolute inset-0 z-[998] bg-black/50 flex items-end justify-center">
               <div className="w-full bg-white rounded-t-3xl px-6 pt-6 pb-8">
                 <div className="flex items-start justify-between">
                   <div className="pr-4">
                     <div className="text-[#0B0C19] font-bold text-[16px]">Update available</div>
                     <div className="text-[#62626A] text-[12px] mt-1">
-                      Version <span className="font-semibold">{updateVersion}</span> is ready. Install it in terminal.
+                      Version <span className="font-semibold">{updateVersion}</span> is ready.
                     </div>
                   </div>
 
@@ -1181,32 +1253,66 @@ export const Dashboard: React.FC = () => {
                   </button>
                 </div>
 
-                <div className="mt-4 rounded-2xl bg-[#0B0C19] text-white px-4 py-3">
-                  <div className="text-[11px] text-white/70 mb-2">Run this:</div>
-                  <pre className="text-[11px] whitespace-pre-wrap break-words leading-relaxed">{updateCmd}</pre>
-                </div>
+                {updateMode === "ota" && (
+                    <>
+                      <div className="mt-4 rounded-2xl bg-[#0B0C19] text-white px-4 py-3">
+                        <div className="text-[12px] font-semibold">Automatic in-app update</div>
+                        <div className="text-[11px] text-white/75 mt-1">
+                          The app will download, install, and relaunch itself.
+                        </div>
+                      </div>
 
-                <div className="mt-4 flex items-center gap-2">
-                  <button
-                      type="button"
-                      onClick={() => openUpdateUrl()}
-                      className="flex-1 rounded-full bg-[#0B0C19] hover:bg-black text-white px-4 py-2 text-[12px] transition-colors"
-                  >
-                    Open download
-                  </button>
+                      {updateError && (
+                          <div className="mt-3 text-[11px] text-red-500 break-words">
+                            {updateError}
+                          </div>
+                      )}
 
-                  <button
-                      type="button"
-                      onClick={() => copyUpdateCommand()}
-                      className="flex-1 rounded-full bg-black/5 hover:bg-black/10 text-[#0B0C19] px-4 py-2 text-[12px] transition-colors"
-                  >
-                    Copy command
-                  </button>
-                </div>
+                      <div className="mt-4 flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => installOtaUpdate()}
+                            disabled={updateBusy}
+                            className="flex-1 rounded-full bg-[#0B0C19] hover:bg-black disabled:opacity-60 text-white px-4 py-2 text-[12px] transition-colors"
+                        >
+                          {updateBusy ? "Installing..." : "Install update"}
+                        </button>
+                      </div>
+                    </>
+                )}
 
-                <div className="mt-3 text-[11px] text-[#62626A]">
-                  Tip: users can paste it into Terminal. The app does not install updates automatically.
-                </div>
+                {updateMode === "manual" && updateUrl && updateCmd && (
+                    <>
+                      <div className="mt-4 rounded-2xl bg-[#0B0C19] text-white px-4 py-3">
+                        <div className="text-[11px] text-white/70 mb-2">Run this:</div>
+                        <pre className="text-[11px] whitespace-pre-wrap break-words leading-relaxed">
+                    {updateCmd}
+                  </pre>
+                      </div>
+
+                      <div className="mt-4 flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => openUpdateUrl()}
+                            className="flex-1 rounded-full bg-[#0B0C19] hover:bg-black text-white px-4 py-2 text-[12px] transition-colors"
+                        >
+                          Open download
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => copyUpdateCommand()}
+                            className="flex-1 rounded-full bg-black/5 hover:bg-black/10 text-[#0B0C19] px-4 py-2 text-[12px] transition-colors"
+                        >
+                          Copy command
+                        </button>
+                      </div>
+
+                      <div className="mt-3 text-[11px] text-[#62626A]">
+                        This package type updates manually through the system package flow.
+                      </div>
+                    </>
+                )}
               </div>
             </div>
         )}
