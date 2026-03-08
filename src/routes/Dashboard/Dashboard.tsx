@@ -17,6 +17,8 @@ import {
   handleVpnLogNotification,
   handleVpnStatusNotification,
   markManualVpnDisconnect,
+  notifyVpnAction,
+  notifyVpnConnectedToServer,
 } from "../../lib/vpnNotifications";
 import { listen } from "@tauri-apps/api/event";
 import { VpnWorldMap } from "../../components/VpnWorldMap";
@@ -163,6 +165,9 @@ export const Dashboard: React.FC = () => {
   // Connect attempt tracking + watchdog (prevents infinite "Connecting...")
   const connectAttemptIdRef = useRef<number>(0);
   const connectInFlightRef = useRef(false);
+  const selectedServerNameRef = useRef<string | null>(null);
+  const pendingConnectedNotificationServerRef = useRef<string | null>(null);
+
   const clearConnectInFlight = useCallback(() => {
     connectInFlightRef.current = false;
   }, []);
@@ -172,6 +177,10 @@ export const Dashboard: React.FC = () => {
   useEffect(() => {
     statusRef.current = normalizeStatus(status) ?? "disconnected";
   }, [status]);
+
+  useEffect(() => {
+    selectedServerNameRef.current = selectedServerName;
+  }, [selectedServerName]);
 
   // Manual disable + hasConnectedOnce refs (persisted)
   const manualDisabledRef = useRef<boolean>(lsGetBool(LS_MANUAL_DISABLED));
@@ -187,7 +196,18 @@ export const Dashboard: React.FC = () => {
     lsSetBool(LS_HAS_CONNECTED_ONCE, v);
   }, []);
 
+  const armConnectedNotification = useCallback((serverName?: string | null) => {
+    const name = (serverName || selectedServerNameRef.current || "").trim();
+    pendingConnectedNotificationServerRef.current = name || "your selected server";
+  }, []);
+
+  const clearPendingConnectedNotification = useCallback(() => {
+    pendingConnectedNotificationServerRef.current = null;
+  }, []);
+
   const appendLog = useCallback((line: string) => {
+    if (!SHOW_VPN_LOGS) return;
+
     setVpnLogs((prev) => {
       const next = [...prev, line];
       return next.length > 250 ? next.slice(next.length - 250) : next;
@@ -195,11 +215,15 @@ export const Dashboard: React.FC = () => {
   }, []);
 
   const clearLogs = useCallback(() => {
+    if (!SHOW_VPN_LOGS) return;
+
     setVpnLogs([]);
     setConnectError(null);
   }, []);
 
   const copyLogs = useCallback(async () => {
+    if (!SHOW_VPN_LOGS) return;
+
     const text = ["=== Stellar VPN Logs ===", connectError ? `ERROR: ${connectError}` : "", ...vpnLogs]
         .filter(Boolean)
         .join("\n");
@@ -267,15 +291,18 @@ export const Dashboard: React.FC = () => {
 
       if (s.startsWith("error")) {
         console.error("VPN backend error:", s);
+        clearPendingConnectedNotification();
         clearConnectInFlight();
         setConnectError(s);
-        setShowLogs(true);
+        if (SHOW_VPN_LOGS) {
+          setShowLogs(true);
+        }
         setStatus("disconnected");
       }
     } catch (e) {
       console.warn("vpn_status sync failed:", e);
     }
-  }, [clearConnectInFlight, setStatus]);
+  }, [clearConnectInFlight, setStatus, clearPendingConnectedNotification]);
 
   // Load account number, device name, and selected server
   useEffect(() => {
@@ -331,7 +358,9 @@ export const Dashboard: React.FC = () => {
 
     (async () => {
       try {
-        setShowLogs(true);
+        if (SHOW_VPN_LOGS) {
+          setShowLogs(true);
+        }
         appendLog("[ui] Checking for updates...");
 
         const update = await check();
@@ -369,7 +398,9 @@ export const Dashboard: React.FC = () => {
             typeof e === "string" ? e : e?.message ? String(e.message) : JSON.stringify(e);
         console.warn("Update check failed:", e);
         appendLog(`[ui] Update check failed: ${msg}`);
-        setShowLogs(true);
+        if (SHOW_VPN_LOGS) {
+          setShowLogs(true);
+        }
       }
     })();
   }, [location.key, appendLog]);
@@ -384,14 +415,17 @@ export const Dashboard: React.FC = () => {
             appendLog(`[ui] Connect watchdog fired after ${CONNECT_TIMEOUT_MS}ms`);
             await invoke("vpn_disconnect").catch(() => {});
           } finally {
+            clearPendingConnectedNotification();
             setConnectError("VPN connect timed out. Check OpenVPN logs and kill switch permissions.");
-            setShowLogs(true);
+            if (SHOW_VPN_LOGS) {
+              setShowLogs(true);
+            }
             setStatus("disconnected");
             setManualDisabled(true);
           }
         }, CONNECT_TIMEOUT_MS);
       },
-      [appendLog, setStatus, setManualDisabled]
+      [appendLog, setStatus, setManualDisabled, clearPendingConnectedNotification]
   );
 
   const startConnect = useCallback(
@@ -404,7 +438,9 @@ export const Dashboard: React.FC = () => {
         const attemptId = connectAttemptIdRef.current;
 
         setConnectError(null);
-        setShowLogs(true);
+        if (SHOW_VPN_LOGS) {
+          setShowLogs(true);
+        }
         setStatus("connecting");
         startConnectWatchdog(attemptId);
 
@@ -414,10 +450,13 @@ export const Dashboard: React.FC = () => {
 
         if (!vpnAuth?.username || !vpnAuth?.password) {
           const msg = "Missing VPN credentials. Please log in again.";
+          clearPendingConnectedNotification();
           clearConnectInFlight();
           appendLog(`[ui] ${msg}`);
           setConnectError(msg);
-          setShowLogs(true);
+          if (SHOW_VPN_LOGS) {
+            setShowLogs(true);
+          }
           setStatus("disconnected");
           setManualDisabled(true);
           return;
@@ -433,15 +472,25 @@ export const Dashboard: React.FC = () => {
           const msg =
               typeof e === "string" ? e : e?.message ? String(e.message) : "Unknown error";
 
+          clearPendingConnectedNotification();
           clearConnectInFlight();
           appendLog(`[ui] vpn_connect failed: ${msg}`);
           setConnectError(msg);
-          setShowLogs(true);
+          if (SHOW_VPN_LOGS) {
+            setShowLogs(true);
+          }
           setStatus("disconnected");
           setManualDisabled(true);
         }
       },
-      [appendLog, clearConnectInFlight, setStatus, startConnectWatchdog, setManualDisabled]
+      [
+        appendLog,
+        clearConnectInFlight,
+        setStatus,
+        startConnectWatchdog,
+        setManualDisabled,
+        clearPendingConnectedNotification,
+      ]
   );
 
   // Register listeners FIRST, then sync backend status
@@ -471,9 +520,18 @@ export const Dashboard: React.FC = () => {
           setStatus(ui);
 
           if (ui === "connected") {
+            const connectedServerName = pendingConnectedNotificationServerRef.current;
+            pendingConnectedNotificationServerRef.current = null;
+
             setConnectError(null);
             setHasConnectedOnce(true);
             setManualDisabled(false);
+
+            if (connectedServerName) {
+              void notifyVpnConnectedToServer(connectedServerName).catch((error) => {
+                console.error("VPN connected notification failed:", error);
+              });
+            }
           }
 
           return;
@@ -481,15 +539,20 @@ export const Dashboard: React.FC = () => {
 
         if (s.startsWith("error")) {
           console.error("VPN error:", s);
+          clearPendingConnectedNotification();
           clearConnectInFlight();
           setConnectError(s);
-          setShowLogs(true);
+          if (SHOW_VPN_LOGS) {
+            setShowLogs(true);
+          }
           setStatus("disconnected");
         }
       });
 
       unlistenLog = await listen<string>("vpn-log", (event) => {
-        appendLog(event.payload);
+        if (SHOW_VPN_LOGS) {
+          appendLog(event.payload);
+        }
         void handleVpnLogNotification(event.payload).catch((error) => {
           console.error("VPN log notification failed:", error);
         });
@@ -508,7 +571,15 @@ export const Dashboard: React.FC = () => {
       if (unlistenStatus) unlistenStatus();
       if (unlistenLog) unlistenLog();
     };
-  }, [appendLog, clearConnectInFlight, setStatus, syncBackendStatus, setHasConnectedOnce, setManualDisabled]);
+  }, [
+    appendLog,
+    clearConnectInFlight,
+    setStatus,
+    syncBackendStatus,
+    setHasConnectedOnce,
+    setManualDisabled,
+    clearPendingConnectedNotification,
+  ]);
 
   // Tray events (Mullvad-style menu)
   const trayConnect = useCallback(async () => {
@@ -525,11 +596,17 @@ export const Dashboard: React.FC = () => {
       return;
     }
 
+    await notifyVpnAction(
+        "Stellar VPN",
+        "Connecting to your selected server..."
+    );
+
     const selectedServer = await getSelectedServer();
     const configPath = getSelectedConfigPath(selectedServer) || DEFAULT_OVPN_URL;
 
+    armConnectedNotification(selectedServer?.name ?? null);
     await startConnect(configPath);
-  }, [startConnect, syncBackendStatus, setManualDisabled, isExpired]);
+  }, [startConnect, syncBackendStatus, setManualDisabled, isExpired, armConnectedNotification]);
 
   const trayDisconnect = useCallback(async () => {
     if (!isTauri()) return;
@@ -540,7 +617,12 @@ export const Dashboard: React.FC = () => {
     clearConnectInFlight();
     await invoke("vpn_disconnect").catch(() => {});
     setStatus("disconnected");
-  }, [setStatus, setManualDisabled]);
+
+    await notifyVpnAction(
+        "Stellar VPN",
+        "VPN disconnected."
+    );
+  }, [setStatus, setManualDisabled, clearConnectInFlight]);
 
   const trayReconnect = useCallback(async () => {
     if (!isTauri()) return;
@@ -552,6 +634,12 @@ export const Dashboard: React.FC = () => {
       return;
     }
 
+    await notifyVpnAction(
+        "Stellar VPN",
+        "Reconnecting to your selected server..."
+    );
+
+    clearPendingConnectedNotification();
     markManualVpnDisconnect();
     clearConnectInFlight();
     await invoke("vpn_disconnect").catch(() => {});
@@ -560,8 +648,16 @@ export const Dashboard: React.FC = () => {
     const selectedServer = await getSelectedServer();
     const configPath = getSelectedConfigPath(selectedServer) || DEFAULT_OVPN_URL;
 
+    armConnectedNotification(selectedServer?.name ?? null);
     await startConnect(configPath);
-  }, [startConnect, setManualDisabled, isExpired]);
+  }, [
+    startConnect,
+    setManualDisabled,
+    isExpired,
+    clearConnectInFlight,
+    clearPendingConnectedNotification,
+    armConnectedNotification,
+  ]);
 
   useEffect(() => {
     if (!isTauri()) return;
@@ -621,6 +717,7 @@ export const Dashboard: React.FC = () => {
       const current = statusRef.current;
       if (current === "connected" || current === "connecting") {
         markManualVpnDisconnect();
+        clearPendingConnectedNotification();
         clearConnectInFlight();
         await invoke("vpn_disconnect").catch(() => {});
         setStatus("disconnected");
@@ -639,6 +736,7 @@ export const Dashboard: React.FC = () => {
     isExpired,
     setStatus,
     navigate,
+    clearPendingConnectedNotification,
   ]);
 
   // Auto-connect (blocked when skipAutoConnect is set)
@@ -750,8 +848,11 @@ export const Dashboard: React.FC = () => {
         const selectedServer = await getSelectedServer();
         const configPath = getSelectedConfigPath(selectedServer) || DEFAULT_OVPN_URL;
 
+        armConnectedNotification(selectedServer?.name ?? null);
         await startConnect(configPath);
       } else {
+        markManualVpnDisconnect();
+        clearPendingConnectedNotification();
         clearConnectInFlight();
         await invoke("vpn_disconnect").catch(() => {});
         setManualDisabled(true);
@@ -769,10 +870,14 @@ export const Dashboard: React.FC = () => {
     try {
       await navigator.clipboard.writeText(updateCmd);
       appendLog("[ui] Update command copied to clipboard.");
-      setShowLogs(true);
+      if (SHOW_VPN_LOGS) {
+        setShowLogs(true);
+      }
     } catch {
       appendLog("[ui] Failed to copy update command.");
-      setShowLogs(true);
+      if (SHOW_VPN_LOGS) {
+        setShowLogs(true);
+      }
     }
   }, [updateCmd, appendLog]);
 
@@ -782,11 +887,15 @@ export const Dashboard: React.FC = () => {
     try {
       window.open(updateUrl, "_blank", "noopener,noreferrer");
       appendLog("[ui] Opened download URL.");
-      setShowLogs(true);
+      if (SHOW_VPN_LOGS) {
+        setShowLogs(true);
+      }
     } catch (e: any) {
       const msg = typeof e === "string" ? e : e?.message ? String(e.message) : JSON.stringify(e);
       appendLog(`[ui] Failed to open URL: ${msg}`);
-      setShowLogs(true);
+      if (SHOW_VPN_LOGS) {
+        setShowLogs(true);
+      }
     }
   }, [updateUrl, appendLog]);
 

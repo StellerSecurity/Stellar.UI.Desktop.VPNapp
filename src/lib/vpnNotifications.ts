@@ -11,13 +11,18 @@ let lastReconnectNoticeAt = 0;
 let lastFailureNoticeAt = 0;
 let lastSuccessNoticeAt = 0;
 let lastVpnStatus: string | null = null;
+let lastConnectedNoticeAt = 0;
 
 const NOTICE_COOLDOWN_MS = 5000;
+const ACTION_NOTICE_COOLDOWN_MS = 4000;
 const RECONNECT_FAILURE_TIMEOUT_MS = 95000;
 const MANUAL_SUPPRESS_MS = 4000;
 
 let reconnectFailureTimer: ReturnType<typeof setTimeout> | null = null;
 let suppressReconnectUntil = 0;
+
+// Prevent tray action spam for repeated identical notifications
+const lastActionNoticeAtByKey = new Map<string, number>();
 
 function isTauri(): boolean {
     return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
@@ -142,7 +147,7 @@ export async function ensureVpnNotificationPermission(): Promise<boolean> {
 
 /**
  * Call this before a user-initiated disconnect/reconnect
- * so we do not show “lost connection” notifications.
+ * so we do not show "lost connection" notifications.
  */
 export function markManualVpnDisconnect(): void {
     suppressReconnectUntil = Date.now() + MANUAL_SUPPRESS_MS;
@@ -150,6 +155,43 @@ export function markManualVpnDisconnect(): void {
     clearReconnectFailureTimer();
 }
 
+/**
+ * Generic explicit notification for tray actions.
+ * This is throttled so repeated clicks do not spam the user.
+ */
+export async function notifyVpnAction(title: string, body: string): Promise<void> {
+    const now = Date.now();
+    const key = `${title}::${body}`;
+    const lastAt = lastActionNoticeAtByKey.get(key) ?? 0;
+
+    if (now - lastAt < ACTION_NOTICE_COOLDOWN_MS) {
+        return;
+    }
+
+    lastActionNoticeAtByKey.set(key, now);
+    await notify(title, body);
+}
+
+export async function notifyVpnConnectedToServer(serverName?: string | null): Promise<void> {
+    const now = Date.now();
+
+    if (now - lastConnectedNoticeAt < NOTICE_COOLDOWN_MS) {
+        return;
+    }
+
+    lastConnectedNoticeAt = now;
+
+    const name = (serverName || "").trim();
+    await notify(
+        "Stellar VPN",
+        name ? `Connected to ${name}.` : "Connected to your selected server."
+    );
+}
+
+/**
+ * Optional helper for internal builds.
+ * Customer builds may not emit vpn-log at all, so this must never be required.
+ */
 export async function handleVpnLogNotification(line: string): Promise<void> {
     if (!line) {
         return;
@@ -171,6 +213,10 @@ export async function handleVpnLogNotification(line: string): Promise<void> {
     }
 }
 
+/**
+ * Primary notification driver.
+ * This works in both internal and customer builds because it only depends on vpn-status.
+ */
 export async function handleVpnStatusNotification(status: string): Promise<void> {
     const previousStatus = lastVpnStatus;
     lastVpnStatus = status;
