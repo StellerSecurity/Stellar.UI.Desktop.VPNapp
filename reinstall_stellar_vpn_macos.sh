@@ -27,6 +27,13 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
   exit 1
 fi
 
+if [[ "${EUID}" -eq 0 ]]; then
+  echo "Error: do not run this script with sudo." >&2
+  echo "Run it normally, for example:" >&2
+  echo "  ./reinstall_stellar_vpn_macos.sh --customer --wipe-data" >&2
+  exit 1
+fi
+
 cd "${REPO_ROOT}"
 
 HELPER_SRC="${REPO_ROOT}/src-tauri/bin/${HELPER_BIN_NAME}.rs"
@@ -238,8 +245,9 @@ if [[ "${WIPE_DATA}" == "true" ]]; then
   wipe_app_data
 fi
 
-echo "==> Cleaning previous Rust build output"
-rm -rf "${REPO_ROOT}/src-tauri/target"
+echo "==> Cleaning previous build output"
+sudo rm -rf "${REPO_ROOT}/src-tauri/target"
+sudo rm -rf "${REPO_ROOT}/dist"
 mkdir -p "${REPO_ROOT}/src-tauri/bin"
 
 echo "==> Building privileged helper"
@@ -261,6 +269,7 @@ if [[ ! -d "${APP_BUNDLE}" ]]; then
 fi
 
 echo "==> Installing freshly built helper"
+sudo mkdir -p "$(dirname "${SYSTEM_HELPER_PATH}")"
 sudo cp -f "${HELPER_OUT}" "${SYSTEM_HELPER_PATH}"
 sudo chown root:wheel "${SYSTEM_HELPER_PATH}"
 sudo chmod 755 "${SYSTEM_HELPER_PATH}"
