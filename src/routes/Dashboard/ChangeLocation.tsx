@@ -24,20 +24,15 @@ type City = {
 type Country = {
   id: string;
   name: string;
-  countryCode?: string; // ISO like "CH"
+  countryCode?: string;
   cities: City[];
 };
 
 const LS_MANUAL_DISABLED = "vpn_manual_disabled";
 
-// --- Server list cache (stale-while-revalidate) ---
 const SERVER_CACHE_KEY = "stellar_vpn_servers_cache_v1";
-
-// “Fresh” window: use cache instantly and still refresh in background
-const SERVER_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days (kept for readability)
-
-// “Max stale” fallback: if network fails, still allow old list (offline mode)
-const SERVER_CACHE_MAX_STALE_MS = 1000 * 60 * 60 * 24 * 30; // 30 days
+const SERVER_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7;
+const SERVER_CACHE_MAX_STALE_MS = 1000 * 60 * 60 * 24 * 30;
 
 type ServerCachePayload = {
   ts: number;
@@ -70,7 +65,6 @@ function serversRoughlyEqual(a: VpnServer[], b: VpnServer[]): boolean {
   if (!a || !b) return false;
   if (a.length !== b.length) return false;
 
-  // Cheap-ish comparison: ids + config_url
   for (let i = 0; i < a.length; i++) {
     const A = a[i] as any;
     const B = b[i] as any;
@@ -150,15 +144,14 @@ export const ChangeLocation: React.FC = () => {
   const [selectingServerId, setSelectingServerId] = useState<string | null>(null);
   const FASTEST_ID = "__fastest__";
 
-  // Remember what user selected (for UI highlight + open correct country)
   const [selectedServerName, setSelectedServerName] = useState<string | null>(null);
   const [selectedServerConfig, setSelectedServerConfig] = useState<string | null>(null);
   const [selectedServerId, setSelectedServerId] = useState<string | null>(null);
 
   const countryRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const serverRefs = useRef<Record<string, HTMLLIElement | null>>({});
+  const listContainerRef = useRef<HTMLDivElement | null>(null);
 
-  // Re-run auto-open every time you enter this route
   const didAutoOpenRef = useRef(false);
   useEffect(() => {
     didAutoOpenRef.current = false;
@@ -193,7 +186,6 @@ export const ChangeLocation: React.FC = () => {
       );
     }
 
-    // Tauri expects camelCase argument name
     const localPath = await invoke<string>("vpn_prefetch_config", { configPath: trimmed });
 
     if (!localPath || !localPath.trim()) throw new Error("Prefetch returned empty path");
@@ -344,7 +336,6 @@ export const ChangeLocation: React.FC = () => {
     };
 
     (async () => {
-      // Load selection first so we can auto-open/scroll correctly
       await loadSelected();
 
       const hasCache = hydrateFromCache();
@@ -356,9 +347,8 @@ export const ChangeLocation: React.FC = () => {
     return () => {
       mounted = false;
     };
-  }, [location.key]); // important: re-run on every route entry
+  }, [location.key]);
 
-  // Auto-open + auto-scroll every time you enter ChangeLocation
   useEffect(() => {
     if (didAutoOpenRef.current) return;
     if (isLoading) return;
@@ -376,17 +366,33 @@ export const ChangeLocation: React.FC = () => {
     setExpandedCountry(openId);
 
     window.setTimeout(() => {
-      const container = countryRefs.current[openId];
-      if (container && typeof container.scrollIntoView === "function") {
-        container.scrollIntoView({ behavior: "smooth", block: "start" });
+      const list = listContainerRef.current;
+      const countryEl = countryRefs.current[openId];
+
+      if (list && countryEl) {
+        const listRect = list.getBoundingClientRect();
+        const countryRect = countryEl.getBoundingClientRect();
+        const topOffset = countryRect.top - listRect.top + list.scrollTop - 8;
+
+        list.scrollTo({
+          top: Math.max(0, topOffset),
+          behavior: "smooth",
+        });
       }
 
       const sid = (selectedServerId || "").trim();
-      if (sid) {
-        const row = serverRefs.current[sid];
-        if (row && typeof row.scrollIntoView === "function") {
-          row.scrollIntoView({ behavior: "smooth", block: "center" });
-        }
+      const row = sid ? serverRefs.current[sid] : null;
+
+      if (list && row) {
+        const listRect = list.getBoundingClientRect();
+        const rowRect = row.getBoundingClientRect();
+        const centeredTop =
+            rowRect.top - listRect.top + list.scrollTop - list.clientHeight / 2 + row.clientHeight / 2;
+
+        list.scrollTo({
+          top: Math.max(0, centeredTop),
+          behavior: "smooth",
+        });
       }
     }, 140);
   }, [
@@ -403,7 +409,9 @@ export const ChangeLocation: React.FC = () => {
 
   const filteredCountries = useMemo(() => {
     if (normalizedSearch.length === 0) return countriesData;
-    return countriesData.filter((country) => country.name.toLowerCase().includes(normalizedSearch));
+    return countriesData.filter((country) =>
+        country.name.toLowerCase().includes(normalizedSearch)
+    );
   }, [countriesData, normalizedSearch]);
 
   const toggleCountry = (countryId: string) => {
@@ -437,9 +445,13 @@ export const ChangeLocation: React.FC = () => {
         // ignore
       }
 
-      await setSelectedServer(s.name, cfgToStore, (s.country || "").toLowerCase() || undefined, s.id);
+      await setSelectedServer(
+          s.name,
+          cfgToStore,
+          (s.country || "").toLowerCase() || undefined,
+          s.id
+      );
 
-      // Keep UI remembering selection
       setSelectedServerName(s.name);
       setSelectedServerConfig(cfgToStore);
       setSelectedServerId(s.id);
@@ -457,8 +469,8 @@ export const ChangeLocation: React.FC = () => {
 
   return (
       <AuthShell title="Change Location" onBack={() => navigate("/dashboard")}>
-        <div className="flex flex-col h-full min-h-0">
-          <div className="mb-4 relative px-0">
+        <div className="flex flex-col h-full min-h-0 overflow-hidden">
+          <div className="mb-4 relative px-0 shrink-0">
             <div className="absolute left-5 top-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none z-10">
               <img src="/icons/search.svg" alt="Search" className="w-5 h-5" />
             </div>
@@ -470,14 +482,21 @@ export const ChangeLocation: React.FC = () => {
             />
           </div>
 
-          <div className="flex-1 min-h-0 overflow-auto text-sm rounded-2xl custom-scrollbar bg-white">
+          <div
+              ref={listContainerRef}
+              className="flex-1 min-h-0 overflow-y-auto text-sm rounded-2xl custom-scrollbar bg-white"
+          >
             {isLoading && (
                 <div className="p-6" role="status" aria-busy="true">
                   <div className="flex items-center gap-3">
                     <div className="w-6 h-6 rounded-full border-2 border-[#0B0C19]/15 border-t-[#0B0C19] animate-spin" />
                     <div className="flex flex-col">
-                      <span className="text-[13px] font-semibold text-[#0B0C19]">Loading servers</span>
-                      <span className="text-[11px] text-[#62626A]">Fetching locations…</span>
+                  <span className="text-[13px] font-semibold text-[#0B0C19]">
+                    Loading servers
+                  </span>
+                      <span className="text-[11px] text-[#62626A]">
+                    Fetching locations…
+                  </span>
                     </div>
                   </div>
 
@@ -496,14 +515,18 @@ export const ChangeLocation: React.FC = () => {
 
             {!isLoading && (
                 <div className="px-8 pt-4 pb-2 flex items-center justify-between">
-                  <div className="text-[11px] text-[#62626A]">{isRefreshing ? "Updating server list…" : ""}</div>
+                  <div className="text-[11px] text-[#62626A]">
+                    {isRefreshing ? "Updating server list…" : ""}
+                  </div>
                   {isRefreshing && (
                       <div className="w-4 h-4 rounded-full border-2 border-[#62626A]/20 border-t-[#62626A] animate-spin" />
                   )}
                 </div>
             )}
 
-            {!isLoading && error && <div className="p-8 text-center text-red-500">{error}</div>}
+            {!isLoading && error && (
+                <div className="p-8 text-center text-red-500">{error}</div>
+            )}
 
             {!isLoading && !error && filteredCountries.length === 0 && (
                 <div className="p-8 text-center text-[#62626A]">No servers found</div>
@@ -524,7 +547,11 @@ export const ChangeLocation: React.FC = () => {
                       ].join(" ")}
                   >
                     <div className="text-[14px] flex items-center gap-3 text-[#0B0C19]">
-                      <img src="/icons/world-check.svg" alt="World Check" className="w-[22px] h-[22px]" />
+                      <img
+                          src="/icons/world-check.svg"
+                          alt="World Check"
+                          className="w-[22px] h-[22px]"
+                      />
                       <span>Fastest</span>
 
                       {selectingServerId === FASTEST_ID && (
@@ -547,7 +574,10 @@ export const ChangeLocation: React.FC = () => {
                             ref={(el) => {
                               countryRefs.current[country.id] = el;
                             }}
-                            className={["transition-colors duration-200", isOpen ? "bg-[#F6F6FD]" : ""].join(" ")}
+                            className={[
+                              "transition-colors duration-200",
+                              isOpen ? "bg-[#F6F6FD]" : "",
+                            ].join(" ")}
                         >
                           <button
                               type="button"
@@ -574,12 +604,22 @@ export const ChangeLocation: React.FC = () => {
                                     isOpen ? "scale-[1.05]" : "scale-100",
                                   ].join(" ")}
                               />
-                              <span className={["text-[13px] transition-all duration-200", isOpen ? "font-semibold" : "font-normal"].join(" ")}>
+                              <span
+                                  className={[
+                                    "text-[13px] transition-all duration-200",
+                                    isOpen ? "font-semibold" : "font-normal",
+                                  ].join(" ")}
+                              >
                           {country.name}
                         </span>
                             </div>
 
-                            <div className={["transition-transform duration-300", isOpen ? "rotate-180" : "rotate-0"].join(" ")}>
+                            <div
+                                className={[
+                                  "transition-transform duration-300",
+                                  isOpen ? "rotate-180" : "rotate-0",
+                                ].join(" ")}
+                            >
                               <img src="/icons/back.svg" alt="Arrow" className="w-4 h-5" />
                             </div>
                           </button>
@@ -602,14 +642,16 @@ export const ChangeLocation: React.FC = () => {
                                       <ul className="text-[#0B0C19] text-[12px] pl-6">
                                         {city.servers.map((server) => {
                                           const disabled =
-                                              !server.config_url || (selectingServerId !== null && selectingServerId !== server.id);
+                                              !server.config_url ||
+                                              (selectingServerId !== null && selectingServerId !== server.id);
 
                                           const isSelectingRow = selectingServerId === server.id;
 
-                                          // Highlight selected server (prefer stable id)
                                           const isSelected =
-                                              (!!selectedServerId && selectedServerId.trim() === (server.id || "").trim()) ||
-                                              (!!selectedServerName && selectedServerName.trim() === (server.name || "").trim()) ||
+                                              (!!selectedServerId &&
+                                                  selectedServerId.trim() === (server.id || "").trim()) ||
+                                              (!!selectedServerName &&
+                                                  selectedServerName.trim() === (server.name || "").trim()) ||
                                               (!!selectedServerConfig &&
                                                   !!server.config_url &&
                                                   selectedServerConfig.trim() === server.config_url.trim());
@@ -635,10 +677,15 @@ export const ChangeLocation: React.FC = () => {
                                                     setSelectingServerId(server.id);
 
                                                     try {
-                                                      const cfgToStore = await ensureLocalConfig(server.config_url);
+                                                      const cfgToStore = await ensureLocalConfig(
+                                                          server.config_url
+                                                      );
 
                                                       try {
-                                                        window.localStorage.setItem(LS_MANUAL_DISABLED, "0");
+                                                        window.localStorage.setItem(
+                                                            LS_MANUAL_DISABLED,
+                                                            "0"
+                                                        );
                                                       } catch {
                                                         // ignore
                                                       }
@@ -646,7 +693,9 @@ export const ChangeLocation: React.FC = () => {
                                                       await setSelectedServer(
                                                           server.name,
                                                           cfgToStore,
-                                                          country.countryCode ? country.countryCode.toLowerCase() : undefined,
+                                                          country.countryCode
+                                                              ? country.countryCode.toLowerCase()
+                                                              : undefined,
                                                           server.id
                                                       );
 
@@ -654,12 +703,19 @@ export const ChangeLocation: React.FC = () => {
                                                       setSelectedServerConfig(cfgToStore);
                                                       setSelectedServerId(server.id);
 
-                                                      backToDashboardAndFocusMap(country.countryCode || null, true);
+                                                      backToDashboardAndFocusMap(
+                                                          country.countryCode || null,
+                                                          true
+                                                      );
                                                     } catch (e: any) {
                                                       console.error("Failed to select server:", e);
 
                                                       const msg =
-                                                          typeof e === "string" ? e : e?.message ? String(e.message) : "Unknown error";
+                                                          typeof e === "string"
+                                                              ? e
+                                                              : e?.message
+                                                                  ? String(e.message)
+                                                                  : "Unknown error";
 
                                                       alert("Could not select server.\n\n" + msg);
                                                       navigate("/dashboard");
@@ -669,11 +725,12 @@ export const ChangeLocation: React.FC = () => {
                                                   }}
                                               >
                                                 <div className="w-2 h-2 rounded-full bg-[#00B252]" />
-
                                                 <span className="ml-1">{server.name}</span>
 
                                                 {isSelected && (
-                                                    <span className="ml-2 text-[11px] font-semibold text-[#2761FC]">Selected</span>
+                                                    <span className="ml-2 text-[11px] font-semibold text-[#2761FC]">
+                                          Selected
+                                        </span>
                                                 )}
 
                                                 {isSelectingRow && (

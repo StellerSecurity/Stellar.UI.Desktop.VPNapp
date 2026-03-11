@@ -12,15 +12,32 @@ import {
   getVpnAuth,
 } from "../../services/api";
 import { invoke } from "@tauri-apps/api/core";
+import {
+  ensureVpnNotificationPermission,
+  handleVpnLogNotification,
+  handleVpnStatusNotification,
+  markManualVpnDisconnect,
+  notifyVpnAction,
+  notifyVpnConnectedToServer,
+} from "../../lib/vpnNotifications";
 import { listen } from "@tauri-apps/api/event";
 import { VpnWorldMap } from "../../components/VpnWorldMap";
 
 // OTA updater (Tauri)
 import { check } from "@tauri-apps/plugin-updater";
-
+import { relaunch } from "@tauri-apps/plugin-process";
 
 const isTauri = () =>
     typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+const SHOW_VPN_LOGS =
+    import.meta.env.DEV || import.meta.env.VITE_SHOW_VPN_LOGS === "true";
+
+const OTA_TARGET = String(import.meta.env.VITE_OTA_TARGET || "")
+    .trim()
+    .toLowerCase();
+const OTA_ENABLED = OTA_TARGET === "macos-app" || OTA_TARGET === "appimage";
+const OTA_MANUAL_ONLY = OTA_TARGET === "deb" || OTA_TARGET === "rpm";
 
 const DEFAULT_OVPN_URL =
     "https://stellarvpnserverstorage.blob.core.windows.net/openvpn/stellar-switzerland.ovpn";
@@ -28,6 +45,7 @@ const DEFAULT_OVPN_URL =
 const CONNECT_TIMEOUT_MS = 10_000;
 
 type UiStatus = "disconnected" | "connecting" | "connected";
+type UpdateMode = "none" | "ota" | "manual";
 
 const normalizeStatus = (s: unknown): UiStatus | null => {
   if (typeof s !== "string") return null;
@@ -50,11 +68,7 @@ const lsSetBool = (key: string, v: boolean) => {
 };
 
 const Spinner: React.FC<{ className?: string }> = ({ className = "" }) => (
-    <svg
-        className={`animate-spin ${className}`}
-        viewBox="0 0 24 24"
-        aria-label="Loading"
-    >
+    <svg className={`animate-spin ${className}`} viewBox="0 0 24 24" aria-label="Loading">
       <circle
           className="opacity-20"
           cx="12"
@@ -92,15 +106,15 @@ export const Dashboard: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
 
+  // Navigation flags
+  const navState = (location.state as any) || {};
+  const skipAutoConnect = navState?.skipAutoConnect === true;
+
   const [showCongrats, setShowCongrats] = useState(false);
   const [accountNumber, setAccountNumber] = useState<string | null>(null);
 
-  const [selectedServerName, setSelectedServerName] = useState<string | null>(
-      null
-  );
-  const [selectedServerCountryCode, setSelectedServerCountryCode] = useState<
-      string | null
-  >(null);
+  const [selectedServerName, setSelectedServerName] = useState<string | null>(null);
+  const [selectedServerCountryCode, setSelectedServerCountryCode] = useState<string | null>(null);
 
   const [showCopiedToast, setShowCopiedToast] = useState(false);
   const [deviceName, setDeviceName] = useState<string | null>(null);
@@ -112,34 +126,40 @@ export const Dashboard: React.FC = () => {
 
   const [showExpiredModal, setShowExpiredModal] = useState(false);
 
-  // --- Mullvad-style update UI (manual install) ---
+  // --- Updater UI ---
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [updateVersion, setUpdateVersion] = useState<string | null>(null);
   const [updateUrl, setUpdateUrl] = useState<string | null>(null);
   const [updateCmd, setUpdateCmd] = useState<string | null>(null);
+  const [updateMode, setUpdateMode] = useState<UpdateMode>("none");
+  const [updateBusy, setUpdateBusy] = useState(false);
+  const [updateError, setUpdateError] = useState<string | null>(null);
+
+  const pendingUpdateRef = useRef<any>(null);
 
   const isConnected = status === "connected";
   const isConnecting = status === "connecting";
 
-
-
   // Treat expired as either explicit `expired === true` OR days_remaining <= 0
   const isExpired =
-      (subscription as any)?.expired === true ||
-      (subscription?.days_remaining ?? 0) <= 0;
+      (subscription as any)?.expired === true || (subscription?.days_remaining ?? 0) <= 0;
 
   // Focus country (temporary animation target when returning from ChangeLocation)
   const [focusCountryCode, setFocusCountryCode] = useState<string | null>(null);
 
-  const [mapFocusCountryCode, setMapFocusCountryCode] = useState<string | null>(
-      null
-  );
+  const [mapFocusCountryCode, setMapFocusCountryCode] = useState<string | null>(null);
   const [mapAnimateKey, setMapAnimateKey] = useState(0);
 
   const getSelectedConfigPath = (s: any): string => {
     const v = s?.configUrl ?? s?.config_url; // support both shapes
     return typeof v === "string" ? v.trim() : "";
   };
+
+  // Clear skipAutoConnect state immediately so it never lingers
+  useEffect(() => {
+    if (!skipAutoConnect) return;
+    navigate(location.pathname, { replace: true, state: {} });
+  }, [skipAutoConnect, navigate, location.pathname]);
 
   useEffect(() => {
     const st = (location.state as any) || {};
@@ -155,11 +175,25 @@ export const Dashboard: React.FC = () => {
     return () => clearTimeout(t);
   }, [location.key]);
 
+  // Connect attempt tracking + watchdog (prevents infinite "Connecting...")
+  const connectAttemptIdRef = useRef<number>(0);
+  const connectInFlightRef = useRef(false);
+  const selectedServerNameRef = useRef<string | null>(null);
+  const pendingConnectedNotificationServerRef = useRef<string | null>(null);
+
+  const clearConnectInFlight = useCallback(() => {
+    connectInFlightRef.current = false;
+  }, []);
+
   // Keep latest status in a ref (avoids stale closure problems)
   const statusRef = useRef<UiStatus>("disconnected");
   useEffect(() => {
     statusRef.current = normalizeStatus(status) ?? "disconnected";
   }, [status]);
+
+  useEffect(() => {
+    selectedServerNameRef.current = selectedServerName;
+  }, [selectedServerName]);
 
   // Manual disable + hasConnectedOnce refs (persisted)
   const manualDisabledRef = useRef<boolean>(lsGetBool(LS_MANUAL_DISABLED));
@@ -175,24 +209,56 @@ export const Dashboard: React.FC = () => {
     lsSetBool(LS_HAS_CONNECTED_ONCE, v);
   }, []);
 
+  const armConnectedNotification = useCallback((serverName?: string | null) => {
+    const name = (serverName || selectedServerNameRef.current || "").trim();
+    pendingConnectedNotificationServerRef.current = name || "your selected server";
+  }, []);
+
+  const clearPendingConnectedNotification = useCallback(() => {
+    pendingConnectedNotificationServerRef.current = null;
+  }, []);
+
   const appendLog = useCallback((line: string) => {
+    if (!SHOW_VPN_LOGS) return;
+
     setVpnLogs((prev) => {
       const next = [...prev, line];
       return next.length > 250 ? next.slice(next.length - 250) : next;
     });
   }, []);
 
+  // Debug logs pushed from other files via window.dispatchEvent(new CustomEvent("stellar-debug-log", ...))
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<string>).detail;
+
+      if (typeof detail !== "string" || !detail.trim()) return;
+
+      appendLog(detail);
+
+      if (SHOW_VPN_LOGS) {
+        setShowLogs(true);
+      }
+    };
+
+    window.addEventListener("stellar-debug-log", handler as EventListener);
+
+    return () => {
+      window.removeEventListener("stellar-debug-log", handler as EventListener);
+    };
+  }, [appendLog]);
+
   const clearLogs = useCallback(() => {
+    if (!SHOW_VPN_LOGS) return;
+
     setVpnLogs([]);
     setConnectError(null);
   }, []);
 
   const copyLogs = useCallback(async () => {
-    const text = [
-      "=== Stellar VPN Logs ===",
-      connectError ? `ERROR: ${connectError}` : "",
-      ...vpnLogs,
-    ]
+    if (!SHOW_VPN_LOGS) return;
+
+    const text = ["=== Stellar VPN Logs ===", connectError ? `ERROR: ${connectError}` : "", ...vpnLogs]
         .filter(Boolean)
         .join("\n");
 
@@ -250,19 +316,27 @@ export const Dashboard: React.FC = () => {
 
       if (ui) {
         setStatus(ui);
-        return;
+        if (ui === "connecting") {
+          connectInFlightRef.current = true;
+        } else {
+          clearConnectInFlight();
+        }
       }
 
-      if (typeof s === "string" && s.startsWith("error")) {
+      if (s.startsWith("error")) {
         console.error("VPN backend error:", s);
+        clearPendingConnectedNotification();
+        clearConnectInFlight();
         setConnectError(s);
-        setShowLogs(true);
+        if (SHOW_VPN_LOGS) {
+          setShowLogs(true);
+        }
         setStatus("disconnected");
       }
     } catch (e) {
       console.warn("vpn_status sync failed:", e);
     }
-  }, [setStatus]);
+  }, [clearConnectInFlight, setStatus, clearPendingConnectedNotification]);
 
   // Load account number, device name, and selected server
   useEffect(() => {
@@ -277,8 +351,7 @@ export const Dashboard: React.FC = () => {
       setSelectedServerCountryCode(server?.countryCode ?? null);
 
       const isNewUser =
-          searchParams.get("newUser") === "true" &&
-          searchParams.get("oneClick") === "true";
+          searchParams.get("newUser") === "true" && searchParams.get("oneClick") === "true";
 
       if (isNewUser) {
         setHasConnectedOnce(false);
@@ -308,8 +381,7 @@ export const Dashboard: React.FC = () => {
     });
   }, []);
 
-  // OTA update check (runs when user enters Dashboard)
-  // Mullvad-style: show Update available, user installs manually (deb)
+  // OTA / update check
   const otaCheckedKeyRef = useRef<string | null>(null);
   useEffect(() => {
     if (!isTauri()) return;
@@ -319,7 +391,9 @@ export const Dashboard: React.FC = () => {
 
     (async () => {
       try {
-        setShowLogs(true);
+        if (SHOW_VPN_LOGS) {
+          setShowLogs(true);
+        }
         appendLog("[ui] Checking for updates...");
 
         const update = await check();
@@ -328,48 +402,88 @@ export const Dashboard: React.FC = () => {
 
         if (!update) {
           appendLog("[ui] No updates available.");
+          pendingUpdateRef.current = null;
           setUpdateAvailable(false);
           setUpdateVersion(null);
           setUpdateUrl(null);
           setUpdateCmd(null);
+          setUpdateMode("none");
+          setUpdateError(null);
           return;
         }
 
         const v = String(update.version ?? "").trim() || "unknown";
-
-        // We distribute deb. Use a deterministic URL scheme:
-        // https://.../vpn/<version>/Stellar%20VPN_<version>_amd64.deb
-        const url = `https://desktopreleasesprod.stellarsecurity.com/vpn/${v}/Stellar%20VPN_${v}_amd64.deb`;
-
-        const cmd =
-            `cd /tmp && ` +
-            `wget -O stellar-vpn.deb "${url}" && ` +
-            `sudo apt-get install -y ./stellar-vpn.deb`;
-
-        appendLog(`[ui] Update available: ${v}`);
-        appendLog(`[ui] Download URL: ${url}`);
-        appendLog("[ui] Waiting for user to install (manual).");
-
-        setUpdateAvailable(true);
         setUpdateVersion(v);
-        setUpdateUrl(url);
-        setUpdateCmd(cmd);
+        setUpdateError(null);
+
+        if (OTA_ENABLED) {
+          pendingUpdateRef.current = update;
+          setUpdateMode("ota");
+          setUpdateAvailable(true);
+          setUpdateUrl(null);
+          setUpdateCmd(null);
+          appendLog(`[ui] OTA update available: ${v}`);
+          return;
+        }
+
+        if (OTA_MANUAL_ONLY) {
+          pendingUpdateRef.current = null;
+          const url = `https://desktopreleasesprod.stellarsecurity.com/vpn/${v}/Stellar%20VPN_${v}_amd64.deb`;
+          const cmd =
+              `cd /tmp && ` +
+              `wget -O stellar-vpn.deb "${url}" && ` +
+              `sudo apt-get install -y ./stellar-vpn.deb`;
+
+          setUpdateMode("manual");
+          setUpdateAvailable(true);
+          setUpdateUrl(url);
+          setUpdateCmd(cmd);
+          appendLog(`[ui] Manual package update available: ${v}`);
+          appendLog(`[ui] Download URL: ${url}`);
+          return;
+        }
+
+        pendingUpdateRef.current = null;
+        setUpdateMode("none");
+        setUpdateAvailable(false);
+        appendLog(
+            `[ui] Update ${v} detected, but OTA is disabled for VITE_OTA_TARGET=${OTA_TARGET || "unset"}.`
+        );
       } catch (e: any) {
         const msg =
-            typeof e === "string"
-                ? e
-                : e?.message
-                    ? String(e.message)
-                    : JSON.stringify(e);
+            typeof e === "string" ? e : e?.message ? String(e.message) : JSON.stringify(e);
         console.warn("Update check failed:", e);
         appendLog(`[ui] Update check failed: ${msg}`);
-        setShowLogs(true);
+        if (SHOW_VPN_LOGS) {
+          setShowLogs(true);
+        }
       }
     })();
   }, [location.key, appendLog]);
 
-  // Connect attempt tracking + watchdog (prevents infinite "Connecting...")
-  const connectAttemptIdRef = useRef<number>(0);
+  const installOtaUpdate = useCallback(async () => {
+    const update = pendingUpdateRef.current;
+    if (!update || updateBusy) return;
+
+    try {
+      setUpdateBusy(true);
+      setUpdateError(null);
+      appendLog("[ui] Starting OTA install...");
+      await update.downloadAndInstall();
+      appendLog("[ui] OTA install completed. Relaunching app...");
+      await relaunch();
+    } catch (e: any) {
+      const msg = typeof e === "string" ? e : e?.message ? String(e.message) : JSON.stringify(e);
+      console.error("OTA install failed:", e);
+      setUpdateError(msg);
+      appendLog(`[ui] OTA install failed: ${msg}`);
+      if (SHOW_VPN_LOGS) {
+        setShowLogs(true);
+      }
+    } finally {
+      setUpdateBusy(false);
+    }
+  }, [appendLog, updateBusy]);
 
   const startConnectWatchdog = useCallback(
       (attemptId: number) => {
@@ -378,32 +492,35 @@ export const Dashboard: React.FC = () => {
           if (statusRef.current !== "connecting") return;
 
           try {
-            appendLog(
-                `[ui] Connect watchdog fired after ${CONNECT_TIMEOUT_MS}ms`
-            );
+            appendLog(`[ui] Connect watchdog fired after ${CONNECT_TIMEOUT_MS}ms`);
             await invoke("vpn_disconnect").catch(() => {});
           } finally {
-            setConnectError(
-                "VPN connect timed out. Check OpenVPN logs and kill switch permissions."
-            );
-            setShowLogs(true);
+            clearPendingConnectedNotification();
+            setConnectError("VPN connect timed out. Check OpenVPN logs and kill switch permissions.");
+            if (SHOW_VPN_LOGS) {
+              setShowLogs(true);
+            }
             setStatus("disconnected");
             setManualDisabled(true);
           }
         }, CONNECT_TIMEOUT_MS);
       },
-      [appendLog, setStatus, setManualDisabled]
+      [appendLog, setStatus, setManualDisabled, clearPendingConnectedNotification]
   );
 
   const startConnect = useCallback(
       async (configPath: string) => {
         if (!isTauri()) return;
+        if (connectInFlightRef.current) return;
 
+        connectInFlightRef.current = true;
         connectAttemptIdRef.current += 1;
         const attemptId = connectAttemptIdRef.current;
 
         setConnectError(null);
-        setShowLogs(true); // Always show logs during connect attempts (production debugging)
+        if (SHOW_VPN_LOGS) {
+          setShowLogs(true);
+        }
         setStatus("connecting");
         startConnectWatchdog(attemptId);
 
@@ -413,9 +530,13 @@ export const Dashboard: React.FC = () => {
 
         if (!vpnAuth?.username || !vpnAuth?.password) {
           const msg = "Missing VPN credentials. Please log in again.";
+          clearPendingConnectedNotification();
+          clearConnectInFlight();
           appendLog(`[ui] ${msg}`);
           setConnectError(msg);
-          setShowLogs(true);
+          if (SHOW_VPN_LOGS) {
+            setShowLogs(true);
+          }
           setStatus("disconnected");
           setManualDisabled(true);
           return;
@@ -429,20 +550,27 @@ export const Dashboard: React.FC = () => {
           });
         } catch (e: any) {
           const msg =
-              typeof e === "string"
-                  ? e
-                  : e?.message
-                      ? String(e.message)
-                      : "Unknown error";
+              typeof e === "string" ? e : e?.message ? String(e.message) : "Unknown error";
 
+          clearPendingConnectedNotification();
+          clearConnectInFlight();
           appendLog(`[ui] vpn_connect failed: ${msg}`);
           setConnectError(msg);
-          setShowLogs(true);
+          if (SHOW_VPN_LOGS) {
+            setShowLogs(true);
+          }
           setStatus("disconnected");
           setManualDisabled(true);
         }
       },
-      [appendLog, setStatus, startConnectWatchdog, setManualDisabled]
+      [
+        appendLog,
+        clearConnectInFlight,
+        setStatus,
+        startConnectWatchdog,
+        setManualDisabled,
+        clearPendingConnectedNotification,
+      ]
   );
 
   // Register listeners FIRST, then sync backend status
@@ -457,32 +585,62 @@ export const Dashboard: React.FC = () => {
       unlistenStatus = await listen<string>("vpn-status", (event) => {
         const s = event.payload;
 
+        void handleVpnStatusNotification(s).catch((error) => {
+          console.error("VPN status notification failed:", error);
+        });
+
         const ui = normalizeStatus(s);
         if (ui) {
+          if (ui === "connecting") {
+            connectInFlightRef.current = true;
+          } else {
+            clearConnectInFlight();
+          }
+
           setStatus(ui);
 
           if (ui === "connected") {
+            const connectedServerName = pendingConnectedNotificationServerRef.current;
+            pendingConnectedNotificationServerRef.current = null;
+
             setConnectError(null);
             setHasConnectedOnce(true);
             setManualDisabled(false);
+
+            if (connectedServerName) {
+              void notifyVpnConnectedToServer(connectedServerName).catch((error) => {
+                console.error("VPN connected notification failed:", error);
+              });
+            }
           }
 
           return;
         }
 
-        if (typeof s === "string" && s.startsWith("error")) {
+        if (s.startsWith("error")) {
           console.error("VPN error:", s);
+          clearPendingConnectedNotification();
+          clearConnectInFlight();
           setConnectError(s);
-          setShowLogs(true);
+          if (SHOW_VPN_LOGS) {
+            setShowLogs(true);
+          }
           setStatus("disconnected");
         }
       });
 
       unlistenLog = await listen<string>("vpn-log", (event) => {
-        appendLog(event.payload);
+        if (SHOW_VPN_LOGS) {
+          appendLog(event.payload);
+        }
+        void handleVpnLogNotification(event.payload).catch((error) => {
+          console.error("VPN log notification failed:", error);
+        });
       });
 
       if (!mounted) return;
+
+      void ensureVpnNotificationPermission().catch(() => {});
 
       setListenersReady(true);
       await syncBackendStatus();
@@ -493,13 +651,20 @@ export const Dashboard: React.FC = () => {
       if (unlistenStatus) unlistenStatus();
       if (unlistenLog) unlistenLog();
     };
-  }, [appendLog, setStatus, syncBackendStatus, setHasConnectedOnce, setManualDisabled]);
+  }, [
+    appendLog,
+    clearConnectInFlight,
+    setStatus,
+    syncBackendStatus,
+    setHasConnectedOnce,
+    setManualDisabled,
+    clearPendingConnectedNotification,
+  ]);
 
   // Tray events (Mullvad-style menu)
   const trayConnect = useCallback(async () => {
     if (!isTauri()) return;
 
-    // Manual action: allow auto-connect logic again
     setManualDisabled(false);
 
     await syncBackendStatus();
@@ -511,21 +676,27 @@ export const Dashboard: React.FC = () => {
       return;
     }
 
+    await notifyVpnAction("Stellar VPN", "Connecting to your selected server...");
+
     const selectedServer = await getSelectedServer();
     const configPath = getSelectedConfigPath(selectedServer) || DEFAULT_OVPN_URL;
 
+    armConnectedNotification(selectedServer?.name ?? null);
     await startConnect(configPath);
-  }, [startConnect, syncBackendStatus, setManualDisabled, isExpired]);
+  }, [startConnect, syncBackendStatus, setManualDisabled, isExpired, armConnectedNotification]);
 
   const trayDisconnect = useCallback(async () => {
     if (!isTauri()) return;
 
-    // Manual disconnect: block auto reconnect loops
+    markManualVpnDisconnect();
     setManualDisabled(true);
 
+    clearConnectInFlight();
     await invoke("vpn_disconnect").catch(() => {});
     setStatus("disconnected");
-  }, [setStatus, setManualDisabled]);
+
+    await notifyVpnAction("Stellar VPN", "VPN disconnected.");
+  }, [setStatus, setManualDisabled, clearConnectInFlight]);
 
   const trayReconnect = useCallback(async () => {
     if (!isTauri()) return;
@@ -537,14 +708,27 @@ export const Dashboard: React.FC = () => {
       return;
     }
 
+    await notifyVpnAction("Stellar VPN", "Reconnecting to your selected server...");
+
+    clearPendingConnectedNotification();
+    markManualVpnDisconnect();
+    clearConnectInFlight();
     await invoke("vpn_disconnect").catch(() => {});
     await new Promise((r) => setTimeout(r, 250));
 
     const selectedServer = await getSelectedServer();
     const configPath = getSelectedConfigPath(selectedServer) || DEFAULT_OVPN_URL;
 
+    armConnectedNotification(selectedServer?.name ?? null);
     await startConnect(configPath);
-  }, [startConnect, setManualDisabled, isExpired]);
+  }, [
+    startConnect,
+    setManualDisabled,
+    isExpired,
+    clearConnectInFlight,
+    clearPendingConnectedNotification,
+    armConnectedNotification,
+  ]);
 
   useEffect(() => {
     if (!isTauri()) return;
@@ -559,15 +743,11 @@ export const Dashboard: React.FC = () => {
       });
 
       unlistenDisconnect = await listen("tray-disconnect", () => {
-        trayDisconnect().catch((e) =>
-            console.error("tray-disconnect failed:", e)
-        );
+        trayDisconnect().catch((e) => console.error("tray-disconnect failed:", e));
       });
 
       unlistenReconnect = await listen("tray-reconnect", () => {
-        trayReconnect().catch((e) =>
-            console.error("tray-reconnect failed:", e)
-        );
+        trayReconnect().catch((e) => console.error("tray-reconnect failed:", e));
       });
     })();
 
@@ -578,7 +758,7 @@ export const Dashboard: React.FC = () => {
     };
   }, [trayConnect, trayDisconnect, trayReconnect]);
 
-  // Connect now (from ChangeLocation)
+  // connectNow runs once per navigation, then clears state
   const connectNowHandledKeyRef = useRef<string | null>(null);
   useEffect(() => {
     if (!isTauri()) return;
@@ -587,9 +767,10 @@ export const Dashboard: React.FC = () => {
     const st = (location.state as any) || {};
     if (st?.connectNow !== true) return;
 
-    // Only once per navigation entry
     if (connectNowHandledKeyRef.current === location.key) return;
     connectNowHandledKeyRef.current = location.key;
+
+    navigate(location.pathname, { replace: true, state: {} });
 
     (async () => {
       await syncBackendStatus();
@@ -604,9 +785,11 @@ export const Dashboard: React.FC = () => {
       const selectedServer = await getSelectedServer();
       const configPath = getSelectedConfigPath(selectedServer) || DEFAULT_OVPN_URL;
 
-      // If we're already connected/connecting, we must tear down first
       const current = statusRef.current;
       if (current === "connected" || current === "connecting") {
+        markManualVpnDisconnect();
+        clearPendingConnectedNotification();
+        clearConnectInFlight();
         await invoke("vpn_disconnect").catch(() => {});
         setStatus("disconnected");
         await new Promise((r) => setTimeout(r, 250));
@@ -616,18 +799,22 @@ export const Dashboard: React.FC = () => {
     })().catch((e) => console.error("connectNow failed:", e));
   }, [
     location.key,
+    location.pathname,
     listenersReady,
     syncBackendStatus,
     startConnect,
     setManualDisabled,
     isExpired,
     setStatus,
+    navigate,
+    clearPendingConnectedNotification,
   ]);
 
-  // Auto-connect only when allowed
+  // Auto-connect (blocked when skipAutoConnect is set)
   useEffect(() => {
     if (!isTauri()) return;
     if (!listenersReady) return;
+    if (skipAutoConnect) return;
 
     let cancelled = false;
 
@@ -641,13 +828,13 @@ export const Dashboard: React.FC = () => {
 
         if (manualDisabledRef.current) return;
         if (!hasConnectedOnceRef.current) return;
-
         if (isExpired) return;
 
         const backend = await invoke<string>("vpn_status").catch(() => "");
         const backendUi = normalizeStatus(backend);
         const current = backendUi ?? statusRef.current;
 
+        if (current === "connecting") return;
         if (current !== "disconnected") return;
 
         const selectedServer = await getSelectedServer();
@@ -663,47 +850,7 @@ export const Dashboard: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [listenersReady, searchParams, setStatus, startConnect, isExpired]);
-
-  // Reconnect on unexpected drops, but never after manual disconnect
-  useEffect(() => {
-    if (!isTauri()) return;
-    if (!listenersReady) return;
-
-    if (statusRef.current !== "disconnected") return;
-
-    let cancelled = false;
-    const t = window.setTimeout(async () => {
-      try {
-        const isNewUser = searchParams.get("newUser") === "true";
-        if (isNewUser) return;
-
-        const autoConnectEnabled = await getAutoConnect();
-        if (!autoConnectEnabled || cancelled) return;
-
-        if (manualDisabledRef.current) return;
-        if (!hasConnectedOnceRef.current) return;
-
-        if (isExpired) return;
-
-        const backend = await invoke<string>("vpn_status").catch(() => "");
-        const backendUi = normalizeStatus(backend) ?? statusRef.current;
-        if (backendUi !== "disconnected") return;
-
-        const selectedServer = await getSelectedServer();
-        const configPath = getSelectedConfigPath(selectedServer) || DEFAULT_OVPN_URL;
-
-        await startConnect(configPath);
-      } catch {
-        // ignore
-      }
-    }, 1200);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-    };
-  }, [status, listenersReady, searchParams, startConnect, isExpired]);
+  }, [listenersReady, searchParams, setStatus, startConnect, isExpired, skipAutoConnect]);
 
   const formatAccountNumber = (account: string | null): string => {
     if (!account) return "N/A";
@@ -748,6 +895,10 @@ export const Dashboard: React.FC = () => {
         setStatus("connecting");
         setTimeout(() => setStatus("connected"), 1500);
       } else {
+        markManualVpnDisconnect();
+        clearConnectInFlight();
+        await invoke("vpn_disconnect").catch(() => {});
+        setManualDisabled(true);
         setStatus("disconnected");
       }
       return;
@@ -768,14 +919,19 @@ export const Dashboard: React.FC = () => {
         const selectedServer = await getSelectedServer();
         const configPath = getSelectedConfigPath(selectedServer) || DEFAULT_OVPN_URL;
 
+        armConnectedNotification(selectedServer?.name ?? null);
         await startConnect(configPath);
       } else {
+        markManualVpnDisconnect();
+        clearPendingConnectedNotification();
+        clearConnectInFlight();
         await invoke("vpn_disconnect").catch(() => {});
         setManualDisabled(true);
         setStatus("disconnected");
       }
     } catch (e) {
       console.error("VPN connect error:", e);
+      clearConnectInFlight();
       setStatus("disconnected");
     }
   };
@@ -785,10 +941,14 @@ export const Dashboard: React.FC = () => {
     try {
       await navigator.clipboard.writeText(updateCmd);
       appendLog("[ui] Update command copied to clipboard.");
-      setShowLogs(true);
+      if (SHOW_VPN_LOGS) {
+        setShowLogs(true);
+      }
     } catch {
       appendLog("[ui] Failed to copy update command.");
-      setShowLogs(true);
+      if (SHOW_VPN_LOGS) {
+        setShowLogs(true);
+      }
     }
   }, [updateCmd, appendLog]);
 
@@ -798,15 +958,17 @@ export const Dashboard: React.FC = () => {
     try {
       window.open(updateUrl, "_blank", "noopener,noreferrer");
       appendLog("[ui] Opened download URL.");
-      setShowLogs(true);
+      if (SHOW_VPN_LOGS) {
+        setShowLogs(true);
+      }
     } catch (e: any) {
-      const msg =
-          typeof e === "string" ? e : e?.message ? String(e.message) : JSON.stringify(e);
+      const msg = typeof e === "string" ? e : e?.message ? String(e.message) : JSON.stringify(e);
       appendLog(`[ui] Failed to open URL: ${msg}`);
-      setShowLogs(true);
+      if (SHOW_VPN_LOGS) {
+        setShowLogs(true);
+      }
     }
   }, [updateUrl, appendLog]);
-
 
   return (
       <div className="w-[312px] h-[640px] overflow-hidden relative bg-[#0037A3]">
@@ -843,18 +1005,11 @@ export const Dashboard: React.FC = () => {
           {/* Header */}
           <div className="px-6 pt-10 flex items-center justify-between">
             <div className="flex items-center logo-container">
-              <img
-                  src="/icons/dashboard-icon.svg"
-                  alt="Dashboard"
-                  className="h-20 w-20 inline-block"
-              />
-              <span className="text-[14px] font-semibold font-silka">
-              Stellar VPN
-            </span>
+              <img src="/icons/dashboard-icon.svg" alt="Dashboard" className="h-20 w-20 inline-block" />
+              <span className="text-[14px] font-semibold font-silka">Stellar VPN</span>
             </div>
 
             <div className="flex items-center gap-2">
-
               <button
                   className="rounded-full bg-white px-3 py-1 text-[11px]"
                   onClick={() => navigate("/profile")}
@@ -862,37 +1017,26 @@ export const Dashboard: React.FC = () => {
               >
               <span
                   className={`font-semibold flex items-center gap-1 ${
-                      (subscription?.days_remaining ?? 0) === 0
-                          ? "!text-red-500"
-                          : "text-[#00B252]"
+                      (subscription?.days_remaining ?? 0) === 0 ? "!text-red-500" : "text-[#00B252]"
                   }`}
               >
-                {subscription?.days_remaining !== undefined
-                    ? `${subscription.days_remaining} days`
-                    : "0 days"}
+                {subscription?.days_remaining !== undefined ? `${subscription.days_remaining} days` : "0 days"}
               </span>
               </button>
-
 
               <button
                   className="rounded-full flex items-center justify-center"
                   onClick={() => navigate("/profile")}
                   type="button"
               >
-                <img
-                    src="/icons/user.svg"
-                    alt="Profile"
-                    className="w-[25px] h-[25px]"
-                />
+                <img src="/icons/user.svg" alt="Profile" className="w-[25px] h-[25px]" />
               </button>
             </div>
           </div>
 
           <div className="px-6 mt-4 text-[11px] text-white/80">
             <span className="text-[#D6D6E0] text-[12px]">Device Name: </span>
-            <span className="font-semibold text-[12px] text-white">
-            {deviceName || "N/A"}
-          </span>
+            <span className="font-semibold text-[12px] text-white">{deviceName || "N/A"}</span>
           </div>
 
           {/* Status pill */}
@@ -900,22 +1044,14 @@ export const Dashboard: React.FC = () => {
             <div className="bg-[rgba(0,0,0,0.10)] inline-flex items-center gap-2 rounded-full px-4 pr-6 py-2 text-md text-white font-semibold backdrop-blur-[18px]">
               {isConnected ? (
                   <>
-                    <img
-                        src="/icons/secured.svg"
-                        alt="Secured"
-                        className="w-10 h-10"
-                    />
+                    <img src="/icons/secured.svg" alt="Secured" className="w-10 h-10" />
                     <span>Secured connection</span>
                   </>
               ) : isConnecting ? (
                   <span>Connecting...</span>
               ) : (
                   <>
-                    <img
-                        src="/icons/unsecured.svg"
-                        alt="Unsecured"
-                        className="w-10 h-10"
-                    />
+                    <img src="/icons/unsecured.svg" alt="Unsecured" className="w-10 h-10" />
                     <span>Unsecured connection</span>
                   </>
               )}
@@ -967,9 +1103,7 @@ export const Dashboard: React.FC = () => {
                 className="mb-4 w-full rounded-full bg-white/10 px-5 py-4 text-xs flex items-center justify-between hover:bg-white/15 transition-colors"
             >
               <div className="flex flex-col">
-              <span className="text-[#D6D6E0] text-[12px]">
-                Fastest Server
-              </span>
+                <span className="text-[#D6D6E0] text-[12px]">Fastest Server</span>
                 <span className="mt-1 text-sm font-semibold text-[#EAEAF0] flex items-center gap-2">
                 <img
                     src={flagSrcForCountryCode(selectedServerCountryCode)}
@@ -1015,20 +1149,12 @@ export const Dashboard: React.FC = () => {
               <div className="absolute inset-0 flex items-end justify-center bg-black/40 z-50">
                 <div className="w-full bg-white rounded-t-3xl px-6 pt-6 pb-12 animate-slide-up">
                   <div className="flex flex-col items-center">
-                    <img
-                        src="/icons/green-tick.svg"
-                        alt="Success"
-                        className="w-12 h-12 mb-2"
-                    />
+                    <img src="/icons/green-tick.svg" alt="Success" className="w-12 h-12 mb-2" />
 
-                    <h2 className="text-xl font-bold text-[#0B0C19] mb-2 font-poppins">
-                      Congrats!
-                    </h2>
+                    <h2 className="text-xl font-bold text-[#0B0C19] mb-2 font-poppins">Congrats!</h2>
 
                     <p className="text-sm text-[#62626A] mb-6 text-center font-poppins">
-                      {accountNumber
-                          ? "Here's your account number. Save it!"
-                          : "Welcome! Your account has been created."}
+                      {accountNumber ? "Here's your account number. Save it!" : "Welcome! Your account has been created."}
                     </p>
 
                     <div className="w-full mb-6 relative">
@@ -1066,11 +1192,7 @@ export const Dashboard: React.FC = () => {
                       </div>
                     </div>
 
-                    <Button
-                        fullWidth
-                        onClick={() => setShowCongrats(false)}
-                        className="h-[42px] text-base font-poppins"
-                    >
+                    <Button fullWidth onClick={() => setShowCongrats(false)} className="h-[42px] text-base font-poppins">
                       Got It
                     </Button>
                   </div>
@@ -1084,13 +1206,7 @@ export const Dashboard: React.FC = () => {
                 <div className="w-full bg-white rounded-t-3xl px-6 pt-6 pb-12 animate-slide-up">
                   <div className="flex flex-col items-center text-center">
                     <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mb-3">
-                      <svg
-                          width="22"
-                          height="22"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          className="text-red-500"
-                      >
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="text-red-500">
                         <path
                             d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10
                          10-4.48 10-10S17.52 2 12 2Zm3.54 13.54-1.41 1.41L12 13.41
@@ -1101,19 +1217,13 @@ export const Dashboard: React.FC = () => {
                       </svg>
                     </div>
 
-                    <h2 className="text-xl font-bold text-[#0B0C19] mb-2 font-poppins">
-                      Subscription expired
-                    </h2>
+                    <h2 className="text-xl font-bold text-[#0B0C19] mb-2 font-poppins">Subscription expired</h2>
 
                     <p className="text-sm text-[#62626A] mb-6 font-poppins">
                       No time available. Renew your plan to connect.
                     </p>
 
-                    <Button
-                        fullWidth
-                        onClick={() => setShowExpiredModal(false)}
-                        className="h-[42px] text-base font-poppins"
-                    >
+                    <Button fullWidth onClick={() => setShowExpiredModal(false)} className="h-[42px] text-base font-poppins">
                       OK
                     </Button>
                   </div>
@@ -1122,19 +1232,15 @@ export const Dashboard: React.FC = () => {
           )}
         </div>
 
-        {/* Update Modal (manual .deb install) */}
-        {updateAvailable && updateVersion && updateUrl && updateCmd && (
+        {/* Update Modal */}
+        {updateAvailable && updateVersion && (
             <div className="absolute inset-0 z-[998] bg-black/50 flex items-end justify-center">
               <div className="w-full bg-white rounded-t-3xl px-6 pt-6 pb-8">
                 <div className="flex items-start justify-between">
                   <div className="pr-4">
-                    <div className="text-[#0B0C19] font-bold text-[16px]">
-                      Update available
-                    </div>
+                    <div className="text-[#0B0C19] font-bold text-[16px]">Update available</div>
                     <div className="text-[#62626A] text-[12px] mt-1">
-                      Version{" "}
-                      <span className="font-semibold">{updateVersion}</span> is ready.
-                      Install it in terminal.
+                      Version <span className="font-semibold">{updateVersion}</span> is ready.
                     </div>
                   </div>
 
@@ -1147,40 +1253,115 @@ export const Dashboard: React.FC = () => {
                   </button>
                 </div>
 
-                <div className="mt-4 rounded-2xl bg-[#0B0C19] text-white px-4 py-3">
-                  <div className="text-[11px] text-white/70 mb-2">Run this:</div>
-                  <pre className="text-[11px] whitespace-pre-wrap break-words leading-relaxed">
-                {updateCmd}
-              </pre>
-                </div>
+                {updateMode === "ota" && (
+                    <>
+                      <div className="mt-4 rounded-2xl bg-[#0B0C19] text-white px-4 py-3">
+                        <div className="text-[12px] font-semibold">Automatic in-app update</div>
+                        <div className="text-[11px] text-white/75 mt-1">
+                          The app will download, install, and relaunch itself.
+                        </div>
+                      </div>
 
-                <div className="mt-4 flex items-center gap-2">
-                  <button
-                      type="button"
-                      onClick={() => openUpdateUrl()}
-                      className="flex-1 rounded-full bg-[#0B0C19] hover:bg-black text-white px-4 py-2 text-[12px] transition-colors"
-                  >
-                    Open download
-                  </button>
+                      {updateError && (
+                          <div className="mt-3 text-[11px] text-red-500 break-words">
+                            {updateError}
+                          </div>
+                      )}
 
-                  <button
-                      type="button"
-                      onClick={() => copyUpdateCommand()}
-                      className="flex-1 rounded-full bg-black/5 hover:bg-black/10 text-[#0B0C19] px-4 py-2 text-[12px] transition-colors"
-                  >
-                    Copy command
-                  </button>
-                </div>
+                      <div className="mt-4 flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => installOtaUpdate()}
+                            disabled={updateBusy}
+                            className="flex-1 rounded-full bg-[#0B0C19] hover:bg-black disabled:opacity-60 text-white px-4 py-2 text-[12px] transition-colors"
+                        >
+                          {updateBusy ? "Installing..." : "Install update"}
+                        </button>
+                      </div>
+                    </>
+                )}
 
-                <div className="mt-3 text-[11px] text-[#62626A]">
-                  Tip: users can paste it into Terminal. The app does not install updates automatically.
-                </div>
+                {updateMode === "manual" && updateUrl && updateCmd && (
+                    <>
+                      <div className="mt-4 rounded-2xl bg-[#0B0C19] text-white px-4 py-3">
+                        <div className="text-[11px] text-white/70 mb-2">Run this:</div>
+                        <pre className="text-[11px] whitespace-pre-wrap break-words leading-relaxed">
+                    {updateCmd}
+                  </pre>
+                      </div>
+
+                      <div className="mt-4 flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => openUpdateUrl()}
+                            className="flex-1 rounded-full bg-[#0B0C19] hover:bg-black text-white px-4 py-2 text-[12px] transition-colors"
+                        >
+                          Open download
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => copyUpdateCommand()}
+                            className="flex-1 rounded-full bg-black/5 hover:bg-black/10 text-[#0B0C19] px-4 py-2 text-[12px] transition-colors"
+                        >
+                          Copy command
+                        </button>
+                      </div>
+
+                      <div className="mt-3 text-[11px] text-[#62626A]">
+                        This package type updates manually through the system package flow.
+                      </div>
+                    </>
+                )}
               </div>
             </div>
         )}
 
+        {/* Logs Panel */}
+        {SHOW_VPN_LOGS && showLogs && (
+            <div className="absolute inset-x-0 bottom-0 z-[997] bg-[#0B0C19] text-white rounded-t-3xl px-4 pt-4 pb-4 max-h-[55%] flex flex-col shadow-2xl">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-[13px] font-semibold">Connection Logs</div>
+                <div className="flex items-center gap-2">
+                  <button
+                      onClick={copyLogs}
+                      className="text-[11px] px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 transition"
+                  >
+                    Copy
+                  </button>
+                  <button
+                      onClick={clearLogs}
+                      className="text-[11px] px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 transition"
+                  >
+                    Clear
+                  </button>
+                  <button
+                      onClick={() => setShowLogs(false)}
+                      className="text-[11px] px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 transition"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
 
+              {/* Error */}
+              {connectError && <div className="mb-2 text-[11px] text-red-400">ERROR: {connectError}</div>}
 
+              {/* Log Output */}
+              <div className="flex-1 overflow-y-auto bg-black/40 rounded-xl p-3 text-[11px] font-mono leading-relaxed space-y-1">
+                {vpnLogs.length === 0 ? (
+                    <div className="text-white/50">No logs yet…</div>
+                ) : (
+                    vpnLogs.map((line, i) => (
+                        <div key={i} className="break-words">
+                          {line}
+                        </div>
+                    ))
+                )}
+              </div>
+            </div>
+        )}
       </div>
   );
 };

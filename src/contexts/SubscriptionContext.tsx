@@ -5,8 +5,10 @@ import React, {
   useEffect,
   useRef,
   ReactNode,
+  useCallback,
 } from "react";
 import { useLocation } from "react-router-dom";
+import { invoke } from "@tauri-apps/api/core";
 import {
   fetchHomeData,
   type HomeResponse,
@@ -14,6 +16,7 @@ import {
   type User,
   getBearerToken,
 } from "../services/api";
+import { maybeNotifySubscriptionReminder } from "../lib/subscriptionNotifications";
 
 interface SubscriptionContextType {
   user: User | null;
@@ -28,18 +31,61 @@ const SubscriptionContext = createContext<SubscriptionContextType | undefined>(
     undefined
 );
 
-// Cache key (not secrets, just UI state)
 const HOME_CACHE_KEY = "stellar_vpn_home_cache_v1";
-
-// How long we allow showing cached data while offline/booting.
-// We still revalidate in the background immediately.
-const HOME_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const HOME_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const FOREGROUND_REFRESH_COOLDOWN_MS = 3000;
 
 type HomeCachePayload = {
   v: 1;
   ts: number;
   data: HomeResponse;
 };
+
+function isTauri(): boolean {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
+function getDaysRemaining(subscription: Subscription | null): number {
+  const raw = (subscription as any)?.days_remaining;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function isSubscriptionExpired(subscription: Subscription | null): boolean {
+  if (!subscription) return false;
+  return (subscription as any)?.expired === true || getDaysRemaining(subscription) <= 0;
+}
+
+function pushDashboardDebugLog(line: string) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.dispatchEvent(
+        new CustomEvent("stellar-debug-log", {
+          detail: line,
+        })
+    );
+  } catch {
+    // ignore
+  }
+}
+
+function debugLog(...parts: unknown[]) {
+  console.log(...parts);
+
+  const line = parts
+      .map((part) => {
+        if (typeof part === "string") return part;
+        try {
+          return JSON.stringify(part);
+        } catch {
+          return String(part);
+        }
+      })
+      .join(" ");
+
+  pushDashboardDebugLog(line);
+}
 
 function readHomeCache(): HomeResponse | null {
   try {
@@ -79,14 +125,41 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({
 
   const pollingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isPollingRef = useRef(false);
-
-  // Track if we have a token (so we don't refresh while logged out)
   const tokenRef = useRef<string | null>(null);
-
-  // Prevent overlapping refresh calls (React StrictMode + fast navigation)
   const refreshInFlightRef = useRef(false);
+  const lastForegroundRefreshAtRef = useRef(0);
+  const expiryDisconnectInFlightRef = useRef(false);
 
-  const refreshSubscription = async () => {
+  const disconnectIfExpired = useCallback(async (nextSubscription: Subscription | null) => {
+    if (!isTauri()) return;
+    if (!isSubscriptionExpired(nextSubscription)) return;
+    if (expiryDisconnectInFlightRef.current) return;
+
+    expiryDisconnectInFlightRef.current = true;
+
+    try {
+      debugLog("[subscription] expiry detected, checking VPN status");
+
+      const vpnStatus = await invoke<string>("vpn_status").catch(() => "");
+      debugLog("[subscription] vpn_status =", vpnStatus);
+
+      if (vpnStatus === "connected" || vpnStatus === "connecting") {
+        debugLog("[subscription] disconnecting VPN because days_remaining <= 0");
+        await invoke("vpn_disconnect");
+        debugLog("[subscription] vpn_disconnect completed");
+      } else {
+        debugLog("[subscription] VPN already disconnected, no action needed");
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("[subscription] expiry disconnect failed:", err);
+      pushDashboardDebugLog(`[subscription] expiry disconnect failed: ${message}`);
+    } finally {
+      expiryDisconnectInFlightRef.current = false;
+    }
+  }, []);
+
+  const refreshSubscription = useCallback(async () => {
     if (refreshInFlightRef.current) return;
     refreshInFlightRef.current = true;
 
@@ -94,76 +167,111 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({
     setError(null);
 
     try {
+      debugLog("[subscription] refreshSubscription started");
+
       const data = await fetchHomeData();
+      debugLog("[subscription] fetchHomeData result:", data);
 
       if (data) {
         setUser(data.user);
         setSubscription(data.subscription);
         writeHomeCache(data);
+
+        debugLog(
+            "[subscription] calling maybeNotifySubscriptionReminder with:",
+            data.subscription
+        );
+
+        maybeNotifySubscriptionReminder(data.subscription).catch((err) => {
+          console.error("[subscription] reminder notification failed:", err);
+          pushDashboardDebugLog(
+              `[subscription] reminder notification failed: ${
+                  err instanceof Error ? err.message : String(err)
+              }`
+          );
+        });
+
+        await disconnectIfExpired(data.subscription);
       } else {
         setError("Failed to fetch subscription data");
-        // Keep existing cached state if API fails (stale is better than blank)
+        pushDashboardDebugLog("[subscription] fetchHomeData returned null");
       }
     } catch (err) {
       const errorMessage =
           err instanceof Error ? err.message : "Unknown error occurred";
       setError(errorMessage);
       console.error("Error refreshing subscription:", err);
+      pushDashboardDebugLog(
+          `[subscription] refreshSubscription failed: ${errorMessage}`
+      );
     } finally {
       setIsLoading(false);
       refreshInFlightRef.current = false;
+      pushDashboardDebugLog("[subscription] refreshSubscription finished");
     }
-  };
+  }, [disconnectIfExpired]);
 
-  const startPolling = () => {
+  const startPolling = useCallback(() => {
     if (isPollingRef.current) return;
 
     isPollingRef.current = true;
+    pushDashboardDebugLog("[subscription] polling started");
 
     const poll = async () => {
       await refreshSubscription();
-
-      // Poll every 10 minutes
       const interval = 10 * 60 * 1000;
-
       pollingTimeoutRef.current = setTimeout(poll, interval);
     };
 
-    // Immediate refresh on start
     poll();
-  };
+  }, [refreshSubscription]);
 
-  const stopPolling = () => {
+  const stopPolling = useCallback(() => {
     if (pollingTimeoutRef.current) {
       clearTimeout(pollingTimeoutRef.current);
       pollingTimeoutRef.current = null;
     }
     isPollingRef.current = false;
-  };
+    pushDashboardDebugLog("[subscription] polling stopped");
+  }, []);
+
+  const triggerForegroundRefresh = useCallback(() => {
+    if (!tokenRef.current) return;
+
+    const now = Date.now();
+    if (
+        now - lastForegroundRefreshAtRef.current <
+        FOREGROUND_REFRESH_COOLDOWN_MS
+    ) {
+      return;
+    }
+
+    lastForegroundRefreshAtRef.current = now;
+    pushDashboardDebugLog("[subscription] foreground refresh triggered");
+    void refreshSubscription();
+  }, [refreshSubscription]);
 
   useEffect(() => {
     let mounted = true;
 
     (async () => {
-      // IMPORTANT: In Tauri, the token might live in the Tauri Store, not localStorage.
       const token = await getBearerToken();
       if (!mounted) return;
 
       tokenRef.current = token || null;
 
       if (!token) {
-        // Not logged in -> don't show cached data
+        pushDashboardDebugLog("[subscription] no bearer token");
         return;
       }
 
-      // Load cached data instantly for UX
       const cached = readHomeCache();
       if (cached) {
         setUser(cached.user);
         setSubscription(cached.subscription);
+        pushDashboardDebugLog("[subscription] restored cached home data");
       }
 
-      // Then revalidate in background + start polling
       startPolling();
     })();
 
@@ -171,25 +279,41 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({
       mounted = false;
       stopPolling();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [startPolling, stopPolling]);
 
-  // Refresh every time user navigates INTO /dashboard
   useEffect(() => {
     if (location.pathname !== "/dashboard") return;
     if (!tokenRef.current) return;
 
-    // If polling somehow isn't running yet, start it (also refreshes immediately)
+    pushDashboardDebugLog("[subscription] dashboard entered");
+
     if (!isPollingRef.current) {
       startPolling();
       return;
     }
 
-    // Otherwise just refresh once on dashboard entry
     void refreshSubscription();
+  }, [location.key, location.pathname, refreshSubscription, startPolling]);
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.key, location.pathname]);
+  useEffect(() => {
+    const onFocus = () => {
+      triggerForegroundRefresh();
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        triggerForegroundRefresh();
+      }
+    };
+
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [triggerForegroundRefresh]);
 
   return (
       <SubscriptionContext.Provider

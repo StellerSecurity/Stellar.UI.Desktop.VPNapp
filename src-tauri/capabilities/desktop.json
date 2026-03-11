@@ -9,6 +9,7 @@
     "main"
   ],
   "permissions": [
+    "notification:default",
     "autostart:default"
   ]
 }

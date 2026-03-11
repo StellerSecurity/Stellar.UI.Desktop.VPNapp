@@ -1,6 +1,3 @@
-// src-tauri/src/macos_installer.rs
-// NOTE: All comments in English (per your preference).
-
 #![cfg(target_os = "macos")]
 
 use std::{
@@ -14,75 +11,88 @@ use std::{
 use tauri::{path::BaseDirectory, AppHandle, Manager, Runtime};
 
 const LABEL: &str = "org.stellarsecurity.vpn.helper";
-
-// Where the root helper binary must live (LaunchDaemon-safe location)
 const HELPER_INSTALL_PATH: &str = "/Library/PrivilegedHelperTools/stellar-vpn-helper-macos";
-
-// LaunchDaemon plist location
 const DAEMON_PLIST_PATH: &str = "/Library/LaunchDaemons/org.stellarsecurity.vpn.helper.plist";
-
-// Socket path used by your helper
 pub const SOCKET_PATH: &str = "/tmp/stellar-vpn-helper.sock";
-
-// Helper logs (optional but extremely useful for debugging)
 const STDOUT_LOG: &str = "/var/log/stellar-vpn-helper.log";
 const STDERR_LOG: &str = "/var/log/stellar-vpn-helper.err.log";
 
-/// Ensure the privileged root helper is installed and running.
-/// - Prompts user for password once (via AppleScript admin prompt).
-/// - Installs/updates:
-///   - /Library/PrivilegedHelperTools/stellar-vpn-helper-macos
-///   - /Library/LaunchDaemons/org.stellarsecurity.vpn.helper.plist
-/// - Bootstraps LaunchDaemon and kickstarts it.
-/// - Waits briefly for the socket to appear.
 pub fn ensure_root_helper_installed<RT: Runtime>(app: &AppHandle<RT>) -> Result<(), String> {
-    // 1) Find the helper binary packaged with the app
     let helper_src = resolve_packaged_helper(app)?;
+    let plist_content = build_plist();
 
-    // 2) If already running (socket exists), we are done
-    if Path::new(SOCKET_PATH).exists() {
+    let helper_missing = !Path::new(HELPER_INSTALL_PATH).exists();
+    let plist_missing = !Path::new(DAEMON_PLIST_PATH).exists();
+
+    let helper_changed = if helper_missing {
+        true
+    } else {
+        !files_match(&helper_src, Path::new(HELPER_INSTALL_PATH))?
+    };
+
+    let plist_changed = if plist_missing {
+        true
+    } else {
+        !plist_matches(Path::new(DAEMON_PLIST_PATH), &plist_content)?
+    };
+
+    let socket_missing = !Path::new(SOCKET_PATH).exists();
+
+    if !helper_changed && !plist_changed && !socket_missing {
         return Ok(());
     }
 
-    // 3) Install/update files + start daemon (admin prompt)
-    install_or_update_files(&helper_src)?;
-
-    // 4) Wait for socket (daemon should create it)
-    wait_for_socket(Duration::from_secs(4))?;
+    install_or_update_files(&helper_src, &plist_content)?;
+    wait_for_socket(Duration::from_secs(6))?;
 
     Ok(())
 }
 
-/// Resolve helper binary shipped with the app.
-/// We try Resource dir first (recommended for production), then fall back to CARGO_MANIFEST_DIR/bin for dev.
 fn resolve_packaged_helper<RT: Runtime>(app: &AppHandle<RT>) -> Result<PathBuf, String> {
-    // If you add this binary in tauri.conf.json -> bundle.resources, Resource is the right place.
+    let mut candidates: Vec<PathBuf> = Vec::new();
+
+    // Primary: signed bundled resource copy of the mac helper
     if let Ok(p) = app
         .path()
         .resolve("bin/stellar-vpn-helper-macos", BaseDirectory::Resource)
     {
-        if p.exists() {
-            return Ok(p);
+        candidates.push(p);
+    }
+
+    if let Ok(p) = app
+        .path()
+        .resolve("stellar-vpn-helper-macos", BaseDirectory::Resource)
+    {
+        candidates.push(p);
+    }
+
+    // Dev fallback: target/release helper
+    candidates.push(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("target")
+            .join("release")
+            .join("stellar-vpn-helper-macos"),
+    );
+
+    // Dev fallback: copied helper in src-tauri/bin
+    candidates.push(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("bin")
+            .join("stellar-vpn-helper-macos"),
+    );
+
+    for candidate in candidates {
+        if candidate.exists() {
+            return Ok(candidate);
         }
     }
 
-    // Dev fallback: src-tauri/bin/stellar-vpn-helper-macos (if build.rs copied it there)
-    let dev = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("bin")
-        .join("stellar-vpn-helper-macos");
-
-    if dev.exists() {
-        return Ok(dev);
-    }
-
     Err(
-        "macOS helper binary not found. Expected in app resources as bin/stellar-vpn-helper-macos or in src-tauri/bin/stellar-vpn-helper-macos."
+        "macOS helper binary not found. Expected in app resources as bin/stellar-vpn-helper-macos, or dev fallbacks in src-tauri/target/release or src-tauri/bin."
             .to_string(),
     )
 }
 
-/// Build LaunchDaemon plist content.
-/// Keep it minimal and LaunchDaemon-compatible.
 fn build_plist() -> String {
     format!(
         r#"<?xml version="1.0" encoding="UTF-8"?>
@@ -121,13 +131,7 @@ fn build_plist() -> String {
     )
 }
 
-/// Install helper + plist and start the daemon.
-/// IMPORTANT: No `sudo` inside this script. The whole script is already elevated via osascript.
-fn install_or_update_files(helper_src: &Path) -> Result<(), String> {
-    let plist_content = build_plist();
-
-    // We run everything inside one admin prompt.
-    // Also remove quarantine from the installed helper (common reason launchd refuses to run it).
+fn install_or_update_files(helper_src: &Path, plist_content: &str) -> Result<(), String> {
     let cmd = format!(
         r#"
 set -e
@@ -135,33 +139,26 @@ set -e
 mkdir -p /Library/PrivilegedHelperTools
 mkdir -p /Library/LaunchDaemons
 
-# install helper
 cp "{helper_src}" "{helper_dst}"
 chown root:wheel "{helper_dst}"
 chmod 755 "{helper_dst}"
 
-# remove quarantine (if present)
 xattr -dr com.apple.quarantine "{helper_dst}" 2>/dev/null || true
 
-# write plist
 cat > "{plist_path}" << 'PLISTEOF'
 {plist}
 PLISTEOF
 
 chown root:wheel "{plist_path}"
 chmod 644 "{plist_path}"
-
-# validate plist (prevents vague "Bootstrap failed: 5" issues)
 plutil -lint "{plist_path}"
 
-# ensure log files exist (optional)
 touch "{stdout_log}" "{stderr_log}" || true
 chmod 644 "{stdout_log}" "{stderr_log}" || true
 
-# stop previous instance (ignore errors)
-launchctl bootout system/{label} 2>/dev/null || true
+rm -f "{socket_path}" || true
 
-# load new
+launchctl bootout system/{label} 2>/dev/null || true
 launchctl bootstrap system "{plist_path}"
 launchctl kickstart -k system/{label}
 
@@ -173,13 +170,13 @@ exit 0
         plist = plist_content,
         label = LABEL,
         stdout_log = STDOUT_LOG,
-        stderr_log = STDERR_LOG
+        stderr_log = STDERR_LOG,
+        socket_path = SOCKET_PATH,
     );
 
     run_admin(&cmd)
 }
 
-/// Wait for the helper socket to appear.
 fn wait_for_socket(timeout: Duration) -> Result<(), String> {
     let start = Instant::now();
     while start.elapsed() < timeout {
@@ -194,8 +191,24 @@ fn wait_for_socket(timeout: Duration) -> Result<(), String> {
     ))
 }
 
-/// Run an elevated shell script through AppleScript.
-/// This will show the system password prompt.
+fn files_match(a: &Path, b: &Path) -> Result<bool, String> {
+    let a_bytes =
+        fs::read(a).map_err(|e| format!("Failed to read {}: {e}", a.display()))?;
+    let b_bytes =
+        fs::read(b).map_err(|e| format!("Failed to read {}: {e}", b.display()))?;
+    Ok(a_bytes == b_bytes)
+}
+
+fn plist_matches(path: &Path, expected: &str) -> Result<bool, String> {
+    let current = fs::read_to_string(path)
+        .map_err(|e| format!("Failed to read {}: {e}", path.display()))?;
+    Ok(normalize_newlines(&current).trim() == normalize_newlines(expected).trim())
+}
+
+fn normalize_newlines(s: &str) -> String {
+    s.replace("\r\n", "\n")
+}
+
 fn run_admin(script: &str) -> Result<(), String> {
     let osa = format!(
         r#"do shell script "{}" with administrator privileges"#,
@@ -220,18 +233,12 @@ fn run_admin(script: &str) -> Result<(), String> {
     ))
 }
 
-/// Escape a multi-line shell script so it can be embedded safely inside an AppleScript string.
-/// AppleScript string is wrapped in double quotes, so we must escape:
-/// - backslashes
-/// - double quotes
-/// - newlines to \n
 fn escape_for_osascript(s: &str) -> String {
     s.replace('\\', "\\\\")
         .replace('"', "\\\"")
         .replace('\n', "\\n")
 }
 
-/// Optional: Uninstall helper + daemon (useful for dev/reset).
 #[allow(dead_code)]
 pub fn uninstall_root_helper() -> Result<(), String> {
     let cmd = format!(
@@ -249,7 +256,7 @@ exit 0
         label = LABEL,
         plist_path = DAEMON_PLIST_PATH,
         helper_path = HELPER_INSTALL_PATH,
-        socket_path = SOCKET_PATH
+        socket_path = SOCKET_PATH,
     );
 
     run_admin(&cmd)
