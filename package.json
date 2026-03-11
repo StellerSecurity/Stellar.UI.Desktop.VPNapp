@@ -1,6 +1,6 @@
 {
   "name": "stellar-vpn",
-  "version": "0.1.7",
+  "version": "0.1.9",
   "private": true,
   "scripts": {
     "dev": "vite",
