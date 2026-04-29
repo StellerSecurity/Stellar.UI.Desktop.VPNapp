@@ -227,9 +227,32 @@ export async function handleVpnStatusNotification(status: string): Promise<void>
     if (
         !reconnectSuppressed &&
         previousStatus === 'connected' &&
+        status === 'waiting_network'
+    ) {
+        reconnectFlowActive = true;
+        clearReconnectFailureTimer();
+
+        if (now - lastReconnectNoticeAt > NOTICE_COOLDOWN_MS) {
+            lastReconnectNoticeAt = now;
+            await notify(
+                'Stellar VPN is waiting for internet',
+                'The VPN will reconnect automatically when your network returns.'
+            );
+        }
+        return;
+    }
+
+    if (
+        !reconnectSuppressed &&
+        previousStatus === 'connected' &&
         (status === 'disconnected' || status === 'connecting')
     ) {
         await startReconnectFlow();
+        return;
+    }
+
+    if (reconnectFlowActive && status === 'connecting') {
+        scheduleReconnectFailureTimeout();
         return;
     }
 

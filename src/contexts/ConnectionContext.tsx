@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode } from "react";
 
-type Status = "disconnected" | "connecting" | "connected";
+type Status = "disconnected" | "waiting_network" | "connecting" | "connected";
 
 interface ConnectionContextType {
   status: Status;

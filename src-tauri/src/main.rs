@@ -56,6 +56,7 @@ const MACOS_HELPER_SOCKET: &str = macos_installer::SOCKET_PATH;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum UiStatus {
     Disconnected,
+    WaitingNetwork,
     Connecting,
     Connected,
 }
@@ -64,6 +65,7 @@ impl UiStatus {
     fn as_str(&self) -> &'static str {
         match self {
             UiStatus::Disconnected => "disconnected",
+            UiStatus::WaitingNetwork => "waiting_network",
             UiStatus::Connecting => "connecting",
             UiStatus::Connected => "connected",
         }
@@ -88,6 +90,7 @@ struct VpnInner {
     session: Option<Session>,
     kill_switch_enabled: bool,
     disconnect_requested: bool,
+    desired_connected: bool,
     next_sid: u64,
     last_config_path: Option<String>,
     last_config_source: Option<String>,
@@ -108,6 +111,7 @@ impl Default for VpnInner {
             session: None,
             kill_switch_enabled: false,
             disconnect_requested: false,
+            desired_connected: false,
             next_sid: 1,
             last_config_path: None,
             last_config_source: None,
@@ -157,7 +161,7 @@ struct TrayHandles {
 fn tray_icon_for_status(st: UiStatus) -> Option<Image<'static>> {
     let bytes = match st {
         UiStatus::Connected => TRAY_ICON_ONLINE_BYTES,
-        UiStatus::Connecting | UiStatus::Disconnected => TRAY_ICON_OFFLINE_BYTES,
+        UiStatus::WaitingNetwork | UiStatus::Connecting | UiStatus::Disconnected => TRAY_ICON_OFFLINE_BYTES,
     };
     Image::from_bytes(bytes).ok()
 }
@@ -687,6 +691,94 @@ async fn get_primary_network_path() -> Option<NetworkPath> {
     })
 }
 
+async fn internet_is_reachable() -> Option<NetworkPath> {
+    let path = get_primary_network_path().await?;
+    if !base_network_path_is_usable(&path).await {
+        return None;
+    }
+
+    let reachable = time::timeout(
+        Duration::from_secs(3),
+        tokio::net::TcpStream::connect(("1.1.1.1", 443)),
+    )
+    .await
+    .ok()
+    .and_then(Result::ok)
+    .is_some();
+
+    if reachable { Some(path) } else { None }
+}
+
+async fn wait_for_internet(
+    app: &AppHandle<RT>,
+    state: &SharedState,
+    max_wait_secs: Option<u64>,
+) -> Option<NetworkPath> {
+    let start = time::Instant::now();
+    let mut logged_round = 0u64;
+    let mut stable_path: Option<NetworkPath> = None;
+    let mut stable_hits = 0u32;
+
+    loop {
+        let desired_connected = { state.lock().await.desired_connected };
+        if !desired_connected {
+            emit_log(app, "[ui] Network wait cancelled because VPN is no longer requested.");
+            return None;
+        }
+
+        if let Some(current) = internet_is_reachable().await {
+            if stable_path.as_ref() == Some(&current) {
+                stable_hits += 1;
+            } else {
+                emit_log(
+                    app,
+                    &format!(
+                        "[ui] Internet reachable on {}. Waiting for it to stabilize...",
+                        network_path_label(&current)
+                    ),
+                );
+                stable_path = Some(current.clone());
+                stable_hits = 1;
+            }
+
+            if stable_hits >= 2 {
+                let mut g = state.lock().await;
+                g.last_base_network_path = Some(current.clone());
+                g.network_loss_streak = 0;
+                return Some(current);
+            }
+        } else {
+            stable_path = None;
+            stable_hits = 0;
+        }
+
+        if let Some(max_wait_secs) = max_wait_secs {
+            let elapsed = start.elapsed().as_secs();
+            if elapsed >= max_wait_secs {
+                emit_log(
+                    app,
+                    "[ui] Internet did not come back in time. Stellar VPN will stay disconnected until you reconnect manually.",
+                );
+                return None;
+            }
+
+            if logged_round == 0 || logged_round % 5 == 4 {
+                emit_log(
+                    app,
+                    &format!(
+                        "[ui] Waiting for internet to return... {elapsed}s/{max_wait_secs}s"
+                    ),
+                );
+            }
+        } else if logged_round == 0 || logged_round % 10 == 9 {
+            emit_log(app, "[ui] Waiting for internet to return...");
+        }
+
+        logged_round += 1;
+        time::sleep(Duration::from_secs(1)).await;
+    }
+}
+
 // ---------------- Session lifecycle ----------------
 
 async fn set_status(state: &SharedState, app: &AppHandle<RT>, st: UiStatus) {
@@ -748,6 +840,7 @@ async fn set_error_and_disconnect(state: &SharedState, app: &AppHandle<RT>, msg:
     {
         let mut g = state.lock().await;
         g.status = UiStatus::Disconnected;
+        g.desired_connected = false;
         g.last_connected_at_ms = None;
     }
     emit_status(app, &format!("error: {msg}"));
@@ -878,7 +971,7 @@ async fn auto_reconnect_after_network_change(
     let remembered = {
         let mut g = state.lock().await;
 
-        if g.auto_reconnect_running {
+        if g.auto_reconnect_running || !g.desired_connected {
             return;
         }
 
@@ -902,7 +995,7 @@ async fn auto_reconnect_after_network_change(
         &app,
         "[ui] Stellar VPN is rebuilding the connection on the current network.",
     );
-    set_status(&state, &app, UiStatus::Connecting).await;
+    set_status(&state, &app, UiStatus::WaitingNetwork).await;
 
     #[cfg(target_os = "macos")]
     {
@@ -916,11 +1009,11 @@ async fn auto_reconnect_after_network_change(
         stop_current_session(&app, &state).await;
     }
 
-    if let Some(path) = wait_for_base_network(&app, &state, NETWORK_RECOVERY_WAIT_SECS).await {
+    if let Some(path) = wait_for_internet(&app, &state, None).await {
         emit_log(
             &app,
             &format!(
-                "[ui] Base network is stable on {}. Reconnecting VPN...",
+                "[ui] Internet is stable on {}. Reconnecting VPN...",
                 network_path_label(&path)
             ),
         );
@@ -992,8 +1085,10 @@ async fn monitor_network_health_once(
             return;
         }
 
-        let should_monitor = matches!(g.status, UiStatus::Connected | UiStatus::Connecting)
-            || g.session.is_some();
+        let should_monitor = matches!(
+            g.status,
+            UiStatus::Connected | UiStatus::Connecting | UiStatus::WaitingNetwork
+        ) || g.session.is_some();
 
         if !should_monitor {
             g.network_loss_streak = 0;
@@ -1024,6 +1119,11 @@ async fn monitor_network_health_once(
             }
             g.base_network_interrupted = true;
             g.network_loss_streak = 0;
+            if g.desired_connected {
+                g.status = UiStatus::WaitingNetwork;
+                emit_status(app, UiStatus::WaitingNetwork.as_str());
+                update_tray_ui(app, UiStatus::WaitingNetwork);
+            }
             return;
         }
 
@@ -1229,7 +1329,19 @@ async fn run_openvpn_session(
           _ = time::sleep_until(watchdog_deadline), if !init_done => {
             emit_log(&app, &format!("[ui] Connect watchdog fired after {watchdog_ms}ms"));
             terminate_child_gracefully(&app, &mut child, "OpenVPN").await;
-            set_error_and_disconnect(&state, &app, format!("Connect timed out after {watchdog_ms}ms (no Initialization Sequence Completed).")).await;
+
+            let desired_connected = { state.lock().await.desired_connected };
+            if desired_connected && internet_is_reachable().await.is_none() {
+              {
+                let mut g = state.lock().await;
+                g.base_network_interrupted = true;
+                g.network_loss_streak = 0;
+              }
+              emit_log(&app, "[ui] OpenVPN timed out because internet is unavailable. Waiting for network instead of failing.");
+              set_status(&state, &app, UiStatus::WaitingNetwork).await;
+            } else {
+              set_error_and_disconnect(&state, &app, format!("Connect timed out after {watchdog_ms}ms (no Initialization Sequence Completed).")).await;
+            }
             break;
           }
 
@@ -1247,7 +1359,18 @@ async fn run_openvpn_session(
             };
 
             if !manual && !init_done {
-              set_error_and_disconnect(&state, &app, format!("OpenVPN exited before connection was established (code={code}).")).await;
+              let desired_connected = { state.lock().await.desired_connected };
+              if desired_connected && internet_is_reachable().await.is_none() {
+                {
+                  let mut g = state.lock().await;
+                  g.base_network_interrupted = true;
+                  g.network_loss_streak = 0;
+                }
+                emit_log(&app, "[ui] OpenVPN exited before connecting because internet is unavailable. Waiting for network instead of failing.");
+                set_status(&state, &app, UiStatus::WaitingNetwork).await;
+              } else {
+                set_error_and_disconnect(&state, &app, format!("OpenVPN exited before connection was established (code={code}).")).await;
+              }
             } else {
               set_status(&state, &app, UiStatus::Disconnected).await;
             }
@@ -1301,8 +1424,6 @@ async fn vpn_connect_inner(
             return Err("username/password are required".to_string());
         }
 
-        let current_base_network = get_primary_network_path().await;
-
         let (ks_enabled, cur_status, last_src, last_cached) = {
             let g = state.lock().await;
             (
@@ -1311,6 +1432,36 @@ async fn vpn_connect_inner(
                 g.last_config_source.clone(),
                 g.last_config_path.clone(),
             )
+        };
+
+        {
+            let mut g = state.lock().await;
+            g.desired_connected = true;
+            g.disconnect_requested = false;
+            g.last_config_source = Some(cfg_source.clone());
+            g.last_username = Some(username.clone());
+            g.last_password = Some(password.clone());
+        }
+
+        let current_base_network = if !ks_enabled {
+            match internet_is_reachable().await {
+                Some(path) => Some(path),
+                None => {
+                    {
+                        let mut g = state.lock().await;
+                        g.base_network_interrupted = true;
+                        g.network_loss_streak = 0;
+                    }
+                    emit_log(
+                        &app,
+                        "[ui] No usable internet connection. Stellar VPN will wait and connect automatically when internet returns.",
+                    );
+                    set_status(state, &app, UiStatus::WaitingNetwork).await;
+                    return Ok(());
+                }
+            }
+        } else {
+            get_primary_network_path().await
         };
 
         let sid = {
@@ -1593,6 +1744,7 @@ async fn vpn_disconnect(
     {
         {
             let mut g = state.lock().await;
+            g.desired_connected = false;
             g.disconnect_requested = true;
             g.last_connected_at_ms = None;
         }
@@ -1612,6 +1764,10 @@ async fn vpn_disconnect(
 
     #[cfg(not(target_os = "macos"))]
     {
+        {
+            let mut g = state.lock().await;
+            g.desired_connected = false;
+        }
         stop_current_session(&app, state.inner()).await;
         Ok(())
     }

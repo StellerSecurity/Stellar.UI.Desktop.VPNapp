@@ -7,7 +7,7 @@ import {
 } from "react-simple-maps";
 import { geoCentroid } from "d3-geo";
 
-type UiStatus = "disconnected" | "connecting" | "connected";
+type UiStatus = "disconnected" | "waiting_network" | "connecting" | "connected";
 
 type Props = {
     focusCountryCode?: string | null;
@@ -54,7 +54,7 @@ export const VpnWorldMap: React.FC<Props> = ({
     const selectedCC = upper(selectedCountryCode);
 
     const isConnected = connectionStatus === "connected";
-    const isConnecting = connectionStatus === "connecting";
+    const isConnecting = connectionStatus === "connecting" || connectionStatus === "waiting_network";
 
     // Default view (world-ish)
     const defaultCenter: [number, number] = [0, 20];

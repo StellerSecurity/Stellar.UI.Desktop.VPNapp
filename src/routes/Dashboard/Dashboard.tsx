@@ -42,14 +42,17 @@ const OTA_MANUAL_ONLY = OTA_TARGET === "deb" || OTA_TARGET === "rpm";
 const DEFAULT_OVPN_URL =
     "https://stellarvpnserverstorage.blob.core.windows.net/openvpn/stellar-switzerland.ovpn";
 
-const CONNECT_TIMEOUT_MS = 10_000;
-
-type UiStatus = "disconnected" | "connecting" | "connected";
+type UiStatus = "disconnected" | "waiting_network" | "connecting" | "connected";
 type UpdateMode = "none" | "ota" | "manual";
 
 const normalizeStatus = (s: unknown): UiStatus | null => {
   if (typeof s !== "string") return null;
-  if (s === "connected" || s === "connecting" || s === "disconnected") return s;
+  if (
+    s === "connected" ||
+    s === "waiting_network" ||
+    s === "connecting" ||
+    s === "disconnected"
+  ) return s;
   return null;
 };
 
@@ -138,7 +141,9 @@ export const Dashboard: React.FC = () => {
   const pendingUpdateRef = useRef<any>(null);
 
   const isConnected = status === "connected";
+  const isWaitingNetwork = status === "waiting_network";
   const isConnecting = status === "connecting";
+  const isConnectBusy = isConnecting || isWaitingNetwork;
 
   // Treat expired as either explicit `expired === true` OR days_remaining <= 0
   const isExpired =
@@ -176,7 +181,6 @@ export const Dashboard: React.FC = () => {
   }, [location.key]);
 
   // Connect attempt tracking + watchdog (prevents infinite "Connecting...")
-  const connectAttemptIdRef = useRef<number>(0);
   const connectInFlightRef = useRef(false);
   const selectedServerNameRef = useRef<string | null>(null);
   const pendingConnectedNotificationServerRef = useRef<string | null>(null);
@@ -316,7 +320,7 @@ export const Dashboard: React.FC = () => {
 
       if (ui) {
         setStatus(ui);
-        if (ui === "connecting") {
+        if (ui === "connecting" || ui === "waiting_network") {
           connectInFlightRef.current = true;
         } else {
           clearConnectInFlight();
@@ -485,44 +489,17 @@ export const Dashboard: React.FC = () => {
     }
   }, [appendLog, updateBusy]);
 
-  const startConnectWatchdog = useCallback(
-      (attemptId: number) => {
-        window.setTimeout(async () => {
-          if (connectAttemptIdRef.current !== attemptId) return;
-          if (statusRef.current !== "connecting") return;
-
-          try {
-            appendLog(`[ui] Connect watchdog fired after ${CONNECT_TIMEOUT_MS}ms`);
-            await invoke("vpn_disconnect").catch(() => {});
-          } finally {
-            clearPendingConnectedNotification();
-            setConnectError("VPN connect timed out. Check OpenVPN logs and kill switch permissions.");
-            if (SHOW_VPN_LOGS) {
-              setShowLogs(true);
-            }
-            setStatus("disconnected");
-            setManualDisabled(true);
-          }
-        }, CONNECT_TIMEOUT_MS);
-      },
-      [appendLog, setStatus, setManualDisabled, clearPendingConnectedNotification]
-  );
-
   const startConnect = useCallback(
       async (configPath: string) => {
         if (!isTauri()) return;
         if (connectInFlightRef.current) return;
 
         connectInFlightRef.current = true;
-        connectAttemptIdRef.current += 1;
-        const attemptId = connectAttemptIdRef.current;
-
         setConnectError(null);
         if (SHOW_VPN_LOGS) {
           setShowLogs(true);
         }
         setStatus("connecting");
-        startConnectWatchdog(attemptId);
 
         appendLog(`[ui] Connecting using config: ${configPath}`);
 
@@ -538,7 +515,6 @@ export const Dashboard: React.FC = () => {
             setShowLogs(true);
           }
           setStatus("disconnected");
-          setManualDisabled(true);
           return;
         }
 
@@ -560,15 +536,12 @@ export const Dashboard: React.FC = () => {
             setShowLogs(true);
           }
           setStatus("disconnected");
-          setManualDisabled(true);
         }
       },
       [
         appendLog,
         clearConnectInFlight,
         setStatus,
-        startConnectWatchdog,
-        setManualDisabled,
         clearPendingConnectedNotification,
       ]
   );
@@ -591,7 +564,7 @@ export const Dashboard: React.FC = () => {
 
         const ui = normalizeStatus(s);
         if (ui) {
-          if (ui === "connecting") {
+          if (ui === "connecting" || ui === "waiting_network") {
             connectInFlightRef.current = true;
           } else {
             clearConnectInFlight();
@@ -669,7 +642,7 @@ export const Dashboard: React.FC = () => {
 
     await syncBackendStatus();
     const current = statusRef.current;
-    if (current === "connected" || current === "connecting") return;
+    if (current === "connected" || current === "connecting" || current === "waiting_network") return;
 
     if (isExpired) {
       setShowExpiredModal(true);
@@ -786,7 +759,7 @@ export const Dashboard: React.FC = () => {
       const configPath = getSelectedConfigPath(selectedServer) || DEFAULT_OVPN_URL;
 
       const current = statusRef.current;
-      if (current === "connected" || current === "connecting") {
+      if (current === "connected" || current === "connecting" || current === "waiting_network") {
         markManualVpnDisconnect();
         clearPendingConnectedNotification();
         clearConnectInFlight();
@@ -834,7 +807,7 @@ export const Dashboard: React.FC = () => {
         const backendUi = normalizeStatus(backend);
         const current = backendUi ?? statusRef.current;
 
-        if (current === "connecting") return;
+        if (current === "connecting" || current === "waiting_network") return;
         if (current !== "disconnected") return;
 
         const selectedServer = await getSelectedServer();
@@ -994,7 +967,7 @@ export const Dashboard: React.FC = () => {
             className={`absolute top-0 left-0 w-full h-[280px] z-10 ${
                 isConnected
                     ? "bg-[linear-gradient(to_bottom,rgba(0,178,82,0.62)_0%,rgba(0,178,82,0)_100%)]"
-                    : isConnecting
+                    : isConnectBusy
                         ? "bg-[linear-gradient(to_bottom,rgba(11,12,25,0.55)_0%,rgba(11,12,25,0)_100%)]"
                         : "bg-[linear-gradient(to_bottom,rgba(225,0,0,0.60)_0%,rgba(225,0,0,0)_100%)]"
             }`}
@@ -1047,6 +1020,8 @@ export const Dashboard: React.FC = () => {
                     <img src="/icons/secured.svg" alt="Secured" className="w-10 h-10" />
                     <span>Secured connection</span>
                   </>
+              ) : isWaitingNetwork ? (
+                  <span>Waiting for network...</span>
               ) : isConnecting ? (
                   <span>Connecting...</span>
               ) : (
@@ -1065,7 +1040,7 @@ export const Dashboard: React.FC = () => {
                   className={`absolute inset-0 rounded-full blur-md ${
                       isConnected
                           ? "bg-emerald-400/25 animate-ring-pulse motion-reduce:animate-none"
-                          : isConnecting
+                          : isConnectBusy
                               ? "bg-[#62626A]/25 animate-ring-breathe motion-reduce:animate-none"
                               : "bg-[#E10000]/20"
                   }`}
@@ -1075,7 +1050,7 @@ export const Dashboard: React.FC = () => {
                   className={`relative h-20 w-20 rounded-full flex items-center justify-center ${
                       isConnected
                           ? "bg-[radial-gradient(circle,rgba(0,178,82,0)_0%,rgba(0,178,82,0)_40%,rgba(0,178,82,0.6)_100%)] animate-ring-pulse motion-reduce:animate-none"
-                          : isConnecting
+                          : isConnectBusy
                               ? "bg-[radial-gradient(circle,rgba(98,98,106,0)_0%,rgba(98,98,106,0)_40%,rgba(98,98,106,1)_100%)] animate-ring-breathe motion-reduce:animate-none"
                               : "bg-[radial-gradient(circle,rgba(225,0,0,0)_0%,rgba(225,0,0,0)_40%,rgba(225,0,0,0.6)_100%)]"
                   }`}
@@ -1085,7 +1060,7 @@ export const Dashboard: React.FC = () => {
                       className={`h-5 w-5 rounded-full ${
                           isConnected
                               ? "bg-emerald-400 animate-dot-beat motion-reduce:animate-none"
-                              : isConnecting
+                              : isConnectBusy
                                   ? "bg-[#62626A] animate-dot-beat motion-reduce:animate-none"
                                   : "bg-[#E10000]"
                       }`}
@@ -1125,7 +1100,7 @@ export const Dashboard: React.FC = () => {
                 className={`!text-[15px] h-[46px] ${
                     isConnected && "!bg-white border border-[#E10000] !text-[#E10000]"
                 } ${
-                    isConnecting &&
+                    isConnectBusy &&
                     "!bg-white border !disabled:opacity-100 border-gray-300 !text-gray-500"
                 }`}
                 onClick={handleConnectToggle}
@@ -1133,6 +1108,11 @@ export const Dashboard: React.FC = () => {
             >
               {isConnected ? (
                   "Disconnect"
+              ) : isWaitingNetwork ? (
+                  <span className="inline-flex items-center justify-center gap-2">
+                <Spinner className="w-4 h-4" />
+                <span>Waiting for network</span>
+              </span>
               ) : isConnecting ? (
                   <span className="inline-flex items-center justify-center gap-2">
                 <Spinner className="w-4 h-4" />

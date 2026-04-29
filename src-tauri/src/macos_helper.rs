@@ -124,8 +124,11 @@ async fn apply_helper_status(
             let should_auto_reconnect = {
                 let mut g = state.lock().await;
 
-                let was_live_connection =
-                    g.status == crate::UiStatus::Connected || g.last_connected_at_ms.is_some();
+                let should_keep_connected = g.desired_connected;
+                let was_live_connection = g.status == crate::UiStatus::Connected
+                    || g.status == crate::UiStatus::Connecting
+                    || g.status == crate::UiStatus::WaitingNetwork
+                    || g.last_connected_at_ms.is_some();
 
                 let manual_disconnect = g.disconnect_requested;
                 let reconnect_already_running = g.auto_reconnect_running;
@@ -137,7 +140,8 @@ async fn apply_helper_status(
                     g.disconnect_requested = false;
                 }
 
-                was_live_connection
+                (was_live_connection || should_keep_connected)
+                    && should_keep_connected
                     && !manual_disconnect
                     && !reconnect_already_running
                     && !connect_request_running
@@ -272,7 +276,17 @@ pub fn spawn_helper_subscriber(
 
                 match serde_json::from_str::<HelperEvent>(msg) {
                     Ok(HelperEvent::Log { line }) => {
+                        let auth_failed = line.contains("AUTH_FAILED") || line.contains("auth-failure");
                         emit_log(&app, &line);
+
+                        if auth_failed {
+                            crate::set_error_and_disconnect(
+                                &state,
+                                &app,
+                                "OpenVPN authentication failed (AUTH_FAILED).".to_string(),
+                            )
+                            .await;
+                        }
                     }
                     Ok(HelperEvent::Status { status }) => {
                         apply_helper_status(&app, &state, &status).await;
