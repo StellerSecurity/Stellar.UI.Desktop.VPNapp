@@ -1,21 +1,15 @@
-﻿[Stellar VPN] Elevated helper setup started: 2026-05-14T13:16:47.2441934+02:00
-[Stellar VPN] Helper exe: C:\Users\bbbb\WebstormProjects\new\Stellar.UI.Desktop.VPNapp\src-tauri\target\debug\stellar-vpn-helper-windows.exe
+﻿[Stellar VPN] Elevated helper setup started: 2026-05-14T13:39:27.8358845+02:00
+[Stellar VPN] Bundled helper exe: C:\Users\bbbb\WebstormProjects\new\Stellar.UI.Desktop.VPNapp\src-tauri\bin\stellar-vpn-helper-windows.exe
+[Stellar VPN] Service helper exe: C:\Users\bbbb\WebstormProjects\new\Stellar.UI.Desktop.VPNapp\target\stellar-vpn-windows-dev\service\stellar-vpn-helper-windows.exe
 [Stellar VPN] OpenVPN MSI: C:\Users\bbbb\WebstormProjects\new\Stellar.UI.Desktop.VPNapp\src-tauri\external\windows\OpenVPN-2.7.4-I001-amd64.msi
+[Stellar VPN] Installing OpenVPN engine...
+[Stellar VPN] OpenVPN installer exit code: 0
 [Stellar VPN] Removing existing helper service if present...
+[sc.exe] [SC] EnumQueryServicesStatus:OpenService FAILED 1060:
 [sc.exe] 
-[sc.exe] SERVICE_NAME: StellarVpnHelper 
-[sc.exe]         TYPE               : 10  WIN32_OWN_PROCESS  
-[sc.exe]         STATE              : 1  STOPPED 
-[sc.exe]         WIN32_EXIT_CODE    : 1077  (0x435)
-[sc.exe]         SERVICE_EXIT_CODE  : 0  (0x0)
-[sc.exe]         CHECKPOINT         : 0x0
-[sc.exe]         WAIT_HINT          : 0x0
-[sc.exe] [SC] ControlService FAILED 1062:
+[sc.exe] Den angivne tjeneste findes ikke som en installeret tjeneste.
 [sc.exe] 
-[sc.exe] Tjenesten er ikke blevet startet.
-[sc.exe] 
-[sc.exe] [SC] DeleteService SUCCESS
-[Stellar VPN] sc delete exit code: 0
+[Stellar VPN] Copied helper service binary: C:\Users\bbbb\WebstormProjects\new\Stellar.UI.Desktop.VPNapp\target\stellar-vpn-windows-dev\service\stellar-vpn-helper-windows.exe
 [Stellar VPN] Creating helper service...
 [sc.exe] [SC] CreateService SUCCESS
 [Stellar VPN] sc create exit code: 0
@@ -30,7 +24,7 @@
 [sc.exe]         SERVICE_EXIT_CODE  : 0  (0x0)
 [sc.exe]         CHECKPOINT         : 0x0
 [sc.exe]         WAIT_HINT          : 0x0
-[sc.exe]         PID                : 17620
+[sc.exe]         PID                : 8588
 [sc.exe]         FLAGS              : 
 [Stellar VPN] sc start exit code: 0
-[Stellar VPN] Elevated helper setup completed: 2026-05-14T13:16:51.8577098+02:00
+[Stellar VPN] Elevated helper setup completed: 2026-05-14T13:39:34.5043664+02:00

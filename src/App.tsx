@@ -15,6 +15,7 @@ import { Dashboard } from "./routes/Dashboard/Dashboard";
 import { ChangeLocation } from "./routes/Dashboard/ChangeLocation";
 import { Profile } from "./routes/Dashboard/Profile";
 import { Subscribe } from "./routes/Dashboard/Subscribe";
+import { WindowsSetupGate } from "./components/windows/WindowsSetupGate";
 
 
 function AppContent() {
@@ -38,6 +39,7 @@ function AppContent() {
         className={`w-[312px] h-[640px] ${getBackgroundImage()} bg-cover bg-no-repeat overflow-hidden relative`}
       >
         <div className="relative h-full w-full">
+          <WindowsSetupGate>
           <Routes>
             <Route path="/" element={<RootRedirect />} />
             <Route
@@ -108,6 +110,7 @@ function AppContent() {
               }
             />
           </Routes>
+          </WindowsSetupGate>
         </div>
       </div>
     </div>

@@ -2,13 +2,15 @@ $ErrorActionPreference = "Stop"
 
 $root = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\.."))
 $tauriDir = Join-Path $root "src-tauri"
-$helperExe = Join-Path $tauriDir "target\debug\stellar-vpn-helper-windows.exe"
+$targetHelperExe = Join-Path $tauriDir "target\windows-helper-dev-build\debug\stellar-vpn-helper-windows.exe"
 $bundledHelperDir = Join-Path $tauriDir "bin"
 $bundledHelperExe = Join-Path $bundledHelperDir "stellar-vpn-helper-windows.exe"
 $openVpnPath = "C:\Program Files\OpenVPN\bin\openvpn.exe"
 $msiPath = Join-Path $tauriDir "external\windows\OpenVPN-2.7.4-I001-amd64.msi"
 $serviceName = "StellarVpnHelper"
 $logDir = Join-Path $root "target\stellar-vpn-windows-dev"
+$devServiceDir = Join-Path $logDir "service"
+$devServiceExe = Join-Path $devServiceDir "stellar-vpn-helper-windows.exe"
 $elevatedLog = Join-Path $logDir "helper-setup-elevated.log"
 
 function Test-IsAdmin {
@@ -36,11 +38,12 @@ function Install-HelperAndEngine {
     New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 
     "[Stellar VPN] Elevated helper setup started: $(Get-Date -Format o)" | Out-File -FilePath $elevatedLog -Encoding UTF8
-    "[Stellar VPN] Helper exe: $helperExe" | Out-File -FilePath $elevatedLog -Append -Encoding UTF8
+    "[Stellar VPN] Bundled helper exe: $bundledHelperExe" | Out-File -FilePath $elevatedLog -Append -Encoding UTF8
+    "[Stellar VPN] Service helper exe: $devServiceExe" | Out-File -FilePath $elevatedLog -Append -Encoding UTF8
     "[Stellar VPN] OpenVPN MSI: $msiPath" | Out-File -FilePath $elevatedLog -Append -Encoding UTF8
 
-    if (!(Test-Path $helperExe)) {
-        "[Stellar VPN] Helper binary missing: $helperExe" | Out-File -FilePath $elevatedLog -Append -Encoding UTF8
+    if (!(Test-Path $bundledHelperExe)) {
+        "[Stellar VPN] Helper binary missing: $bundledHelperExe" | Out-File -FilePath $elevatedLog -Append -Encoding UTF8
         exit 10
     }
 
@@ -78,12 +81,16 @@ function Install-HelperAndEngine {
         Start-Sleep -Seconds 2
     }
 
+    New-Item -ItemType Directory -Force -Path $devServiceDir | Out-Null
+    Copy-Item -Force $bundledHelperExe $devServiceExe
+    "[Stellar VPN] Copied helper service binary: $devServiceExe" | Out-File -FilePath $elevatedLog -Append -Encoding UTF8
+
     "[Stellar VPN] Creating helper service..." | Out-File -FilePath $elevatedLog -Append -Encoding UTF8
     $createCode = Invoke-Sc -Arguments @(
         "create",
         $serviceName,
         "binPath=",
-        "`"$helperExe`"",
+        "`"$devServiceExe`"",
         "start=",
         "auto",
         "DisplayName=",
@@ -120,18 +127,18 @@ if (!(Test-Path $bundledHelperExe)) {
 Write-Host "[Stellar VPN] Building Windows helper service..."
 Push-Location $tauriDir
 try {
-    cargo build --bin stellar-vpn-helper-windows
+    cargo build --target-dir target\windows-helper-dev-build --bin stellar-vpn-helper-windows
 }
 finally {
     Pop-Location
 }
 
-if (!(Test-Path $helperExe)) {
-    Write-Error "[Stellar VPN] Helper binary was not built: $helperExe"
+if (!(Test-Path $targetHelperExe)) {
+    Write-Error "[Stellar VPN] Helper binary was not built: $targetHelperExe"
     exit 1
 }
 
-Copy-Item -Force $helperExe $bundledHelperExe
+Copy-Item -Force $targetHelperExe $bundledHelperExe
 Write-Host "[Stellar VPN] Bundled Windows helper: $bundledHelperExe"
 
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null

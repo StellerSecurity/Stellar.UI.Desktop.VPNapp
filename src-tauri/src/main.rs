@@ -1721,6 +1721,88 @@ async fn windows_helper_openvpn_is_running() -> bool {
         .is_some()
 }
 
+
+#[derive(serde::Serialize)]
+struct WindowsSetupStatus {
+    supported: bool,
+    ready: bool,
+    openvpn_installed: bool,
+    helper_running: bool,
+    message: String,
+}
+
+#[cfg(target_os = "windows")]
+async fn windows_setup_status_inner(app: &AppHandle<RT>) -> WindowsSetupStatus {
+    let openvpn_installed = resolve_openvpn_binary(app).is_ok();
+    let helper_running = windows_helper_request(serde_json::json!({ "cmd": "status" }))
+        .await
+        .is_ok();
+    let ready = openvpn_installed && helper_running;
+
+    let message = if ready {
+        "Windows secure setup is complete.".to_string()
+    } else if !openvpn_installed && !helper_running {
+        "Stellar VPN needs one-time administrator permission to install the Windows VPN engine and helper.".to_string()
+    } else if !openvpn_installed {
+        "Stellar VPN needs one-time administrator permission to install the Windows VPN engine.".to_string()
+    } else {
+        "Stellar VPN needs one-time administrator permission to install and start the Windows helper.".to_string()
+    };
+
+    WindowsSetupStatus {
+        supported: true,
+        ready,
+        openvpn_installed,
+        helper_running,
+        message,
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn windows_dev_setup_script() -> Option<PathBuf> {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .map(Path::to_path_buf)?;
+    let script = root
+        .join("scripts")
+        .join("windows")
+        .join("ensure-helper-dev.ps1");
+
+    if script.exists() {
+        Some(script)
+    } else {
+        None
+    }
+}
+
+#[cfg(target_os = "windows")]
+async fn windows_run_setup_script(script: &Path) -> Result<(), String> {
+    let script_arg = script.to_string_lossy().to_string();
+    let command = format!(
+        "$ErrorActionPreference = 'Stop'; $p = Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',{}) -Verb RunAs -Wait -PassThru; exit $p.ExitCode",
+        powershell_single_quote(&script_arg),
+    );
+
+    let out = Command::new("powershell.exe")
+        .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &command])
+        .output()
+        .await
+        .map_err(|e| format!("Failed to start Windows secure setup: {e}"))?;
+
+    if out.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
+        let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        let detail = if !stderr.is_empty() { stderr } else { stdout };
+        if detail.is_empty() {
+            Err("Windows secure setup was cancelled or failed.".to_string())
+        } else {
+            Err(format!("Windows secure setup failed: {detail}"))
+        }
+    }
+}
+
 #[cfg(target_os = "windows")]
 async fn run_openvpn_session(
     app: AppHandle<RT>,
@@ -2093,6 +2175,63 @@ async fn vpn_connect_inner(
 }
 
 #[tauri::command]
+async fn windows_setup_status(app: AppHandle<RT>) -> Result<WindowsSetupStatus, String> {
+    #[cfg(target_os = "windows")]
+    {
+        return Ok(windows_setup_status_inner(&app).await);
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = app;
+        Ok(WindowsSetupStatus {
+            supported: false,
+            ready: true,
+            openvpn_installed: true,
+            helper_running: true,
+            message: "Windows setup is not required on this platform.".to_string(),
+        })
+    }
+}
+
+#[tauri::command]
+async fn windows_setup_start(app: AppHandle<RT>) -> Result<WindowsSetupStatus, String> {
+    #[cfg(target_os = "windows")]
+    {
+        let current = windows_setup_status_inner(&app).await;
+        if current.ready {
+            return Ok(current);
+        }
+
+        let script = windows_dev_setup_script().ok_or_else(|| {
+            "Windows secure setup is incomplete. Reinstall Stellar VPN with the Windows setup.exe installer.".to_string()
+        })?;
+
+        emit_log(&app, "[windows] Starting one-time Windows secure setup...");
+        windows_run_setup_script(&script).await?;
+        let status = windows_setup_status_inner(&app).await;
+        if status.ready {
+            emit_log(&app, "[windows] Windows secure setup completed.");
+            Ok(status)
+        } else {
+            Err(status.message)
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = app;
+        Ok(WindowsSetupStatus {
+            supported: false,
+            ready: true,
+            openvpn_installed: true,
+            helper_running: true,
+            message: "Windows setup is not required on this platform.".to_string(),
+        })
+    }
+}
+
+#[tauri::command]
 fn chmod_exec(path: String) -> Result<(), String> {
     #[cfg(unix)]
     {
@@ -2422,6 +2561,8 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            windows_setup_status,
+            windows_setup_start,
             chmod_exec,
             install_appimage_linux,
             vpn_prefetch_config,
