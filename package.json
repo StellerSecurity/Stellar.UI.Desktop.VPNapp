@@ -4,13 +4,16 @@
   "private": true,
   "scripts": {
     "dev": "vite",
-    "build": "vite build && tauri build",
+    "build": "npm run build:web && npm run windows:helper:release && tauri build",
     "build:web": "vite build",
-    "tauri:dev": "tauri dev",
+    "windows:engine": "node scripts/windows/ensure-helper-dev.js",
+    "tauri:dev": "npm run windows:helper:dev && tauri dev",
     "tauri": "tauri",
-    "tauri:build": "tauri build",
+    "tauri:build": "npm run windows:helper:release && tauri build",
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "windows:helper:dev": "node scripts/windows/ensure-helper-dev.js",
+    "windows:helper:release": "node scripts/windows/build-helper-release.js"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",

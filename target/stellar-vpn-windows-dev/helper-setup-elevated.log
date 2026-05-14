@@ -1,0 +1,36 @@
+﻿[Stellar VPN] Elevated helper setup started: 2026-05-14T13:16:47.2441934+02:00
+[Stellar VPN] Helper exe: C:\Users\bbbb\WebstormProjects\new\Stellar.UI.Desktop.VPNapp\src-tauri\target\debug\stellar-vpn-helper-windows.exe
+[Stellar VPN] OpenVPN MSI: C:\Users\bbbb\WebstormProjects\new\Stellar.UI.Desktop.VPNapp\src-tauri\external\windows\OpenVPN-2.7.4-I001-amd64.msi
+[Stellar VPN] Removing existing helper service if present...
+[sc.exe] 
+[sc.exe] SERVICE_NAME: StellarVpnHelper 
+[sc.exe]         TYPE               : 10  WIN32_OWN_PROCESS  
+[sc.exe]         STATE              : 1  STOPPED 
+[sc.exe]         WIN32_EXIT_CODE    : 1077  (0x435)
+[sc.exe]         SERVICE_EXIT_CODE  : 0  (0x0)
+[sc.exe]         CHECKPOINT         : 0x0
+[sc.exe]         WAIT_HINT          : 0x0
+[sc.exe] [SC] ControlService FAILED 1062:
+[sc.exe] 
+[sc.exe] Tjenesten er ikke blevet startet.
+[sc.exe] 
+[sc.exe] [SC] DeleteService SUCCESS
+[Stellar VPN] sc delete exit code: 0
+[Stellar VPN] Creating helper service...
+[sc.exe] [SC] CreateService SUCCESS
+[Stellar VPN] sc create exit code: 0
+[sc.exe] [SC] ChangeServiceConfig2 SUCCESS
+[Stellar VPN] Starting helper service...
+[sc.exe] 
+[sc.exe] SERVICE_NAME: StellarVpnHelper 
+[sc.exe]         TYPE               : 10  WIN32_OWN_PROCESS  
+[sc.exe]         STATE              : 4  RUNNING 
+[sc.exe]                                 (STOPPABLE, NOT_PAUSABLE, ACCEPTS_SHUTDOWN)
+[sc.exe]         WIN32_EXIT_CODE    : 0  (0x0)
+[sc.exe]         SERVICE_EXIT_CODE  : 0  (0x0)
+[sc.exe]         CHECKPOINT         : 0x0
+[sc.exe]         WAIT_HINT          : 0x0
+[sc.exe]         PID                : 17620
+[sc.exe]         FLAGS              : 
+[Stellar VPN] sc start exit code: 0
+[Stellar VPN] Elevated helper setup completed: 2026-05-14T13:16:51.8577098+02:00

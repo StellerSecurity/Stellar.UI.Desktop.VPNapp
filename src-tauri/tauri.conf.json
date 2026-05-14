@@ -5,7 +5,7 @@
   "identifier": "org.stellarsecurity.vpn.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build:web",
+    "beforeBuildCommand": "npm run build:web && npm run windows:helper:release",
     "devUrl": "http://localhost:5176",
     "frontendDist": "../dist"
   },
@@ -23,7 +23,9 @@
     ],
     "security": {
       "csp": null,
-      "capabilities": ["main-capability"]
+      "capabilities": [
+        "main-capability"
+      ]
     }
   },
   "plugins": {
@@ -43,7 +45,6 @@
       "appimage",
       "app",
       "dmg",
-      "msi",
       "nsis"
     ],
     "icon": [
@@ -57,7 +58,9 @@
       "bin/openvpn-aarch64-apple-darwin",
       "bin/openvpn-x86_64-apple-darwin",
       "bin/openvpn-x86_64-unknown-linux-gnu",
-      "bin/stellar-vpn-helper-macos"
+      "bin/stellar-vpn-helper-macos",
+      "external/windows/OpenVPN-2.7.4-I001-amd64.msi",
+      "bin/stellar-vpn-helper-windows.exe"
     ],
     "macOS": {
       "signingIdentity": "Developer ID Application: North Star Swiss SA (7VYLUCU756)",
@@ -71,7 +74,11 @@
           "/usr/share/polkit-1/actions/org.stellarsecurity.vpn.desktop.helper.policy": "assets/linux/polkit/org.stellarsecurity.vpn.desktop.helper.policy",
           "/usr/share/polkit-1/rules.d/50-stellar-vpn.rules": "assets/linux/polkit/50-stellar-vpn.rules"
         },
-        "depends": ["libcap2-bin", "policykit-1", "nftables"],
+        "depends": [
+          "libcap2-bin",
+          "policykit-1",
+          "nftables"
+        ],
         "postInstallScript": "scripts/linux/postinst.sh",
         "preRemoveScript": "scripts/linux/prerm.sh"
       },
@@ -81,9 +88,19 @@
           "/usr/libexec/stellar-vpn/stellar-vpn-helper": "target/release/stellar-vpn-helper",
           "/usr/share/polkit-1/actions/org.stellarsecurity.vpn.desktop.helper.policy": "assets/linux/polkit/org.stellarsecurity.vpn.desktop.helper.policy"
         },
-        "depends": ["libcap", "polkit", "nftables"],
+        "depends": [
+          "libcap",
+          "polkit",
+          "nftables"
+        ],
         "postInstallScript": "scripts/linux/postinst.sh",
         "preRemoveScript": "scripts/linux/prerm.sh"
+      }
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "perMachine",
+        "installerHooks": "installer/windows/openvpn.nsh"
       }
     }
   }
