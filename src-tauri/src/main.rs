@@ -25,7 +25,7 @@ use tauri::{
 };
 
 use tokio::{
-    io::{AsyncBufReadExt, BufReader},
+    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     process::Command,
     sync::Mutex,
     time,
@@ -399,6 +399,38 @@ const OPENVPN_REL: &str = "bin/openvpn-x86_64-apple-darwin";
 const OPENVPN_REL: &str = "openvpn";
 
 fn resolve_openvpn_binary(app: &AppHandle<RT>) -> Result<PathBuf, String> {
+    #[cfg(target_os = "windows")]
+    {
+        // Windows must never rely on PATH. Stellar either uses an app-bundled
+        // OpenVPN runtime if we add one later, or the OpenVPN engine installed
+        // by the Stellar NSIS installer hook.
+        let bundled_candidates = [
+            OPENVPN_REL,
+            "bin/openvpn-x86_64-pc-windows-msvc/openvpn.exe",
+        ];
+
+        for rel in bundled_candidates {
+            if let Ok(p) = app.path().resolve(rel, BaseDirectory::Resource) {
+                if p.exists() {
+                    return Ok(p);
+                }
+            }
+
+            let dev = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(rel);
+            if dev.exists() {
+                return Ok(dev);
+            }
+        }
+
+        if let Some(installed) = windows_installed_openvpn_binary() {
+            return Ok(installed);
+        }
+
+        return Err(
+            "OpenVPN Windows engine is not installed. Install Stellar VPN with the Windows setup.exe installer, or install the bundled OpenVPN MSI once for development.".to_string(),
+        );
+    }
+
     #[cfg(target_os = "linux")]
     {
         let installed = PathBuf::from("/usr/lib/stellar-vpn/openvpn");
@@ -423,6 +455,151 @@ fn resolve_openvpn_binary(app: &AppHandle<RT>) -> Result<PathBuf, String> {
     }
 
     Ok(PathBuf::from("openvpn"))
+}
+
+#[cfg(target_os = "windows")]
+const WINDOWS_OPENVPN_MSI_REL: &str = "external/windows/OpenVPN-2.7.4-I001-amd64.msi";
+
+#[cfg(target_os = "windows")]
+fn windows_installed_openvpn_binary() -> Option<PathBuf> {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+
+    for key in ["ProgramFiles", "ProgramW6432", "ProgramFiles(x86)"] {
+        if let Ok(base) = std::env::var(key) {
+            candidates.push(
+                PathBuf::from(base)
+                    .join("OpenVPN")
+                    .join("bin")
+                    .join("openvpn.exe"),
+            );
+        }
+    }
+
+    candidates.push(PathBuf::from(r"C:\Program Files\OpenVPN\bin\openvpn.exe"));
+    candidates.push(PathBuf::from(r"C:\Program Files (x86)\OpenVPN\bin\openvpn.exe"));
+
+    for candidate in candidates {
+        if candidate.exists() {
+            return Some(candidate);
+        }
+    }
+
+    windows_openvpn_from_registry()
+}
+
+#[cfg(target_os = "windows")]
+fn windows_openvpn_from_registry() -> Option<PathBuf> {
+    let keys = [
+        r"HKLM\SOFTWARE\OpenVPN",
+        r"HKLM\SOFTWARE\OpenVPN-GUI",
+        r"HKLM\SOFTWARE\WOW6432Node\OpenVPN",
+        r"HKLM\SOFTWARE\WOW6432Node\OpenVPN-GUI",
+    ];
+    let values = ["install_path", "InstallPath", "InstallLocation"];
+
+    for key in keys {
+        for value in values {
+            let output = std::process::Command::new("reg")
+                .args(["query", key, "/v", value])
+                .output()
+                .ok()?;
+
+            if !output.status.success() {
+                continue;
+            }
+
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            for line in stdout.lines() {
+                if !line.contains(value) {
+                    continue;
+                }
+
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() < 3 {
+                    continue;
+                }
+
+                let base = parts[2..].join(" ");
+                if base.trim().is_empty() {
+                    continue;
+                }
+
+                let candidate = PathBuf::from(&base).join("bin").join("openvpn.exe");
+                if candidate.exists() {
+                    return Some(candidate);
+                }
+
+                let candidate = PathBuf::from(&base).join("openvpn.exe");
+                if candidate.exists() {
+                    return Some(candidate);
+                }
+            }
+        }
+    }
+
+    None
+}
+
+#[cfg(target_os = "windows")]
+fn windows_bundled_openvpn_msi(app: &AppHandle<RT>) -> Option<PathBuf> {
+    if let Ok(resource) = app.path().resolve(WINDOWS_OPENVPN_MSI_REL, BaseDirectory::Resource) {
+        if resource.exists() {
+            return Some(resource);
+        }
+    }
+
+    let dev = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(WINDOWS_OPENVPN_MSI_REL);
+    if dev.exists() {
+        return Some(dev);
+    }
+
+    None
+}
+
+#[cfg(target_os = "windows")]
+async fn ensure_windows_openvpn_engine_installed(app: &AppHandle<RT>) -> Result<PathBuf, String> {
+    if let Some(openvpn) = windows_installed_openvpn_binary() {
+        return Ok(openvpn);
+    }
+
+    let msi = windows_bundled_openvpn_msi(app).ok_or_else(|| {
+        "OpenVPN Windows engine is missing and the bundled OpenVPN MSI was not found.".to_string()
+    })?;
+
+    emit_log(
+        app,
+        &format!(
+            "[windows] OpenVPN engine missing. Installing bundled engine: {}",
+            msi.display()
+        ),
+    );
+
+    let msi_arg = format!("/i \"{}\" /qn /norestart", msi.display());
+    let script = format!(
+        "$ErrorActionPreference = 'Stop'; $p = Start-Process -FilePath 'msiexec.exe' -ArgumentList {} -Verb RunAs -Wait -PassThru; exit $p.ExitCode",
+        powershell_single_quote(&msi_arg),
+    );
+
+    let out = Command::new("powershell.exe")
+        .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &script])
+        .output()
+        .await
+        .map_err(|e| format!("Failed to start OpenVPN engine installer: {e}"))?;
+
+    if !out.status.success() {
+        let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
+        let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        let detail = if !stderr.is_empty() { stderr } else { stdout };
+        return Err(if detail.is_empty() {
+            "OpenVPN engine installation failed or was cancelled.".to_string()
+        } else {
+            format!("OpenVPN engine installation failed: {detail}")
+        });
+    }
+
+    windows_installed_openvpn_binary().ok_or_else(|| {
+        "OpenVPN engine installer completed, but C:\\Program Files\\OpenVPN\\bin\\openvpn.exe was not found.".to_string()
+    })
 }
 
 // ---------------- Kill switch helper invocations (linux) ----------------
@@ -828,10 +1005,11 @@ async fn terminate_child_gracefully(
 
 #[cfg(not(unix))]
 async fn terminate_child_gracefully(
-    _app: &AppHandle<RT>,
+    app: &AppHandle<RT>,
     child: &mut tokio::process::Child,
-    _label: &str,
+    label: &str,
 ) {
+    emit_log(app, &format!("[ui] Terminating {label} process..."));
     let _ = child.kill().await;
     let _ = child.wait().await;
 }
@@ -1210,6 +1388,7 @@ fn spawn_network_health_watcher(app: AppHandle<RT>, state: SharedState) {
     });
 }
 
+#[cfg(not(target_os = "windows"))]
 async fn run_openvpn_session(
     app: AppHandle<RT>,
     state: SharedState,
@@ -1382,6 +1561,453 @@ async fn run_openvpn_session(
 
     let _ = stdout_task.await;
     let _ = stderr_task.await;
+
+    let _ = fs::remove_file(&auth_path);
+
+    let ks_enabled = { state.lock().await.kill_switch_enabled };
+    if cfg_path.starts_with(temp_dir()) && !ks_enabled {
+        let _ = tokio::fs::remove_file(&cfg_path).await;
+    }
+
+    let mut g = state.lock().await;
+    if let Some(sess) = &g.session {
+        if sess.sid == sid {
+            g.session = None;
+        }
+    }
+}
+
+
+#[cfg(target_os = "windows")]
+fn powershell_single_quote(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "''"))
+}
+
+#[cfg(target_os = "windows")]
+fn openvpn_args(cfg_path: &Path, auth_path: &Path, log_path: Option<&Path>) -> Vec<String> {
+    let mut args = vec![
+        "--config".to_string(),
+        cfg_path.to_string_lossy().to_string(),
+        "--auth-user-pass".to_string(),
+        auth_path.to_string_lossy().to_string(),
+        "--auth-nocache".to_string(),
+        "--redirect-gateway".to_string(),
+        "def1".to_string(),
+        "--verb".to_string(),
+        "3".to_string(),
+    ];
+
+    if let Some(log_path) = log_path {
+        args.push("--log".to_string());
+        args.push(log_path.to_string_lossy().to_string());
+    }
+
+    args
+}
+
+#[cfg(target_os = "windows")]
+async fn windows_start_openvpn_elevated(
+    openvpn_bin: &Path,
+    cfg_path: &Path,
+    auth_path: &Path,
+    log_path: &Path,
+) -> Result<u32, String> {
+    let args = openvpn_args(cfg_path, auth_path, Some(log_path));
+    let ps_args = args
+        .iter()
+        .map(|arg| powershell_single_quote(arg))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    let script = format!(
+        "$ErrorActionPreference = 'Stop'; $p = Start-Process -FilePath {} -ArgumentList @({}) -Verb RunAs -WindowStyle Hidden -PassThru; $p.Id",
+        powershell_single_quote(openvpn_bin.to_string_lossy().as_ref()),
+        ps_args,
+    );
+
+    let out = Command::new("powershell.exe")
+        .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &script])
+        .output()
+        .await
+        .map_err(|e| format!("Failed to start elevated OpenVPN via PowerShell: {e}"))?;
+
+    if !out.status.success() {
+        let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
+        let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        let detail = if !stderr.is_empty() { stderr } else { stdout };
+        return Err(if detail.is_empty() {
+            "Failed to start elevated OpenVPN. UAC may have been cancelled.".to_string()
+        } else {
+            format!("Failed to start elevated OpenVPN: {detail}")
+        });
+    }
+
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let pid_line = stdout
+        .lines()
+        .map(str::trim)
+        .find(|line| !line.is_empty())
+        .ok_or_else(|| "OpenVPN started, but PowerShell did not return a PID.".to_string())?;
+
+    pid_line
+        .parse::<u32>()
+        .map_err(|e| format!("Invalid elevated OpenVPN PID '{pid_line}': {e}"))
+}
+
+#[cfg(target_os = "windows")]
+async fn windows_process_is_running(pid: u32) -> bool {
+    let filter = format!("PID eq {pid}");
+    let out = Command::new("tasklist")
+        .arg("/FI")
+        .arg(&filter)
+        .arg("/FO")
+        .arg("CSV")
+        .arg("/NH")
+        .output()
+        .await;
+
+    let Ok(out) = out else {
+        return false;
+    };
+
+    if !out.status.success() {
+        return false;
+    }
+
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    stdout.contains(&pid.to_string()) && !stdout.contains("No tasks are running")
+}
+
+#[cfg(target_os = "windows")]
+async fn windows_kill_process_tree(pid: u32) {
+    let pid_s = pid.to_string();
+    let _ = Command::new("taskkill")
+        .arg("/PID")
+        .arg(&pid_s)
+        .arg("/T")
+        .arg("/F")
+        .output()
+        .await;
+}
+
+#[cfg(target_os = "windows")]
+const WINDOWS_HELPER_ADDR: &str = "127.0.0.1:49877";
+
+#[cfg(target_os = "windows")]
+async fn windows_helper_request(request: serde_json::Value) -> Result<serde_json::Value, String> {
+    use tokio::net::TcpStream;
+
+    let mut stream = TcpStream::connect(WINDOWS_HELPER_ADDR)
+        .await
+        .map_err(|e| {
+            format!(
+                "Stellar VPN Windows helper is not running. Install Stellar VPN with setup.exe, or run `npm run tauri:dev` so the dev helper is installed. Detail: {e}"
+            )
+        })?;
+
+    let mut body = serde_json::to_string(&request)
+        .map_err(|e| format!("Failed to encode Windows helper request: {e}"))?;
+    body.push('\n');
+
+    stream
+        .write_all(body.as_bytes())
+        .await
+        .map_err(|e| format!("Failed to send request to Windows helper: {e}"))?;
+
+    let mut reader = BufReader::new(stream);
+    let mut response_line = String::new();
+    reader
+        .read_line(&mut response_line)
+        .await
+        .map_err(|e| format!("Failed to read Windows helper response: {e}"))?;
+
+    if response_line.trim().is_empty() {
+        return Err("Windows helper returned an empty response.".to_string());
+    }
+
+    let response: serde_json::Value = serde_json::from_str(response_line.trim())
+        .map_err(|e| format!("Invalid Windows helper response JSON: {e}"))?;
+
+    if response
+        .get("ok")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+    {
+        Ok(response)
+    } else {
+        Err(response
+            .get("message")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Windows helper request failed.")
+            .to_string())
+    }
+}
+
+#[cfg(target_os = "windows")]
+async fn windows_helper_start_openvpn(
+    openvpn_bin: &Path,
+    cfg_path: &Path,
+    auth_path: &Path,
+    log_path: &Path,
+) -> Result<u32, String> {
+    let response = windows_helper_request(serde_json::json!({
+        "cmd": "connect",
+        "openvpn": openvpn_bin.to_string_lossy(),
+        "config": cfg_path.to_string_lossy(),
+        "auth": auth_path.to_string_lossy(),
+        "log": log_path.to_string_lossy(),
+    }))
+    .await?;
+
+    response
+        .get("pid")
+        .and_then(|v| v.as_u64())
+        .map(|pid| pid as u32)
+        .ok_or_else(|| "Windows helper started OpenVPN but did not return a PID.".to_string())
+}
+
+#[cfg(target_os = "windows")]
+async fn windows_helper_stop_openvpn() {
+    let _ = windows_helper_request(serde_json::json!({ "cmd": "disconnect" })).await;
+}
+
+#[cfg(target_os = "windows")]
+async fn windows_helper_openvpn_is_running() -> bool {
+    windows_helper_request(serde_json::json!({ "cmd": "status" }))
+        .await
+        .ok()
+        .and_then(|response| response.get("pid").and_then(|v| v.as_u64()))
+        .is_some()
+}
+
+
+#[derive(serde::Serialize)]
+struct WindowsSetupStatus {
+    supported: bool,
+    ready: bool,
+    openvpn_installed: bool,
+    helper_running: bool,
+    message: String,
+}
+
+#[cfg(target_os = "windows")]
+async fn windows_setup_status_inner(app: &AppHandle<RT>) -> WindowsSetupStatus {
+    let openvpn_installed = resolve_openvpn_binary(app).is_ok();
+    let helper_running = windows_helper_request(serde_json::json!({ "cmd": "status" }))
+        .await
+        .is_ok();
+    let ready = openvpn_installed && helper_running;
+
+    let message = if ready {
+        "Windows secure setup is complete.".to_string()
+    } else if !openvpn_installed && !helper_running {
+        "Stellar VPN needs one-time administrator permission to install the Windows VPN engine and helper.".to_string()
+    } else if !openvpn_installed {
+        "Stellar VPN needs one-time administrator permission to install the Windows VPN engine.".to_string()
+    } else {
+        "Stellar VPN needs one-time administrator permission to install and start the Windows helper.".to_string()
+    };
+
+    WindowsSetupStatus {
+        supported: true,
+        ready,
+        openvpn_installed,
+        helper_running,
+        message,
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn windows_dev_setup_script() -> Option<PathBuf> {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .map(Path::to_path_buf)?;
+    let script = root
+        .join("scripts")
+        .join("windows")
+        .join("ensure-helper-dev.ps1");
+
+    if script.exists() {
+        Some(script)
+    } else {
+        None
+    }
+}
+
+#[cfg(target_os = "windows")]
+async fn windows_run_setup_script(script: &Path) -> Result<(), String> {
+    let script_arg = script.to_string_lossy().to_string();
+    let command = format!(
+        "$ErrorActionPreference = 'Stop'; $p = Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',{}) -Verb RunAs -Wait -PassThru; exit $p.ExitCode",
+        powershell_single_quote(&script_arg),
+    );
+
+    let out = Command::new("powershell.exe")
+        .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &command])
+        .output()
+        .await
+        .map_err(|e| format!("Failed to start Windows secure setup: {e}"))?;
+
+    if out.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
+        let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        let detail = if !stderr.is_empty() { stderr } else { stdout };
+        if detail.is_empty() {
+            Err("Windows secure setup was cancelled or failed.".to_string())
+        } else {
+            Err(format!("Windows secure setup failed: {detail}"))
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+async fn run_openvpn_session(
+    app: AppHandle<RT>,
+    state: SharedState,
+    sid: u64,
+    cfg_path: PathBuf,
+    auth_path: PathBuf,
+    mut stop_rx: tokio::sync::watch::Receiver<bool>,
+    watchdog_ms: u64,
+) {
+    emit_log(&app, &format!("[ui] Starting OpenVPN for Windows (sid={sid})"));
+    emit_log(
+        &app,
+        &format!("[ui] Using config file: {}", cfg_path.display()),
+    );
+
+    // Do not install the Windows VPN engine from the runtime Connect flow.
+    // Production Windows installs must use the Stellar NSIS setup.exe, which
+    // installs the OpenVPN driver/runtime during app installation. This keeps
+    // Connect clean: no random installer prompt after the user is already in
+    // the app.
+
+    let openvpn_bin = match resolve_openvpn_binary(&app) {
+        Ok(p) => p,
+        Err(e) => {
+            let _ = fs::remove_file(&auth_path);
+            set_error_and_disconnect(&state, &app, e).await;
+            return;
+        }
+    };
+
+    emit_log(
+        &app,
+        &format!("[ui] OpenVPN binary: {}", openvpn_bin.display()),
+    );
+
+    let log_path = temp_dir().join(format!("openvpn-{sid}.log"));
+    let _ = fs::remove_file(&log_path);
+
+    let pid = match windows_helper_start_openvpn(&openvpn_bin, &cfg_path, &auth_path, &log_path).await {
+        Ok(pid) => pid,
+        Err(e) => {
+            let _ = fs::remove_file(&auth_path);
+            set_error_and_disconnect(&state, &app, e).await;
+            return;
+        }
+    };
+
+    emit_log(&app, &format!("[ui] Windows helper started OpenVPN pid={pid}"));
+
+    let watchdog_deadline = time::Instant::now() + Duration::from_millis(watchdog_ms);
+    let mut init_done = false;
+    let mut emitted_lines = 0usize;
+    let mut fatal_error = false;
+
+    loop {
+        tokio::select! {
+            _ = stop_rx.changed() => {
+                if *stop_rx.borrow() {
+                    emit_log(&app, "[ui] Stop signal received, asking Windows helper to terminate OpenVPN...");
+                    windows_helper_stop_openvpn().await;
+                    set_status(&state, &app, UiStatus::Disconnected).await;
+                    break;
+                }
+            }
+
+            _ = time::sleep(Duration::from_millis(500)) => {
+                if let Ok(contents) = tokio::fs::read_to_string(&log_path).await {
+                    let lines: Vec<&str> = contents.lines().collect();
+                    for line in lines.iter().skip(emitted_lines) {
+                        emit_log(&app, line);
+
+                        if !init_done && line.contains("Initialization Sequence Completed") {
+                            init_done = true;
+                            {
+                                let mut g = state.lock().await;
+                                g.last_connected_at_ms = Some(now_ms());
+                            }
+                            emit_log(&app, "[ui] OpenVPN reports Initialization Sequence Completed");
+                            set_status(&state, &app, UiStatus::Connected).await;
+                        }
+
+                        if line.contains("AUTH_FAILED") || line.contains("auth-failure") {
+                            emit_log(&app, "[ui] Auth failed, stopping...");
+                            windows_helper_stop_openvpn().await;
+                            set_error_and_disconnect(&state, &app, "OpenVPN authentication failed (AUTH_FAILED).".to_string()).await;
+                            fatal_error = true;
+                            break;
+                        }
+                    }
+                    emitted_lines = lines.len();
+                }
+
+                if fatal_error {
+                    break;
+                }
+
+                if !init_done && time::Instant::now() >= watchdog_deadline {
+                    emit_log(&app, &format!("[ui] Connect watchdog fired after {watchdog_ms}ms"));
+                    windows_helper_stop_openvpn().await;
+
+                    let desired_connected = { state.lock().await.desired_connected };
+                    if desired_connected && internet_is_reachable().await.is_none() {
+                        {
+                            let mut g = state.lock().await;
+                            g.base_network_interrupted = true;
+                            g.network_loss_streak = 0;
+                        }
+                        emit_log(&app, "[ui] OpenVPN timed out because internet is unavailable. Waiting for network instead of failing.");
+                        set_status(&state, &app, UiStatus::WaitingNetwork).await;
+                    } else {
+                        set_error_and_disconnect(&state, &app, format!("Connect timed out after {watchdog_ms}ms (no Initialization Sequence Completed). Check that the OpenVPN Wintun/TAP driver is installed." )).await;
+                    }
+                    break;
+                }
+
+                if !windows_helper_openvpn_is_running().await {
+                    emit_log(&app, &format!("[ui] Windows helper reports OpenVPN exited (pid={pid})"));
+
+                    let manual = {
+                        let g = state.lock().await;
+                        g.disconnect_requested
+                    };
+
+                    if !manual && !init_done {
+                        let desired_connected = { state.lock().await.desired_connected };
+                        if desired_connected && internet_is_reachable().await.is_none() {
+                            {
+                                let mut g = state.lock().await;
+                                g.base_network_interrupted = true;
+                                g.network_loss_streak = 0;
+                            }
+                            emit_log(&app, "[ui] OpenVPN exited before connecting because internet is unavailable. Waiting for network instead of failing.");
+                            set_status(&state, &app, UiStatus::WaitingNetwork).await;
+                        } else {
+                            set_error_and_disconnect(&state, &app, "OpenVPN exited before connection was established on Windows. Check OpenVPN driver installation and helper service status.".to_string()).await;
+                        }
+                    } else {
+                        set_status(&state, &app, UiStatus::Disconnected).await;
+                    }
+
+                    break;
+                }
+            }
+        }
+    }
 
     let _ = fs::remove_file(&auth_path);
 
@@ -1608,13 +2234,79 @@ async fn vpn_connect_inner(
 }
 
 #[tauri::command]
+async fn windows_setup_status(app: AppHandle<RT>) -> Result<WindowsSetupStatus, String> {
+    #[cfg(target_os = "windows")]
+    {
+        return Ok(windows_setup_status_inner(&app).await);
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = app;
+        Ok(WindowsSetupStatus {
+            supported: false,
+            ready: true,
+            openvpn_installed: true,
+            helper_running: true,
+            message: "Windows setup is not required on this platform.".to_string(),
+        })
+    }
+}
+
+#[tauri::command]
+async fn windows_setup_start(app: AppHandle<RT>) -> Result<WindowsSetupStatus, String> {
+    #[cfg(target_os = "windows")]
+    {
+        let current = windows_setup_status_inner(&app).await;
+        if current.ready {
+            return Ok(current);
+        }
+
+        let script = windows_dev_setup_script().ok_or_else(|| {
+            "Windows secure setup is incomplete. Reinstall Stellar VPN with the Windows setup.exe installer.".to_string()
+        })?;
+
+        emit_log(&app, "[windows] Starting one-time Windows secure setup...");
+        windows_run_setup_script(&script).await?;
+        let status = windows_setup_status_inner(&app).await;
+        if status.ready {
+            emit_log(&app, "[windows] Windows secure setup completed.");
+            Ok(status)
+        } else {
+            Err(status.message)
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = app;
+        Ok(WindowsSetupStatus {
+            supported: false,
+            ready: true,
+            openvpn_installed: true,
+            helper_running: true,
+            message: "Windows setup is not required on this platform.".to_string(),
+        })
+    }
+}
+
+#[tauri::command]
 fn chmod_exec(path: String) -> Result<(), String> {
-    use std::os::unix::fs::PermissionsExt;
-    let mut perms = std::fs::metadata(&path)
-        .map_err(|e| e.to_string())?
-        .permissions();
-    perms.set_mode(0o755);
-    std::fs::set_permissions(&path, perms).map_err(|e| e.to_string())
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = std::fs::metadata(&path)
+            .map_err(|e| e.to_string())?
+            .permissions();
+        perms.set_mode(0o755);
+        return std::fs::set_permissions(&path, perms).map_err(|e| e.to_string());
+    }
+
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+        Ok(())
+    }
 }
 
 #[tauri::command]
@@ -1928,6 +2620,8 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            windows_setup_status,
+            windows_setup_start,
             chmod_exec,
             install_appimage_linux,
             vpn_prefetch_config,
