@@ -478,7 +478,66 @@ fn windows_installed_openvpn_binary() -> Option<PathBuf> {
     candidates.push(PathBuf::from(r"C:\Program Files\OpenVPN\bin\openvpn.exe"));
     candidates.push(PathBuf::from(r"C:\Program Files (x86)\OpenVPN\bin\openvpn.exe"));
 
-    candidates.into_iter().find(|candidate| candidate.exists())
+    for candidate in candidates {
+        if candidate.exists() {
+            return Some(candidate);
+        }
+    }
+
+    windows_openvpn_from_registry()
+}
+
+#[cfg(target_os = "windows")]
+fn windows_openvpn_from_registry() -> Option<PathBuf> {
+    let keys = [
+        r"HKLM\SOFTWARE\OpenVPN",
+        r"HKLM\SOFTWARE\OpenVPN-GUI",
+        r"HKLM\SOFTWARE\WOW6432Node\OpenVPN",
+        r"HKLM\SOFTWARE\WOW6432Node\OpenVPN-GUI",
+    ];
+    let values = ["install_path", "InstallPath", "InstallLocation"];
+
+    for key in keys {
+        for value in values {
+            let output = std::process::Command::new("reg")
+                .args(["query", key, "/v", value])
+                .output()
+                .ok()?;
+
+            if !output.status.success() {
+                continue;
+            }
+
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            for line in stdout.lines() {
+                if !line.contains(value) {
+                    continue;
+                }
+
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() < 3 {
+                    continue;
+                }
+
+                let base = parts[2..].join(" ");
+                if base.trim().is_empty() {
+                    continue;
+                }
+
+                let candidate = PathBuf::from(&base).join("bin").join("openvpn.exe");
+                if candidate.exists() {
+                    return Some(candidate);
+                }
+
+                let candidate = PathBuf::from(&base).join("openvpn.exe");
+                if candidate.exists() {
+                    return Some(candidate);
+                }
+            }
+        }
+    }
+
+    None
 }
 
 #[cfg(target_os = "windows")]

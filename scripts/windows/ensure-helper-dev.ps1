@@ -34,6 +34,53 @@ function Invoke-Sc {
     return [int]$code
 }
 
+function Find-OpenVpnPath {
+    $candidates = @(
+        "C:\Program Files\OpenVPN\bin\openvpn.exe",
+        "C:\Program Files (x86)\OpenVPN\bin\openvpn.exe"
+    )
+
+    foreach ($candidate in $candidates) {
+        if (Test-Path $candidate) {
+            return $candidate
+        }
+    }
+
+    $registryKeys = @(
+        "HKLM:\SOFTWARE\OpenVPN",
+        "HKLM:\SOFTWARE\OpenVPN-GUI",
+        "HKLM:\SOFTWARE\WOW6432Node\OpenVPN",
+        "HKLM:\SOFTWARE\WOW6432Node\OpenVPN-GUI"
+    )
+
+    foreach ($key in $registryKeys) {
+        if (!(Test-Path $key)) {
+            continue
+        }
+
+        $props = Get-ItemProperty -Path $key -ErrorAction SilentlyContinue
+        foreach ($name in @("install_path", "InstallPath", "InstallLocation")) {
+            $base = $props.$name
+            if ([string]::IsNullOrWhiteSpace($base)) {
+                continue
+            }
+
+            $pathCandidates = @(
+                (Join-Path $base "bin\openvpn.exe"),
+                (Join-Path $base "openvpn.exe")
+            )
+
+            foreach ($candidate in $pathCandidates) {
+                if (Test-Path $candidate) {
+                    return $candidate
+                }
+            }
+        }
+    }
+
+    return $null
+}
+
 function Install-HelperAndEngine {
     New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 
@@ -47,29 +94,40 @@ function Install-HelperAndEngine {
         exit 10
     }
 
-    if (!(Test-Path $openVpnPath)) {
+    $resolvedOpenVpnPath = Find-OpenVpnPath
+
+    if ($null -eq $resolvedOpenVpnPath) {
         if (!(Test-Path $msiPath)) {
             "[Stellar VPN] Missing bundled OpenVPN MSI: $msiPath" | Out-File -FilePath $elevatedLog -Append -Encoding UTF8
             exit 11
         }
 
+        $openVpnLog = Join-Path $env:TEMP "stellar-openvpn-install.log"
+        Remove-Item -Force -ErrorAction SilentlyContinue $openVpnLog
+
         "[Stellar VPN] Installing OpenVPN engine..." | Out-File -FilePath $elevatedLog -Append -Encoding UTF8
+        "[Stellar VPN] OpenVPN install log: $openVpnLog" | Out-File -FilePath $elevatedLog -Append -Encoding UTF8
         $openVpnInstall = Start-Process `
             -FilePath "msiexec.exe" `
-            -ArgumentList "/i `"$msiPath`" /qn /norestart" `
+            -ArgumentList "/i `"$msiPath`" /qn /norestart /L*v `"$openVpnLog`"" `
             -Wait `
             -PassThru
 
         "[Stellar VPN] OpenVPN installer exit code: $($openVpnInstall.ExitCode)" | Out-File -FilePath $elevatedLog -Append -Encoding UTF8
-        if ($openVpnInstall.ExitCode -ne 0) {
+        if (($openVpnInstall.ExitCode -ne 0) -and ($openVpnInstall.ExitCode -ne 3010)) {
             exit $openVpnInstall.ExitCode
         }
+
+        Start-Sleep -Seconds 3
+        $resolvedOpenVpnPath = Find-OpenVpnPath
     }
 
-    if (!(Test-Path $openVpnPath)) {
-        "[Stellar VPN] OpenVPN installation finished, but openvpn.exe was not found." | Out-File -FilePath $elevatedLog -Append -Encoding UTF8
+    if ($null -eq $resolvedOpenVpnPath) {
+        "[Stellar VPN] OpenVPN installation finished, but openvpn.exe was not found. Log: $env:TEMP\stellar-openvpn-install.log" | Out-File -FilePath $elevatedLog -Append -Encoding UTF8
         exit 12
     }
+
+    "[Stellar VPN] OpenVPN engine path: $resolvedOpenVpnPath" | Out-File -FilePath $elevatedLog -Append -Encoding UTF8
 
     "[Stellar VPN] Removing existing helper service if present..." | Out-File -FilePath $elevatedLog -Append -Encoding UTF8
     $queryCode = Invoke-Sc -Arguments @("query", $serviceName)
