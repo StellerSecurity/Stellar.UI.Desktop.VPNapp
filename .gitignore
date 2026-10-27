@@ -1,7 +1,20 @@
-node_modules
-src-tauri/target
-dist
-.workspace.xml
-.idea
-# Markdown documentation stays local and must not be committed to GitHub.
 *.[mM][dD]
+.DS_Store
+build/
+dist/
+node_modules/
+target/
+.tools/
+.security-review/
+src-tauri/gen/
+*.local
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+*.log
+preview*.png
+.idea/

@@ -1,0 +1,103 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Stellar Desktop API",
+    "version": "2.0.0-foundation",
+    "description": "Staging API with fixture VPN catalog. Identity defaults to disabled (503); login, registration, introspection and revocation use the shared SDK only after explicit server configuration. No live VPN configurations."
+  },
+  "servers": [{"url": "/api/v2"}],
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "getHealth",
+        "description": "Liveness only. ready remains false until real integrations and HTTP integration tests exist.",
+        "responses": {"200": {"description": "Fixture app alive, not ready for VPN use", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/HealthResponse"}}}}}
+      }
+    },
+    "/servers": {
+      "get": {
+        "operationId": "listServers",
+        "description": "58 bundled test locations. Does not assert live availability or provide connection configurations.",
+        "parameters": [{"name": "country", "in": "query", "required": false, "schema": {"type": "string", "pattern": "^[A-Z]{2}$"}}],
+        "responses": {
+          "200": {"description": "Test locations", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ServerResponse"}}}},
+          "422": {"$ref": "#/components/responses/Error"},
+          "500": {"$ref": "#/components/responses/Error"}
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "operationId": "login",
+        "description": "10 credential attempts per minute per IP shared with registration. Disabled by default; returns 503 unless server identity integration is configured.",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "required": ["username", "password"], "properties": {
+          "username": {"type": "string", "minLength": 1, "maxLength": 254},
+          "password": {"type": "string", "minLength": 1, "maxLength": 1024, "writeOnly": true}
+        }}}}},
+        "responses": {"200": {"description": "Configured identity session", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SessionResponse"}}}}, "401": {"$ref": "#/components/responses/Error"}, "422": {"$ref": "#/components/responses/Error"}, "429": {"$ref": "#/components/responses/Error"}, "503": {"$ref": "#/components/responses/Error"}}
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "operationId": "register",
+        "description": "Email registration; password minimum 12 characters. Shares the login attempt limit. Disabled until identity integration is configured.",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "required": ["username", "password"], "properties": {
+          "username": {"type": "string", "format": "email", "maxLength": 254},
+          "password": {"type": "string", "minLength": 12, "maxLength": 1024, "writeOnly": true}
+        }}}}},
+        "responses": {"200": {"description": "Configured identity session", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SessionResponse"}}}}, "409": {"$ref": "#/components/responses/Error"}, "422": {"$ref": "#/components/responses/Error"}, "429": {"$ref": "#/components/responses/Error"}, "503": {"$ref": "#/components/responses/Error"}}
+      }
+    },
+    "/auth/session": {
+      "post": {
+        "operationId": "inspectSession",
+        "security": [{"bearerAuth": []}],
+        "description": "Checks the scoped session; returns account_id and expires_at only, never echoes the bearer token. 60 session operations per minute per IP.",
+        "responses": {"200": {"description": "Verified session metadata", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SessionMetadataResponse"}}}}, "401": {"$ref": "#/components/responses/Error"}, "429": {"$ref": "#/components/responses/Error"}, "503": {"$ref": "#/components/responses/Error"}}
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "operationId": "logout",
+        "description": "Malformed bearer input returns 401. Only returns success after confirmed upstream revocation; disabled identity returns 503.",
+        "security": [{"bearerAuth": []}],
+        "responses": {"200": {"description": "Confirmed scoped token revocation", "content": {"application/json": {"schema": {"type": "object", "required": ["data", "meta"], "properties": {"data": {"type": "object", "required": ["revoked"], "properties": {"revoked": {"type": "boolean", "enum": [true]}}}, "meta": {"$ref": "#/components/schemas/Meta"}}}}}}, "401": {"$ref": "#/components/responses/Error"}, "429": {"$ref": "#/components/responses/Error"}, "503": {"$ref": "#/components/responses/Error"}}
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {"bearerAuth": {"type": "http", "scheme": "bearer", "description": "Syntax only in this foundation. No live token verification or revocation is connected."}},
+    "responses": {"Error": {"description": "Explicit error; no upstream payload or exception details", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}}}},
+    "schemas": {
+      "SessionMetadataResponse": {"type": "object", "required": ["data", "meta"], "properties": {
+        "data": {"type": "object", "required": ["account_id", "expires_at"], "properties": {"account_id": {"type": "string", "pattern": "^[1-9][0-9]*$"}, "expires_at": {"type": "string", "format": "date-time"}}}, "meta": {"$ref": "#/components/schemas/Meta"}
+      }},
+      "SessionResponse": {"type": "object", "required": ["data", "meta"], "properties": {
+        "data": {"type": "object", "required": ["account_id", "expires_at", "access_token", "token_type"], "properties": {"account_id": {"type": "string", "pattern": "^[1-9][0-9]*$"}, "expires_at": {"type": "string", "format": "date-time"}, "access_token": {"type": "string", "maxLength": 256}, "token_type": {"type": "string", "enum": ["Bearer"]}}}, "meta": {"$ref": "#/components/schemas/Meta"}
+      }},
+      "Meta": {"type": "object", "required": ["api_version", "mode", "request_id"], "properties": {
+        "api_version": {"type": "string", "enum": ["v2"]}, "mode": {"type": "string", "enum": ["fixture"]},
+        "request_id": {"type": "string", "pattern": "^[a-f0-9]{32}$"}
+      }},
+      "Server": {"type": "object", "required": ["id", "name", "country_code", "coordinates"], "properties": {
+        "id": {"type": "string", "pattern": "^[a-z0-9-]{1,64}$"}, "name": {"type": "string", "minLength": 1, "maxLength": 255},
+        "country_code": {"type": "string", "pattern": "^[A-Z]{2}$"},
+        "coordinates": {"type": "object", "required": ["latitude", "longitude"], "properties": {
+          "latitude": {"type": "number", "minimum": -90, "maximum": 90}, "longitude": {"type": "number", "minimum": -180, "maximum": 180}
+        }}
+      }},
+      "ServerResponse": {"type": "object", "required": ["data", "meta"], "properties": {
+        "data": {"type": "array", "items": {"$ref": "#/components/schemas/Server"}}, "meta": {"$ref": "#/components/schemas/Meta"}
+      }},
+      "HealthResponse": {"type": "object", "required": ["data", "meta"], "properties": {
+        "data": {"type": "object", "required": ["status", "ready", "vpn_connected"], "properties": {
+          "status": {"type": "string", "enum": ["ok"]}, "ready": {"type": "boolean", "enum": [false]}, "vpn_connected": {"type": "boolean", "enum": [false]}
+        }}, "meta": {"$ref": "#/components/schemas/Meta"}
+      }},
+      "ErrorResponse": {"type": "object", "required": ["error", "meta"], "properties": {
+        "error": {"type": "object", "required": ["code", "message"], "properties": {"code": {"type": "string"}, "message": {"type": "string"}}},
+        "meta": {"$ref": "#/components/schemas/Meta"}
+      }}
+    }
+  }
+}

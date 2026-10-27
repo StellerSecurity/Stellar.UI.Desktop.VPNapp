@@ -1,107 +1,36 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Stellar VPN",
-  "version": "0.2.2",
-  "identifier": "org.stellarsecurity.vpn.desktop",
+  "version": "0.1.0",
+  "identifier": "org.stellarvpn.desktop.preview",
   "build": {
     "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build:web && npm run windows:helper:release",
-    "devUrl": "http://localhost:5176",
+    "devUrl": "http://127.0.0.1:4176",
+    "beforeBuildCommand": "npm run build",
     "frontendDist": "../dist"
   },
   "app": {
-    "windows": [
-      {
-        "label": "main",
-        "title": "Stellar VPN",
-        "width": 312,
-        "height": 640,
-        "resizable": false,
-        "fullscreen": false,
-        "devtools": true
-      }
-    ],
+    "withGlobalTauri": false,
+    "windows": [{
+      "label": "main",
+      "title": "Stellar VPN — UI Preview",
+      "width": 1280,
+      "height": 820,
+      "minWidth": 800,
+      "minHeight": 600,
+      "backgroundColor": "#0a347c"
+    }],
     "security": {
-      "csp": null,
-      "capabilities": [
-        "main-capability"
-      ]
-    }
-  },
-  "plugins": {
-    "updater": {
-      "endpoints": [
-        "https://desktopreleasesassetsprod.stellarsecurity.com/vpn/latest.json"
-      ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDYxQzYzOERGMEFGMDE5MTQKUldRVUdmQUszempHWWFRUEZGOU53Ykp0U2lCd21iUkdjUHdqZG5ya1dmSndjL1JEclY3MGF2ejIK"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' ipc: http://ipc.localhost https://stellar-desktop-vpn-staging-ayakcqbcfvb2fqhc.westeurope-01.azurewebsites.net; object-src 'none'; base-uri 'self'; frame-src 'none'",
+      "capabilities": ["main"]
     }
   },
   "bundle": {
     "active": true,
-    "createUpdaterArtifacts": true,
-    "targets": [
-      "deb",
-      "rpm",
-      "appimage",
-      "app",
-      "dmg",
-      "nsis"
-    ],
-    "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
-    ],
-    "resources": [
-      "bin/openvpn-aarch64-apple-darwin",
-      "bin/openvpn-x86_64-apple-darwin",
-      "bin/openvpn-x86_64-unknown-linux-gnu",
-      "bin/stellar-vpn-helper-macos",
-      "external/windows/OpenVPN-2.7.4-I001-amd64.msi",
-      "bin/stellar-vpn-helper-windows.exe"
-    ],
-    "macOS": {
-      "signingIdentity": "Developer ID Application: North Star Swiss SA (7VYLUCU756)",
-      "hardenedRuntime": true
-    },
-    "linux": {
-      "deb": {
-        "files": {
-          "/usr/lib/stellar-vpn/openvpn": "bin/openvpn-x86_64-unknown-linux-gnu",
-          "/usr/libexec/stellar-vpn/stellar-vpn-helper": "target/release/stellar-vpn-helper",
-          "/usr/share/polkit-1/actions/org.stellarsecurity.vpn.desktop.helper.policy": "assets/linux/polkit/org.stellarsecurity.vpn.desktop.helper.policy",
-          "/usr/share/polkit-1/rules.d/50-stellar-vpn.rules": "assets/linux/polkit/50-stellar-vpn.rules"
-        },
-        "depends": [
-          "libcap2-bin",
-          "policykit-1",
-          "nftables"
-        ],
-        "postInstallScript": "scripts/linux/postinst.sh",
-        "preRemoveScript": "scripts/linux/prerm.sh"
-      },
-      "rpm": {
-        "files": {
-          "/usr/lib/stellar-vpn/openvpn": "bin/openvpn-x86_64-unknown-linux-gnu",
-          "/usr/libexec/stellar-vpn/stellar-vpn-helper": "target/release/stellar-vpn-helper",
-          "/usr/share/polkit-1/actions/org.stellarsecurity.vpn.desktop.helper.policy": "assets/linux/polkit/org.stellarsecurity.vpn.desktop.helper.policy"
-        },
-        "depends": [
-          "libcap",
-          "polkit",
-          "nftables"
-        ],
-        "postInstallScript": "scripts/linux/postinst.sh",
-        "preRemoveScript": "scripts/linux/prerm.sh"
-      }
-    },
-    "windows": {
-      "nsis": {
-        "installMode": "perMachine",
-        "installerHooks": "installer/windows/openvpn.nsh"
-      }
-    }
+    "targets": ["app", "dmg", "nsis", "appimage", "deb"],
+    "category": "Productivity",
+    "shortDescription": "Stellar VPN desktop UI preview",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
+    "macOS": { "minimumSystemVersion": "12.0" }
   }
 }

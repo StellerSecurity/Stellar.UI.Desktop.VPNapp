@@ -1,0 +1,19 @@
+/* Migration-specific integration. Existing verified Stellar tokens remain authoritative. */
+html, body, #root { min-width: 320px; min-height: 100%; }
+.boot-screen { min-height: 100dvh; display: grid; place-content: center; justify-items: center; gap: 20px; color: white; background: #0a347c; }
+.boot-screen img { width: 200px; height: auto; }
+.boot-screen h1 { max-width: 480px; font-size: 22px; text-align: center; }
+.boot-screen button { color: white; border: 1px solid #ffffff50; padding: 10px 20px; border-radius: 8px; }
+.preview-badge { color: #e1eaff; font-size: 10px; white-space: nowrap; background: #07286270; border: 1px solid #ffffff20; padding: 5px 8px; border-radius: 7px; }
+.preview-note { font-size: 11px; color: var(--stellar-secondary, #62626a); margin-top: 24px; }
+.map-load-error { position: absolute; top: 145px; left: 50%; background: white; padding: 14px 20px; border-radius: 12px; z-index: 4; }
+.rotate-flow { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.world-map { pointer-events: none; }
+.map-tooltip { pointer-events: none; z-index: 8; }
+.header-right { display: flex; align-items: center; gap: 12px; }
+.auth-view-header h1 { text-wrap: balance; }
+@media (prefers-reduced-motion: no-preference) {
+  .view-enter { animation: stellar-view-in 200ms ease-out; }
+  @keyframes stellar-view-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+}
+@media (max-width: 1000px) { .preview-badge { max-width: 90px; white-space: normal; font-size: 9px; } .primary-nav { margin-left: 0; } }

@@ -1,0 +1,45 @@
+/* Shared Stellar tokens. Opt in with a scope class; no global reset. */
+.stellar-theme {
+  --stellar-blue: #2761FC;
+  --stellar-blue-hover: #2152D4;
+  --stellar-ink: #0B0C19;
+  --stellar-body: #62626A;
+  --stellar-neutral-200: #D6D6E0;
+  --stellar-neutral-100: #EAEAF0;
+  --stellar-neutral-50: #F6F6FD;
+  --stellar-white: #FFFFFF;
+  --stellar-success: #00B252;
+  --stellar-error: #E10000;
+  /* Native desktop fallback; no unbundled or remotely loaded font dependency. */
+  --stellar-font: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.stellar-theme.stellar-marketing {
+  --stellar-radius-panel: 48px;
+  --stellar-radius-card: 32px;
+  --stellar-radius-small: 20px;
+  --stellar-radius-pill: 999px;
+  --stellar-max-width: 1280px;
+}
+.stellar-theme.stellar-portal {
+  --stellar-radius-panel: 48px;
+  --stellar-radius-card: 24px;
+  --stellar-radius-inner: 16px;
+  --stellar-sidebar-width: 280px;
+  --stellar-topbar-height: 72px;
+  --stellar-mobile-tabbar-height: 58px;
+}
+.stellar-theme.stellar-notes-desktop {
+  --stellar-font-body: 14px;
+  --stellar-font-secondary: 12px;
+  --stellar-font-list-heading: 20px;
+  --stellar-font-note-title: 24px;
+  --stellar-radius-control: 8px;
+  --stellar-radius-inner: 10px;
+  --stellar-radius-card: 12px;
+  --stellar-radius-panel: 20px;
+  --stellar-sidebar-width: 220px;
+  --stellar-icon-control-size: 28px;
+  --stellar-search-height: 32px;
+  --stellar-field-height: 36px;
+  --stellar-menu-row-height: 30px;
+}

@@ -1,14 +1,14 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react-swc";
+import { defineConfig } from 'vite';
 
 export default defineConfig({
-  plugins: [react()],
-  build: {
-    target: "esnext",
-  },
+  clearScreen: false,
+  envPrefix: ['VITE_'],
   server: {
-    open: false, // Don't open browser automatically
+    host: '127.0.0.1',
+    port: 4176,
     strictPort: true,
-    port: 5176,
+    fs: { strict: true, deny: ['.env', '.env.*', '**/.git/**', '**/.security-review/**'] },
+    watch: { ignored: ['**/src-tauri/**', '**/crates/**', '**/target/**', '**/.security-review/**'] }
   },
+  build: { target: ['es2022', 'safari15'], sourcemap: false }
 });

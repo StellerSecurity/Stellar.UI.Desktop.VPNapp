@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main",
+  "description": "Local UI preview with only its typed application commands.",
+  "local": true,
+  "windows": ["main", "tray"],
+  "permissions": ["allow-desktop-preview", "core:event:allow-listen", "core:event:allow-unlisten"]
+}
