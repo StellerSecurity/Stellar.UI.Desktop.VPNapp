@@ -16,3 +16,10 @@ tauri-build = { version = "=2.7.3", features = [] }
 tauri = { version = "=2.12.4", features = ["tray-icon"] }
 stellar-core = { path = "../crates/stellar-core" }
 serde.workspace = true
+notify-rust = { version = "=4.18.2", default-features = false, features = ["d"] }
+minisign-verify = "=0.3.0"
+
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+# Test the same reviewed glib backport used by GTK, without glib's upstream
+# development-only test dependencies introducing additional packages.
+glib = "=0.18.5"

@@ -10,20 +10,24 @@ use Stellar\DesktopApi\Domain\LoginCredentials;
 use Stellar\DesktopApi\Domain\Session;
 
 /** Server-side only. Not bound in fixture mode; activation needs server configuration. */
-final class UserApiIdentityGateway implements ScopedIdentityGateway
+final class UserApiIdentityGateway implements ScopedIdentityGateway, \Stellar\DesktopApi\Application\Ports\AnonymousIdentityGateway
 {
     private readonly ScopedUserApiClient $users;
+    private readonly ?AndroidVpnSessionGateway $android;
 
     public function __construct(
         Factory $http,
         #[\SensitiveParameter] string $serviceUsername,
         #[\SensitiveParameter] string $servicePassword,
+        private readonly ?AnonymousAccountGateway $anonymous = null,
+        ?\Illuminate\Contracts\Cache\Repository $anonymousSessions = null,
     ) {
         if ($serviceUsername === '' || $servicePassword === '' || str_contains($serviceUsername, ':')
             || preg_match('/[\x00-\x1f\x7f]/', $serviceUsername.$servicePassword)) {
             throw new IntegrationUnavailable('Identity integration is not configured.');
         }
         $this->users = new ScopedUserApiClient($http, $serviceUsername, $servicePassword);
+        $this->android = $anonymousSessions ? new AndroidVpnSessionGateway($this->users, $anonymousSessions) : null;
     }
 
     public function issueSession(LoginCredentials $credentials): Session
@@ -31,21 +35,30 @@ final class UserApiIdentityGateway implements ScopedIdentityGateway
         return $this->session($this->request('login', ['username' => $credentials->username, 'password' => $credentials->password()]));
     }
 
+    public function issueAnonymousSession(#[\SensitiveParameter] string $accountNumber): Session
+    {
+        if (!$this->anonymous || !$this->android) throw new IntegrationUnavailable();
+        $owner = $this->anonymous->owner($accountNumber);
+        return $this->android->issue($owner, hash('sha256', $accountNumber));
+    }
+
     public function registerSession(LoginCredentials $credentials): Session
     {
-        if (strlen($credentials->password()) < 12) throw new IdentityRejected('invalid_input', 422);
+        if (strlen($credentials->password()) < 6) throw new IdentityRejected('invalid_input', 422);
         return $this->session($this->request('register', ['username' => $credentials->username, 'password' => $credentials->password()]));
     }
 
     public function inspectSession(#[\SensitiveParameter] string $token): Session
     {
         $this->validateToken($token);
+        if ($this->android?->handles($token)) return $this->android->inspect($token);
         return $this->session($this->request('introspect', ['token' => $token]), $token);
     }
 
     public function revokeSession(#[\SensitiveParameter] string $accessToken): void
     {
         $this->validateToken($accessToken);
+        if ($this->android?->handles($accessToken)) { $this->android->revoke($accessToken); return; }
         if (($this->request('logout', ['token' => $accessToken])['revoked'] ?? null) !== true) {
             throw new IntegrationUnavailable('Identity response was invalid.');
         }

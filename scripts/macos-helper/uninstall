@@ -1,0 +1,30 @@
+#!/bin/sh
+set -eu
+[ "$(/usr/bin/id -u)" = 0 ] || { echo 'Run the Stellar helper uninstaller with administrator rights.' >&2; exit 1; }
+/bin/launchctl bootout system/org.stellarvpn.desktop.helper 2>/dev/null || true
+# Never delete the recovery binary while its firewall reference is still held.
+if [ -f /var/run/stellar-vpn/pf-token ]; then
+    '/Library/Application Support/Stellar VPN/stellar-vpn-helper' --unblock || {
+        echo 'Could not remove Stellar firewall rules. Helper kept for recovery.' >&2
+        exit 1
+    }
+fi
+# Remove only Stellar's own resolver key, never the user's network settings.
+/usr/sbin/scutil <<'EOF'
+remove State:/Network/Service/org.stellarvpn.desktop/DNS
+quit
+EOF
+/bin/rm -f /Library/LaunchDaemons/org.stellarvpn.desktop.helper.plist
+/bin/rm -f '/Library/Application Support/Stellar VPN/stellar-vpn-helper'
+for file in openvpn libcrypto.4.dylib libssl.4.dylib liblzo2.2.dylib libpkcs11-helper.1.dylib liblz4.1.dylib runtime-manifest.json; do
+    /bin/rm -f "/Library/Application Support/Stellar VPN/Runtime/$file"
+done
+/bin/rmdir '/Library/Application Support/Stellar VPN/Runtime' 2>/dev/null || true
+/bin/rm -f '/Library/Application Support/Stellar VPN/uninstall-helper'
+/bin/rm -f '/Library/Application Support/Stellar VPN/firewall-verified-v1'
+/bin/rmdir '/Library/Application Support/Stellar VPN' 2>/dev/null || true
+/bin/rm -f /var/run/stellar-vpn/helper.sock
+/bin/rm -f /var/run/stellar-vpn/firewall-verified-v1 /var/run/stellar-vpn/firewall-test-result
+/bin/rmdir /var/run/stellar-vpn 2>/dev/null || true
+/usr/sbin/pkgutil --forget org.stellarvpn.desktop.helper >/dev/null 2>&1 || true
+echo 'Stellar VPN helper removed. The app and account data were kept.'

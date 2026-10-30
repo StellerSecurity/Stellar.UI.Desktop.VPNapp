@@ -18,4 +18,12 @@ export class ConnectionService {
   }
   connect(serverId: string) { return this.run(() => this.port.connect(serverId)); }
   disconnect() { return this.run(() => this.port.disconnect()); }
+  cancelConnect() {
+    if (!this.port.cancelConnect) return Promise.reject(new Error('Connection cancellation is unavailable.'));
+    const revision = ++this.revision;
+    const task = this.port.cancelConnect();
+    // Cancellation bypasses the connect queue, but a new connect waits for both to settle.
+    this.queue = Promise.allSettled([this.queue, task]);
+    return task.then(value => revision === this.revision ? { value, current: true as const } : { value: null, current: false as const });
+  }
 }

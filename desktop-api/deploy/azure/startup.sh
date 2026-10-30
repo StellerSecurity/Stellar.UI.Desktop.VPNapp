@@ -1,7 +1,10 @@
 #!/bin/sh
 # First-party staging-only webroot setup. No downloads, builds or migrations.
 set -eu
-test "${WEBSITE_SITE_NAME:-}" = stellar-desktop-vpn-staging
+case "${WEBSITE_SITE_NAME:-}" in
+  stellar-desktop-vpn-staging|stellar-desktop-vpn-staging-premium) ;;
+  *) exit 1 ;;
+esac
 test "${APP_ENV:-}" = staging
 test "${STELLAR_API_MODE:-}" = fixture
 test -f /home/site/wwwroot/public/index.php

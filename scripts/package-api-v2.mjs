@@ -27,7 +27,7 @@ function copy(relative){
   manifest.push({path:relative,sha256:createHash('sha256').update(data).digest('hex')});
  }else throw new Error(`Unexpected file type: ${relative}`);
 }
-for(const item of ['app','bootstrap','config','routes','public','fixtures','vendor','deploy','composer.json','composer.lock'])copy(item);
+for(const item of ['app','bootstrap','config','routes','public','resources','fixtures','vendor','deploy','composer.json','composer.lock'])copy(item);
 for(const item of ['bootstrap/cache','storage/framework/views'])fs.mkdirSync(path.join(stage,item),{recursive:true});
 const zip=path.join(path.dirname(stage),path.basename(stage)+'.zip');
 const result=spawnSync('/usr/bin/zip',['-q','-r',zip,'.'],{cwd:stage,stdio:'inherit'});

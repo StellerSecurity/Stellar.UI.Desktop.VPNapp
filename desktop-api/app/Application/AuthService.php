@@ -11,9 +11,15 @@ final readonly class AuthService
 {
     public function __construct(private IdentityGateway $identity) {}
     public function login(LoginCredentials $credentials): Session { return $this->identity->issueSession($credentials); }
+    public function loginAccount(#[\SensitiveParameter] string $number): Session
+    {
+        if (!preg_match('/^[0-9]{16}$/D', $number)) throw new \InvalidArgumentException();
+        if (!$this->identity instanceof \Stellar\DesktopApi\Application\Ports\AnonymousIdentityGateway) throw new IntegrationUnavailable();
+        return $this->identity->issueAnonymousSession($number);
+    }
     public function register(LoginCredentials $credentials): Session
     {
-        if (!filter_var($credentials->username, FILTER_VALIDATE_EMAIL) || strlen($credentials->password()) < 12) {
+        if (!filter_var($credentials->username, FILTER_VALIDATE_EMAIL) || strlen($credentials->password()) < 6) {
             throw new \InvalidArgumentException('Invalid registration input.');
         }
         return $this->scoped()->registerSession($credentials);

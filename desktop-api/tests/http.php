@@ -21,7 +21,7 @@ function expect(bool $value, string $name): void {
     if (!$value) throw new RuntimeException('HTTP contract failed: '.$name);
     $count++;
 }
-function callApi(string $method, string $path, int $status, ?array $body = null, ?string $bearer = null, bool $outsideV2 = false): array {
+function callApi(string $method, string $path, int $status, ?array $body = null, ?string $bearer = null, bool $outsideV2 = false, bool $retrySafe = false): array {
     global $kernel;
     $server = ['HTTP_ACCEPT' => 'application/json', 'CONTENT_TYPE' => 'application/json'];
     if ($bearer !== null) $server['HTTP_AUTHORIZATION'] = 'Bearer '.$bearer;
@@ -40,6 +40,8 @@ function callApi(string $method, string $path, int $status, ?array $body = null,
     expect(preg_match('/^[a-f0-9]{32}$/D', $data['meta']['request_id'] ?? '') === 1, 'request ID shape');
     expect($response->headers->get('X-Request-ID') === $data['meta']['request_id'], 'request ID header matches envelope');
     expect(str_contains($response->headers->get('Cache-Control', ''), 'no-store'), 'no-store');
+    expect(($response->headers->get('X-Stellar-Retry-Safe') === 'not-executed') === $retrySafe, 'only pre-execution rejections allow mutation retry');
+    if ($retrySafe) expect(is_numeric($response->headers->get('Retry-After')), 'safe retry retains limiter Retry-After');
     expect(!str_contains($response->getContent(), 'fixture-secret-password'), 'password never echoed');
     if ($status >= 400) expect(isset($data['error']['code'], $data['error']['message']) && !isset($data['data']), 'error envelope');
     $kernel->terminate($request, $response);
@@ -92,7 +94,7 @@ $app['cache']->flush();
 foreach ($app['router']->getRoutes() as $route) $route->flushController();
 $input = ['username' => 'fixture@example.test', 'password' => 'fixture-secret-password'];
 expect(callApi('POST', '/auth/login', 200, $input)['data']['access_token'] === $testToken, 'login SDK token');
-expect(callApi('POST', '/auth/register', 200, $input)['data']['account_id'] === '1', 'register SDK account');
+expect(callApi('POST', '/auth/register', 200, array_replace($input, ['password' => '123456']))['data']['account_id'] === '1', 'register SDK account accepts six characters');
 $session = callApi('POST', '/auth/session', 200, [], $testToken);
 expect(!isset($session['data']['access_token']) && $session['data']['account_id'] === '1', 'restore does not echo token');
 expect(callApi('POST', '/auth/logout', 200, [], $testToken)['data']['revoked'] === true, 'logout SDK revocation');
@@ -102,7 +104,7 @@ expect(callApi('POST', '/auth/login', 429, $input)['error']['code'] === 'rate_li
 expect(callApi('POST', '/auth/login', 503, $input)['error']['code'] === 'integration_unavailable', 'upstream unavailable mapped');
 $app['cache']->flush();
 for ($attempt = 0; $attempt < 10; $attempt++) callApi('POST', '/auth/login', 422, []);
-expect(callApi('POST', '/auth/login', 429, [])['error']['code'] === 'rate_limited', 'credential rate limiter enforced');
+expect(callApi('POST', '/auth/login', 429, [], null, false, true)['error']['code'] === 'rate_limited', 'credential rate limiter enforced');
 $app['cache']->flush();
 foreach (['tauri://localhost' => true, 'https://evil.example' => false] as $origin => $allowed) {
     $request = Illuminate\Http\Request::create('http://127.0.0.1/api/v2/auth/login', 'OPTIONS', [], [], [],

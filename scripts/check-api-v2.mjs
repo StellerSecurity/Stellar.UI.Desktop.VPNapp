@@ -7,8 +7,16 @@ const root = 'desktop-api';
 const preparedIdentityFiles = new Set([
   `${root}/app/Infrastructure/UserApiIdentityGateway.php`,
   `${root}/app/Infrastructure/ScopedUserApiClient.php`,
+  `${root}/app/Infrastructure/SubscriptionApiGateway.php`,
+  `${root}/app/Infrastructure/AnonymousAccountGateway.php`,
+  `${root}/app/Infrastructure/ActivationApiGateway.php`,
+  `${root}/tests/activation-http.php`,
+  `${root}/app/Infrastructure/DeviceApiGateway.php`,
+  `${root}/app/Infrastructure/VpnCredentialApiGateway.php`,
+  `${root}/app/Infrastructure/VpnServerApiCatalog.php`,
   `${root}/tests/identity.php`,
   `${root}/tests/http.php`,
+  `${root}/tests/vpn-login.php`,
 ]);
 const spec = JSON.parse(fs.readFileSync(`${root}/contracts/openapi.json`, 'utf8'));
 const operationIds = new Set();

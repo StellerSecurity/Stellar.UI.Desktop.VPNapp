@@ -5,6 +5,7 @@ namespace Stellar\DesktopApi\Http\Controllers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Stellar\DesktopApi\Application\AuthService;
+use Stellar\DesktopApi\Application\VpnLoginService;
 use Stellar\DesktopApi\Application\IntegrationUnavailable;
 use Stellar\DesktopApi\Application\IdentityRejected;
 use Stellar\DesktopApi\Domain\LoginCredentials;
@@ -12,7 +13,7 @@ use Stellar\DesktopApi\Http\Responses\Envelope;
 
 final readonly class AuthController
 {
-    public function __construct(private AuthService $auth) {}
+    public function __construct(private AuthService $auth, private VpnLoginService $vpn) {}
     public function login(Request $request): JsonResponse
     {
         return $this->authenticate($request, false);
@@ -21,15 +22,33 @@ final readonly class AuthController
     {
         return $this->authenticate($request, true);
     }
-    private function authenticate(Request $request, bool $register): JsonResponse
+    public function accountLogin(Request $request): JsonResponse
+    {
+        return $this->authenticate($request, false, true);
+    }
+    private function authenticate(Request $request, bool $register, bool $anonymous = false): JsonResponse
     {
         $username = $request->input('username'); $password = $request->input('password');
-        if (!is_string($username) || !is_string($password)) return Envelope::error('validation_failed', 'Username and password are required.', 422);
+        $number = $request->input('account_number');
+        if ($anonymous ? !is_string($number) || !preg_match('/^[0-9]{16}$/D', $number) : !is_string($username) || !is_string($password)) return Envelope::error('validation_failed', 'Invalid login input.', 422);
         try {
-            $credentials = new LoginCredentials($username, $password);
-            $session = $register ? $this->auth->register($credentials) : $this->auth->login($credentials);
+            if ($anonymous) $session = $this->auth->loginAccount($number);
+            else {
+                $credentials = new LoginCredentials($username, $password);
+                $session = $register ? $this->auth->register($credentials) : $this->auth->login($credentials);
+            }
+            $vpn = [];
+            if (config('desktop-api.vpn_login') === true) {
+                try {
+                    $issued = $this->vpn->provision($session);
+                    $vpn = ['vpn_state' => $issued ? 'ready' : 'subscription_required', 'vpn_auth' => $issued?->forLoginResponse()];
+                } catch (IntegrationUnavailable) {
+                    // An upstream VPN outage must not turn a valid account login into bad credentials.
+                    $vpn = ['vpn_state' => 'unavailable', 'vpn_auth' => null];
+                }
+            }
             return Envelope::success(['access_token' => $session->accessToken(), 'token_type' => 'Bearer',
-                'expires_at' => $session->expiresAt->format(DATE_ATOM), 'account_id' => $session->accountId]);
+                'expires_at' => $session->expiresAt->format(DATE_ATOM), 'account_id' => $session->accountId] + $vpn);
         } catch (\InvalidArgumentException) {
             return Envelope::error('validation_failed', 'Invalid login input.', 422);
         } catch (IdentityRejected $failure) {

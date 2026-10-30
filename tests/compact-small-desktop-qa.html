@@ -1,0 +1,22 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Compact small desktop viewport QA</title>
+<style>body{margin:0;background:#ddd;font:13px system-ui}iframe{display:block;border:0;width:800px;height:760px}output{display:block;padding:12px}</style>
+<iframe title="Isolated 800 by 760 desktop viewport" src="/tests/compact-layout-qa.html"></iframe>
+<output>Isolated desktop-size test; no real VPN or API calls.</output>
+<script>
+document.querySelector('iframe').addEventListener('load', () => {
+  let attempts = 0;
+  const check = () => {
+    const frame = document.querySelector('iframe'), d = frame.contentDocument, map = d.querySelector('.map-panel');
+    if (!map && attempts++ < 120) { requestAnimationFrame(check); return; }
+    if (!map) { document.querySelector('output').textContent = 'FAIL: app did not render'; return; }
+    const r = map.getBoundingClientRect(), tabs = [...d.querySelectorAll('.primary-nav button')].map(el => el.getBoundingClientRect());
+    const status = d.querySelector('.connection-statuses').getBoundingClientRect();
+    const actions = d.querySelector('.map-actions').getBoundingClientRect();
+    document.querySelector('output').textContent = JSON.stringify({ viewport: {width:800,height:760}, mapTop:r.top, mapBottom:r.bottom,
+      coversViewport:r.top===0&&r.bottom===760, pageHasVerticalOverflow:d.documentElement.scrollHeight>760,
+      tabsInSingleRow:tabs.every(tab => tab.top === tabs[0].top), statusCentered:Math.abs((status.left+status.right)/2-400)<1,
+      mapControlsAtTopRight:actions.top<30&&actions.right>770,
+      source:'Isolated UI fixture. No real VPN or API calls.' });
+  }; requestAnimationFrame(check);
+});
+</script></html>

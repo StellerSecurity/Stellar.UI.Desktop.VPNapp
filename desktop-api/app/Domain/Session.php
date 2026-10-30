@@ -9,6 +9,7 @@ final readonly class Session
         #[\SensitiveParameter] private string $accessToken,
         public string $accountId,
         public \DateTimeImmutable $expiresAt,
+        public ?string $subscriptionHash = null,
     ) {
         if ($accessToken === '' || $accountId === '') throw new \InvalidArgumentException('Invalid session.');
     }

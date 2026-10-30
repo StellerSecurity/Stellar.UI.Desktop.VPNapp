@@ -1,0 +1,23 @@
+{
+  "status": "LOCAL_IMPLEMENTATION_TESTED_NOT_DEPLOYED",
+  "dependency_changes": "None. Existing approved PHP/Laravel, SQLite, Node, React, Tauri runtimes reused.",
+  "database_testing": "Real additive migrations and controller transactions exercised against SQLite in-memory. No production or shared database touched. MySQL parallel-worker and deployed middleware tests still required before enablement.",
+  "checks": {
+    "frontend_suite": "78 passed, including 6 new activation tests",
+    "activation_desktop_http": "51 assertions; all upstream HTTP faked with stray requests prevented",
+    "redemption_database": "31 assertions including claim/credit rollback, lost response replay, foreign account/subscription, legacy compatibility, expired and deferred plans, wrong product, invalid duration",
+    "existing_api_fixture": "24 passed",
+    "existing_api_http": "408 assertions passed, fake HTTP only",
+    "existing_identity_http": "73 assertions passed, fake HTTP only",
+    "existing_account_http": "69 assertions passed, fake HTTP only",
+    "static": "TypeScript, architecture, API contract/source boundaries, PHP syntax and git diff whitespace passed",
+    "bundle": "macOS debug app built, signed with existing local identity and restarted",
+    "final_native_ui": "After user Keychain approval, app shows Connected. Activation dialog opens with empty input and disabled Activate. Escape closes the dialog and returns keyboard focus to Use activation code. No code submitted."
+  },
+  "live_limitations": [
+    "No real activation code was submitted or consumed. No backend deployed or migrated. No credentials read or changed.",
+    "Desktop activation requires the new /api/v2/account/activation route; undeployed route cannot activate a code. Server feature flag defaults false until both upstream APIs are ready.",
+    "Global proxy/APM redaction and production database concurrency must be verified during separately approved staging rollout. See rollout.json.",
+    "A macOS Keychain permission blocked the first restart until the user approved it. No Keychain security policy was changed as part of this work."
+  ]
+}

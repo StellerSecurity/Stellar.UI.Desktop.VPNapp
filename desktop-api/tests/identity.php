@@ -80,9 +80,9 @@ try {
     identityRejects(fn () => $unavailable->issueSession($credentials), IntegrationUnavailable::class, 'service authentication failure is not a user password error');
 
     [$client, $http] = gateway($ok);
-    $client->registerSession($credentials);
+    $client->registerSession(new LoginCredentials('synthetic@example.test', '123456'));
     identityCheck(str_ends_with($http->recorded()[0][0]->url(), '/register'), 'registration has separate operation');
-    identityRejects(fn () => $client->registerSession(new LoginCredentials('synthetic@example.test', 'short')), IdentityRejected::class, '12-character registration minimum');
+    identityRejects(fn () => $client->registerSession(new LoginCredentials('synthetic@example.test', '12345')), IdentityRejected::class, '6-character registration minimum');
     identityCheck(count($http->recorded()) === 1, 'invalid registration never sent');
 
     [$client, $http] = gateway(['response_code' => 200, 'expires_at' => $expiry, 'user' => ['id' => '42']]);

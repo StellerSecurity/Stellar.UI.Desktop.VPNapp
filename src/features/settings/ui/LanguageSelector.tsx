@@ -1,8 +1,11 @@
+import { useTranslation } from '../../../shared/i18n/I18n';
 import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../../../app/AppProvider';
 import { Icon } from '../../../shared/ui/Icon';
-const languages = [['English', '🇬🇧'], ['Dansk', '🇩🇰'], ['Deutsch', '🇩🇪'], ['Français', '🇫🇷'], ['Español', '🇪🇸'], ['Svenska', '🇸🇪']];
+import { languages as supportedLanguages } from '../../../shared/i18n/languages';
+const languages = supportedLanguages.map(language => [language.name, language.flag]);
 export function LanguageSelector() {
+  const t = useTranslation();
   const app = useApp(), root = useRef<HTMLDivElement>(null), trigger = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false), [closing, setClosing] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -29,7 +32,7 @@ export function LanguageSelector() {
     const index = options.indexOf(document.activeElement as HTMLButtonElement);
     options[event.key === 'Home' ? 0 : event.key === 'End' ? options.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length]?.focus();
   }}>
-    <button ref={trigger} id="language-trigger" className="selector-trigger" type="button" aria-label={`Language: ${value}`} aria-haspopup="listbox" aria-controls="language-options" aria-expanded={open && !closing} onClick={() => { if (open && !closing) close(); else { clearTimeout(timer.current); setClosing(false); setOpen(true); } }}><span>{value}</span><span aria-hidden="true">{languages.find(([name]) => name === value)?.[1]}</span><i><Icon name="chevron" /></i></button>
-    {open && <div id="language-options" className={`selector-popover ${closing ? 'is-closing' : ''}`} role="listbox" aria-label="Language">{languages.map(([name, flag]) => <button key={name} role="option" aria-selected={name === value} onClick={() => { if (app.snapshot) app.saveSettings({ ...app.snapshot.settings, language: name }); close(true); app.notify('Language preference saved'); }}><span>{name}</span><small>{flag}</small></button>)}</div>}
+    <button ref={trigger} id="language-trigger" className="selector-trigger" type="button" aria-label={t(`Language: ${value}`)} aria-haspopup="listbox" aria-controls="language-options" aria-expanded={open && !closing} onClick={() => { if (open && !closing) close(); else { clearTimeout(timer.current); setClosing(false); setOpen(true); } }}><span>{t(value)}</span><span aria-hidden="true">{t(languages.find(([name]) => name === value)?.[1])}</span><i><Icon name="chevron" /></i></button>
+    {t(open && <div id="language-options" className={`selector-popover ${closing ? 'is-closing' : ''}`} role="listbox" aria-label={t("Language")}>{t(languages.map(([name, flag]) => <button key={name} role="option" aria-selected={name === value} onClick={() => { if (app.snapshot) app.saveSettings({ ...app.snapshot.settings, language: name }); close(true); app.notify('Language preference saved'); }}><span>{t(name)}</span><small>{t(flag)}</small></button>))}</div>)}
   </div>;
 }

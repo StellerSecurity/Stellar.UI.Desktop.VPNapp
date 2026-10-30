@@ -1,0 +1,35 @@
+{
+  "purpose": "Local first-party API source overlays. Not deployed; no dependencies included.",
+  "files": [
+    {
+      "project": "activation-license",
+      "path": "app/Http/Controllers/V1/ActivationLicenseController.php",
+      "upstream_blob": "c5c091c0fd64e69476079305a376444dbb0083a8"
+    },
+    {
+      "project": "activation-license",
+      "path": "routes/api.php",
+      "upstream_blob": "3c5c356bfcf60b08a119b684af33728f2c3e77e7"
+    },
+    {
+      "project": "activation-license",
+      "path": "app/Models/ActivationLicense.php",
+      "upstream_blob": "8db06a2e1a83f263485ff28a1f72fad4a9f45b32"
+    },
+    {
+      "project": "subscriptions",
+      "path": "routes/api.php",
+      "upstream_blob": "d2e9645c891110b32fb8275481c917371da9665c"
+    },
+    {
+      "project": "subscriptions",
+      "path": "app/Models/Subscription.php",
+      "upstream_blob": "853130f662c35332358d8d4a7a728e49659c283c"
+    },
+    {
+      "project": "subscriptions",
+      "path": "app/Http/Controllers/v1/SubscriptionController.php",
+      "upstream_blob": "b8fe8ddba920d5f6f523fe29ea4cb342b815028a"
+    }
+  ]
+}

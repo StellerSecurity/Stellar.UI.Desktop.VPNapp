@@ -1,0 +1,28 @@
+#!/bin/sh
+set -eu
+# Installer runs as root. Only the interactive console user may control this helper.
+uid=$(/usr/bin/stat -f '%u' /dev/console)
+case "$uid" in ''|*[!0-9]*) exit 1;; esac
+[ "$uid" -ge 501 ] || exit 1
+/bin/launchctl bootout system/org.stellarvpn.desktop.helper 2>/dev/null || true
+/bin/cat > /Library/LaunchDaemons/org.stellarvpn.desktop.helper.plist <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>Label</key><string>org.stellarvpn.desktop.helper</string>
+<key>ProgramArguments</key><array><string>/Library/Application Support/Stellar VPN/stellar-vpn-helper</string><string>$uid</string></array>
+<key>RunAtLoad</key><true/>
+<key>KeepAlive</key><true/>
+<key>ThrottleInterval</key><integer>5</integer>
+<key>ExitTimeOut</key><integer>15</integer>
+<key>Umask</key><integer>63</integer>
+<key>StandardOutPath</key><string>/dev/null</string>
+<key>StandardErrorPath</key><string>/dev/null</string>
+</dict></plist>
+EOF
+/usr/sbin/chown root:wheel /Library/LaunchDaemons/org.stellarvpn.desktop.helper.plist
+/bin/chmod 644 /Library/LaunchDaemons/org.stellarvpn.desktop.helper.plist
+/bin/launchctl bootstrap system /Library/LaunchDaemons/org.stellarvpn.desktop.helper.plist
+# Explicitly approved local firewall/disruption test. Failure does not grant the
+# capability: users keep normal VPN service with kill switch unavailable.
+"/Library/Application Support/Stellar VPN/stellar-vpn-helper" --firewall-test || true

@@ -8,6 +8,7 @@ import '../vpn.css';
 import './shared/design-system/desktop.css';
 import { TrayApp } from './features/tray/ui/TrayApp';
 import './features/tray/ui/tray.css';
+import './features/connection/ui/compact-connection.css';
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Missing application root');

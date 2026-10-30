@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Compact desktop layout — isolated QA</title>
+<link rel="stylesheet" href="/stellar-tokens.css"><link rel="stylesheet" href="/vpn.css">
+<link rel="stylesheet" href="/src/shared/design-system/desktop.css"><link rel="stylesheet" href="/src/features/connection/ui/compact-connection.css">
+<body class="stellar-theme"><div id="root"></div>
+<script type="module">
+// First-party UI fixture. No identity, subscription, native tunnel or production API adapter is created.
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { App } from '/src/app/App.tsx';
+import { TrayApp } from '/src/features/tray/ui/TrayApp.tsx';
+import '/src/features/tray/ui/tray.css';
+import { AppProvider } from '/src/app/AppProvider.tsx';
+import { ConnectionService } from '/src/features/connection/application/ConnectionService.ts';
+import { SubscriptionRequired } from '/src/features/account/domain/VpnAccess.ts';
+import { normalizeServers } from '/src/features/locations/domain/Server.ts';
+import { loadWorldMap } from '/src/infrastructure/catalog/BundledMapRepository.ts';
+import { defaultSettings } from '/src/contracts/desktop.ts';
+import catalog from '/assets/servers.json';
+const servers = normalizeServers(catalog), params = new URLSearchParams(location.search);
+const initialServerId = servers.find(server => server.id === params.get('server'))?.id || 'cz-1';
+if (params.get('tray') === '1') { document.documentElement.classList.add('tray-surface'); document.getElementById('root').style.cssText='width:320px;height:252px;min-height:0'; }
+const fixtureNow = Date.now() - 1000;
+let state = { contractVersion: 1, runtime: 'browser-preview', selectedServerId: initialServerId,
+  subscriptionAccess: { active: params.get('access') !== 'inactive', expiresAt: null },
+  session: { authenticated: params.get('auth') !== '1', onboardingComplete: true }, settings: { ...defaultSettings, language: params.get('lang') || 'English', autoConnect: false, autoRotate: params.get('rotate') === '1' },
+  connection: { status: params.get('state') === 'disconnected' || params.get('state') === 'blocked' ? 'disconnected' : 'connected',
+    trafficBlocked: params.get('state') === 'blocked', serverId: initialServerId, connectedAt: Date.now() - 193000, downloadMbps: 12.6, uploadMbps: 2.1 } };
+const settle = () => new Promise(resolve => setTimeout(resolve, params.get('slow') === '1' ? 15000 : 550));
+let generation = 0;
+if (params.get('rates') === 'missing') { delete state.connection.downloadMbps; delete state.connection.uploadMbps; }
+const desktop = {
+  bootstrap: async () => structuredClone(state),
+  subscribe: async callback => { const timer = setInterval(() => callback(structuredClone(state)), 1000); return () => clearInterval(timer); },
+  selectLocation: async id => { state.selectedServerId = id; },
+  connect: async id => { const attempt = ++generation; await settle(); if (attempt !== generation) throw new DOMException('Connection cancelled', 'AbortError'); if (!state.subscriptionAccess.active) throw new SubscriptionRequired(); if (params.get('fail') === '1') throw new Error('Connection timed out after 30 seconds. Please try again.'); state.connection = { status: 'connected', serverId: id, connectedAt: Date.now(), downloadMbps: 0, uploadMbps: 0 }; return { ...state.connection }; },
+  cancelConnect: async () => { ++generation; state.connection = { status: 'disconnected', serverId: null, connectedAt: null, trafficBlocked: !!state.connection.trafficBlocked }; return { ...state.connection }; },
+  disconnect: async () => { await settle(); state.connection = { status: 'disconnected', serverId: null, connectedAt: null }; return { ...state.connection }; },
+  openExternal: async () => {},
+};
+if (params.get('expire') === '1') setTimeout(() => { state.subscriptionAccess.active = false; state.connection = { status:'disconnected', serverId:null, connectedAt:null, trafficBlocked:state.settings.killSwitch }; }, 4000);
+const container = { desktop, connection: new ConnectionService(desktop), loadWorldMap,
+  servers: { cached: () => servers, list: async () => servers },
+  favorites: { load: () => ['dk-1', 'cz-1', 'se-1'], save: () => {} },
+  updates: { check: async () => null, subscribe: async () => () => {} },
+  account: { current: async () => ({ id: '1', subscriptionState: params.get('account') === 'missing' ? 'unavailable' : 'available', subscription: params.get('account') === 'missing' ? null : { id: '1234567812345678', status: 'active', expiresAt: params.has('days') ? new Date(fixtureNow + Number(params.get('days')) * 86400000).toISOString() : '2026-12-01T00:00:00Z' }, devicesState: 'available', devices: [{id:'1',name:'QA MacBook'},{id:'2',name:'QA desktop with a long device name for wrapping checks'}] }) },
+  settings: { save: async settings => { state.settings = settings; } }, session: { completeOnboarding: async () => ({ ...state.session, onboardingComplete: true }) },
+};
+createRoot(document.getElementById('root')).render(React.createElement(AppProvider, { container }, React.createElement(params.get('tray') === '1' ? TrayApp : App)));
+</script></body></html>

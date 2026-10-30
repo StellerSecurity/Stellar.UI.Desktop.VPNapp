@@ -24,8 +24,23 @@ export function geometryToPath(geometry: Geometry | null): string {
   return '';
 }
 export function countryCode(feature: CountryFeature) {
-  const { ISO_A2, POSTAL, ADM0_A3 } = feature.properties;
-  return ISO_A2 && ISO_A2 !== '-99' ? ISO_A2 : POSTAL || ADM0_A3 || '';
+  const { ISO_A2, WB_A2, ADM0_A3 } = feature.properties;
+  if (/^[A-Z]{2}$/.test(ISO_A2 || '')) return ISO_A2;
+  // Natural Earth leaves these ISO fields at -99; postal N/F are not ISO codes.
+  if (ADM0_A3 === 'NOR') return 'NO';
+  if (ADM0_A3 === 'FRA') return 'FR';
+  return /^[A-Z]{2}$/.test(WB_A2 || '') ? WB_A2 : '';
+}
+/** Natural Earth groups French Guiana with France; the VPN map needs separate ISO territories. */
+export function countryMapFeatures(feature: CountryFeature): CountryFeature[] {
+  if (countryCode(feature) !== 'FR' || feature.geometry?.type !== 'MultiPolygon') return [feature];
+  return (feature.geometry.coordinates as Ring[][]).map(coordinates => {
+    const guiana = coordinates[0]?.length > 0 && coordinates[0].every(([lon, lat]) => lon >= -55 && lon <= -50 && lat >= 0 && lat <= 7);
+    return {
+      properties: guiana ? { ...feature.properties, ISO_A2: 'GF', WB_A2: 'GF', ADM0_A3: 'GUF', ADMIN: 'French Guiana', NAME: 'French Guiana' } : feature.properties,
+      geometry: { type: 'Polygon', coordinates },
+    };
+  });
 }
 export function routeCurve(from: Coordinate, to: Coordinate) {
   const a = mapPoint(from), b = mapPoint(to);

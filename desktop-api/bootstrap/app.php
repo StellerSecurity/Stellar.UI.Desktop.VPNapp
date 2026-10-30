@@ -9,6 +9,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware()
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->render(function (\Throwable $error) {
+            // Laravel's rate limiter carries its pre-execution JSON response
+            // in this exception. Preserve status, Retry-After and safe marker.
+            if ($error instanceof \Illuminate\Http\Exceptions\HttpResponseException) return $error->getResponse();
             if ($error instanceof \Stellar\DesktopApi\Application\IntegrationUnavailable) {
                 error_log('stellar_identity_configuration_unavailable'.PHP_EOL, 3, storage_path('framework/identity-errors.log'));
                 return Envelope::error('integration_unavailable', 'Authentication is not connected in this environment.', 503);

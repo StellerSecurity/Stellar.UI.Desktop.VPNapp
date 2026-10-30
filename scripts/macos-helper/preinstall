@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+# Stop the previous helper before Installer replaces its executable or libraries.
+/bin/launchctl bootout system/org.stellarvpn.desktop.helper 2>/dev/null || true
+if [ -f /var/run/stellar-vpn/pf-token ]; then
+    '/Library/Application Support/Stellar VPN/stellar-vpn-helper' --unblock
+fi
+# Verification belongs to this exact installed helper build, never an older one.
+/bin/rm -f /var/run/stellar-vpn/firewall-verified-v1
+/bin/rm -f '/Library/Application Support/Stellar VPN/firewall-verified-v1'

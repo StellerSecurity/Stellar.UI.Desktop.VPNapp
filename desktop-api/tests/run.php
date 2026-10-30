@@ -54,8 +54,10 @@ rejects(fn () => $auth->register($credentials), IntegrationUnavailable::class, '
 rejects(fn () => $auth->inspect('1|'.str_repeat('a', 40)), IntegrationUnavailable::class, 'unconfigured introspection never validates tokens');
 StagingPolicy::assertFixtureMode('testing', 'fixture', null);
 StagingPolicy::assertFixtureMode('staging', 'fixture', 'stellar-desktop-vpn-staging');
+StagingPolicy::assertFixtureMode('staging', 'fixture', 'stellar-desktop-vpn-staging-premium');
 check(true, 'explicit testing/staging fixture mode accepted');
 rejects(fn () => StagingPolicy::assertFixtureMode('production', 'fixture', null), RuntimeException::class, 'production fixture boot refused');
+rejects(fn () => StagingPolicy::assertFixtureMode('production', 'fixture', 'stellar-desktop-vpn-staging-premium'), RuntimeException::class, 'premium host cannot enable production fixture mode');
 rejects(fn () => StagingPolicy::assertFixtureMode('staging', 'live', null), RuntimeException::class, 'unimplemented live mode refused');
 rejects(fn () => StagingPolicy::assertFixtureMode('staging', 'fixture', 'some-other-app'), RuntimeException::class, 'wrong Azure app refused');
 echo $passed.' first-party tests passed; Laravel/vendor code was not loaded.'.PHP_EOL;

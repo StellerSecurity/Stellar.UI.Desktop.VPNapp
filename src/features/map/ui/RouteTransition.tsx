@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { reducedMotion } from '../application/MapViewport';
+import { routeFrame } from '../domain/RouteFrame';
 
 /** Visual feedback only: never delays server selection or connection commands. */
 export function RouteTransition({ curve }: { curve: string }) {
@@ -12,11 +13,9 @@ export function RouteTransition({ curve }: { curve: string }) {
     if (!line || !halo || !head || !surface || reducedMotion()) return;
     let frame = 0, fade: ReturnType<typeof setTimeout>;
     const motion = matchMedia('(prefers-reduced-motion: reduce)');
-    const length = line.getTotalLength();
-    for (const stroke of [line, halo]) {
-      stroke.style.strokeDasharray = `${length}`;
-      stroke.style.strokeDashoffset = `${length}`;
-    }
+    const initial = routeFrame(curve, 0);
+    if (!initial) return;
+    for (const stroke of [line, halo]) stroke.setAttribute('d', initial.path);
     const stop = () => {
       cancelAnimationFrame(frame); clearTimeout(fade);
       surface.classList.remove('active'); head.setAttribute('visibility', 'hidden');
@@ -24,16 +23,12 @@ export function RouteTransition({ curve }: { curve: string }) {
     const started = performance.now();
     const draw = (now: number) => {
       const progress = Math.min(1, (now - started) / 720);
-      const distance = length * (1 - (1 - progress) ** 3);
-      const point = line.getPointAtLength(distance);
-      // A backward sample at arrival avoids a zero-length tangent.
-      const before = line.getPointAtLength(Math.max(0, distance - 1));
-      const after = line.getPointAtLength(Math.min(length, distance + 1));
-      const angle = Math.atan2(after.y - before.y, after.x - before.x) * 180 / Math.PI;
+      const current = routeFrame(curve, 1 - (1 - progress) ** 3)!;
+      const { point, angle } = current;
       const matrix = line.getScreenCTM();
       const scaleX = matrix ? Math.hypot(matrix.a, matrix.b) : 1;
       const scaleY = matrix ? Math.hypot(matrix.c, matrix.d) : 1;
-      for (const stroke of [line, halo]) stroke.style.strokeDashoffset = `${length - distance}`;
+      for (const stroke of [line, halo]) stroke.setAttribute('d', current.path);
       head.setAttribute('transform', `translate(${point.x} ${point.y}) rotate(${angle}) scale(${1 / (scaleX || 1)} ${1 / (scaleY || 1)})`);
       head.setAttribute('visibility', 'visible'); surface.classList.add('active');
       if (progress < 1) frame = requestAnimationFrame(draw);

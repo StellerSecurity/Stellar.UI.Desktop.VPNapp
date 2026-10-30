@@ -6,7 +6,7 @@ return [
         'http://127.0.0.1:4176', 'http://127.0.0.1:4177'],
     'allowed_origins_patterns' => [],
     'allowed_headers' => ['Accept', 'Content-Type', 'Authorization'],
-    'exposed_headers' => ['X-Request-ID', 'Retry-After'],
+    'exposed_headers' => ['X-Request-ID', 'Retry-After', 'X-Stellar-Retry-Safe'],
     'max_age' => 600,
     'supports_credentials' => false,
 ];

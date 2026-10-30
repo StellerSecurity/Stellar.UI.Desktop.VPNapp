@@ -7,7 +7,7 @@ export interface Server {
   lon: number;
   lat: number;
 }
-export interface ServerRepository { list(signal?: AbortSignal): Promise<Server[]> }
+export interface ServerRepository { cached?(): Server[]; list(signal?: AbortSignal): Promise<Server[]> }
 export function normalizeServers(data: unknown): Server[] {
   if (!Array.isArray(data)) throw new Error('Invalid server catalog');
   const names = new Intl.DisplayNames(['en'], { type: 'region' });
@@ -31,7 +31,10 @@ export function normalizeServers(data: unknown): Server[] {
 }
 export function filterServers(servers: readonly Server[], query: string, favorites: readonly string[] | null): Server[] {
   const search = query.trim().toLocaleLowerCase('en');
+  // Resolve codes from the current catalog, not a hardcoded country alias list.
+  const countryCode = /^[a-z]{2}$/.test(search) && servers.some(server => server.countryCode.toLowerCase() === search);
   return servers.filter(server => (!favorites || favorites.includes(server.id))
-    && `${server.country} ${server.city}`.toLocaleLowerCase('en').includes(search))
+    && (countryCode ? server.countryCode.toLowerCase() === search
+      : `${server.country} ${server.city}`.toLocaleLowerCase('en').includes(search)))
     .sort((a, b) => a.country.localeCompare(b.country, 'en') || a.city.localeCompare(b.city, 'en'));
 }

@@ -8,7 +8,7 @@ final class StagingPolicy
     public static function assertFixtureMode(string $environment, string $mode, ?string $azureSite): void
     {
         if (!in_array($environment, ['staging', 'testing'], true) || $mode !== 'fixture'
-            || ($azureSite !== null && $azureSite !== 'stellar-desktop-vpn-staging')) {
+            || ($azureSite !== null && !in_array($azureSite, ['stellar-desktop-vpn-staging', 'stellar-desktop-vpn-staging-premium'], true))) {
             throw new \RuntimeException('Desktop API fixture mode requires an explicitly isolated staging/testing environment.');
         }
     }

@@ -3,6 +3,7 @@ export type ConnectionView = ConnectionSnapshot & { pending: boolean };
 export interface ConnectionPort {
   connect(serverId: string): Promise<ConnectionSnapshot>;
   disconnect(): Promise<ConnectionSnapshot>;
+  cancelConnect?(): Promise<ConnectionSnapshot>;
 }
 export function elapsedTime(connectedAt: number | null, now: number): string {
   const seconds = connectedAt === null ? 0 : Math.max(0, Math.floor((now - connectedAt) / 1000));

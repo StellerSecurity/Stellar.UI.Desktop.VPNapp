@@ -6,6 +6,7 @@ const clamp = (value: number, min: number, max: number) => Math.max(min, Math.mi
 export class MapViewport {
   x = 0; y = 0; zoom = 1.22;
   private animation = 0;
+  private targetZoom = 1.22;
   private momentum = 0;
   private abort = new AbortController();
   private pointers = new Map<number, { x: number; y: number }>();
@@ -18,7 +19,12 @@ export class MapViewport {
   private onChange: () => void;
   private onSelect: (id: string) => void;
   private collapsed: () => boolean;
-  constructor(root: HTMLElement, onChange: () => void, onSelect: (id: string) => void, collapsed: () => boolean) {
+  private globe = false;
+  private focused?: Coordinate;
+  private globeCentre?: Coordinate;
+  private lastFlatZoom = 2.1;
+  rememberGlobeCentre(centre: Coordinate) { this.globeCentre = centre; }
+  constructor(root: HTMLElement, onChange: () => void, onSelect: (id: string) => void, collapsed: () => boolean, private onGlobeChange: (globe: boolean, centre?: Coordinate) => void = () => {}) {
     this.root = root; this.frame = root.querySelector('.map-art-frame')!; this.art = root.querySelector('.map-art')!;
     this.onChange = onChange; this.onSelect = onSelect; this.collapsed = collapsed;
     const options = { signal: this.abort.signal };
@@ -35,7 +41,7 @@ export class MapViewport {
     window.addEventListener('resize', this.resize, options);
     this.paint();
   }
-  private blocked(target: EventTarget | null) { return target instanceof Element && !!target.closest('button:not(.map-pin), input, .connection-card, .map-top, .map-bottom'); }
+  private blocked(target: EventTarget | null) { return this.globe || ['out', 'in'].includes(this.root.dataset.projectionPhase || '') || target instanceof Element && !!target.closest('button:not(.map-pin), input, .connection-card, .compact-connection-dock, .map-top, .map-bottom, .globe-surface'); }
   private stop() { cancelAnimationFrame(this.animation); cancelAnimationFrame(this.momentum); this.animation = 0; this.momentum = 0; }
   private limits() {
     // Permit moving either edge of the world into the usable map area, even behind an open sidebar.
@@ -44,43 +50,65 @@ export class MapViewport {
   }
   private paint() {
     const limits = this.limits(); this.x = clamp(this.x, -limits.x, limits.x); this.y = clamp(this.y, -limits.y, limits.y);
-    this.art.style.width = `${this.frame.offsetWidth * this.zoom}px`;
-    this.art.style.height = `${this.frame.offsetHeight * this.zoom}px`;
-    this.art.style.setProperty('--map-pan-x', `${this.x}px`);
-    this.art.style.setProperty('--map-pan-y', `${this.y}px`);
-    this.art.style.setProperty('--map-zoom', String(this.zoom));
-    this.root.classList.toggle('map-overview', this.zoom < 1.7);
-    const reset = this.root.querySelector<HTMLButtonElement>('#reset-map');
-    if (reset) reset.hidden = Math.abs(this.x) < 1 && Math.abs(this.y) < 1 && Math.abs(this.zoom - 1.22) < .01;
+    const globe = this.zoom <= .9;
+    // Freeze the outgoing flat projection during its fade, rather than first
+    // snapping it to the tiny overview underneath the incoming sphere.
+    if (!globe) {
+      this.art.style.width = `${this.frame.offsetWidth * this.zoom}px`;
+      this.art.style.height = `${this.frame.offsetHeight * this.zoom}px`;
+      this.art.style.setProperty('--map-pan-x', `${this.x}px`);
+      this.art.style.setProperty('--map-pan-y', `${this.y}px`);
+      this.art.style.setProperty('--map-zoom', String(this.zoom));
+      this.root.classList.toggle('map-overview', this.zoom < 1.7);
+    }
+    if (globe !== this.globe) {
+      if (globe) {
+        const bounds = this.root.getBoundingClientRect(), plane = this.art.getBoundingClientRect();
+        this.lastFlatZoom = Number(this.art.style.getPropertyValue('--map-zoom')) || 2.1;
+        this.globeCentre = { lon: clamp((bounds.left + bounds.width / 2 - plane.left) / plane.width * 360 - 180, -180, 180),
+          lat: clamp(90 - (((bounds.top + bounds.height * .4 - plane.top) / plane.height * 760 - 85) / 590 * 180), -80, 80) };
+      }
+      this.globe = globe; this.onGlobeChange(globe, this.globeCentre);
+    }
     this.onChange();
   }
   private animate(x: number, y: number, zoom: number) {
     this.stop(); const sx = this.x, sy = this.y, sz = this.zoom, started = performance.now();
     const targetZoom = clamp(zoom, .85, 8);
-    if (reducedMotion()) { this.x = x; this.y = y; this.zoom = targetZoom; this.paint(); return; }
+    this.targetZoom = targetZoom;
+    // Projection changes are immediate. Only the short visual fade belongs to
+    // the globe; waiting for a pan animation before mounting it feels delayed.
+    if (reducedMotion() || this.globe || targetZoom <= .9) { this.x = x; this.y = y; this.zoom = targetZoom; this.paint(); return; }
     const step = (now: number) => {
-      const t = Math.min(1, (now - started) / 440), eased = 1 - (1 - t) ** 3;
+      const t = Math.min(1, (now - started) / 260), eased = 1 - (1 - t) ** 3;
       this.x = sx + (x - sx) * eased; this.y = sy + (y - sy) * eased; this.zoom = sz + (targetZoom - sz) * eased; this.paint();
       if (t < 1) this.animation = requestAnimationFrame(step);
+      else this.animation = 0;
     };
     this.animation = requestAnimationFrame(step);
   }
   reset = () => this.animate(0, 0, 1.22);
   focus(server: Coordinate) {
-    const p = mapPoint(server), zoom = Math.max(this.zoom, 2.1);
-    this.animate(this.root.clientWidth * (this.collapsed() ? 0 : .16) - (p.x / 1100 - .5) * this.frame.offsetWidth * zoom,
-      -this.root.clientHeight * .1 - (p.y / 760 - .5) * this.frame.offsetHeight * zoom, zoom);
+    this.focusAt(server, Math.max(this.zoom, 2.1));
+  }
+  private focusAt(server: Coordinate, zoom: number) {
+    this.focused = server;
+    const p = mapPoint(server);
+    const bounds = this.root.getBoundingClientRect(), frame = this.frame.getBoundingClientRect();
+    this.animate(this.root.clientWidth * (this.collapsed() ? .5 : .66) - (frame.left + frame.width / 2 - bounds.left) - (p.x / 1100 - .5) * this.frame.offsetWidth * zoom,
+      this.root.clientHeight * .4 - (frame.top + frame.height / 2 - bounds.top) - (p.y / 760 - .5) * this.frame.offsetHeight * zoom, zoom);
   }
   zoomAt(clientX: number, clientY: number, requested: number, animated = false) {
-    this.stop(); const rect = this.root.getBoundingClientRect(), x = clientX - rect.left - this.root.clientWidth / 2, y = clientY - rect.top - this.root.clientHeight / 2;
+    this.stop(); const rect = this.frame.getBoundingClientRect(), x = clientX - rect.left - rect.width / 2, y = clientY - rect.top - rect.height / 2;
     const zoom = clamp(requested, .85, 8), ratio = zoom / this.zoom;
     const targetX = x - (x - this.x) * ratio, targetY = y - (y - this.y) * ratio;
     if (animated) this.animate(targetX, targetY, zoom);
     else { this.x = targetX; this.y = targetY; this.zoom = zoom; this.paint(); }
   }
   zoomBy(factor: number) {
+    if (this.globe && factor > 1 && (this.globeCentre || this.focused)) { this.focusAt((this.globeCentre || this.focused)!, this.lastFlatZoom); return; }
     const rect = this.root.getBoundingClientRect();
-    this.zoomAt(rect.left + this.root.clientWidth * (this.collapsed() ? .5 : .66), rect.top + this.root.clientHeight * .4, this.zoom * factor, true);
+    this.zoomAt(rect.left + this.root.clientWidth * (this.collapsed() ? .5 : .66), rect.top + this.root.clientHeight * .4, (this.animation ? this.targetZoom : this.zoom) * factor, true);
   }
   private down = (event: PointerEvent) => {
     if (event.button !== 0 || this.blocked(event.target)) return;
@@ -149,7 +177,7 @@ export class MapViewport {
   };
   private gestureEnd = (event: Event) => { if (!this.blocked(event.target)) event.preventDefault(); };
   private keydown = (event: KeyboardEvent) => {
-    if (event.target !== this.root) return;
+    if (event.target !== this.root || this.globe) return;
     const step = event.shiftKey ? 60 : 24;
     const move: Record<string, [number, number]> = { ArrowLeft: [step, 0], ArrowRight: [-step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] };
     if (move[event.key]) { event.preventDefault(); this.stop(); this.x += move[event.key][0]; this.y += move[event.key][1]; this.paint(); }

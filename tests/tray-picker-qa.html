@@ -1,0 +1,8 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Tray location picker QA</title><link rel="stylesheet" href="/stellar-tokens.css"><link rel="stylesheet" href="/vpn.css"><link rel="stylesheet" href="/src/shared/design-system/desktop.css"><link rel="stylesheet" href="/src/features/tray/ui/tray.css">
+<style>*{box-sizing:border-box}body{padding:24px;background:#ddd;font-family:system-ui}.tray-app{width:320px;height:252px}#result{margin-top:12px}</style>
+<div id="root"></div><script type="module">
+import React,{useState} from 'react';import{createRoot}from'react-dom/client';import{TrayLocationPicker}from'/src/features/tray/ui/TrayLocationPicker.tsx';import{normalizeServers}from'/src/features/locations/domain/Server.ts';import catalog from '/assets/servers.json';
+const servers=normalizeServers(catalog);
+function Fixture(){const[open,setOpen]=useState(false),[selected,setSelected]=useState('dk-1');return React.createElement(React.Fragment,null,React.createElement('main',{className:'tray-app'},React.createElement('button',{onClick:()=>setOpen(true)},'Change location'),open&&React.createElement(TrayLocationPicker,{servers,selectedId:selected,busy:false,onSelect:id=>setSelected(id),onClose:()=>setOpen(false)})),React.createElement('output',{id:'result'},`Selected: ${selected} · isolated test, no VPN/API commands`));}
+createRoot(document.querySelector('#root')).render(React.createElement(Fixture));
+</script></html>

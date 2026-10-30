@@ -13,24 +13,25 @@
     "withGlobalTauri": false,
     "windows": [{
       "label": "main",
-      "title": "Stellar VPN — UI Preview",
-      "width": 1280,
+      "visible": false,
+      "title": "Stellar VPN",
+      "width": 900,
       "height": 820,
       "minWidth": 800,
       "minHeight": 600,
       "backgroundColor": "#0a347c"
     }],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' ipc: http://ipc.localhost https://stellar-desktop-vpn-staging-ayakcqbcfvb2fqhc.westeurope-01.azurewebsites.net; object-src 'none'; base-uri 'self'; frame-src 'none'",
-      "capabilities": ["main"]
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' ipc: http://ipc.localhost https://stellar-desktop-vpn-staging-premium-dtfhc6g5hfhch2gs.westeurope-01.azurewebsites.net; object-src 'none'; base-uri 'self'; frame-src 'none'",
+      "capabilities": ["main", "updates"]
     }
   },
   "bundle": {
     "active": true,
     "targets": ["app", "dmg", "nsis", "appimage", "deb"],
     "category": "Productivity",
-    "shortDescription": "Stellar VPN desktop UI preview",
+    "shortDescription": "Stellar VPN desktop application",
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
-    "macOS": { "minimumSystemVersion": "12.0" }
+    "macOS": { "minimumSystemVersion": "12.0", "infoPlist": "src/Info.plist" }
   }
 }

@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>Wholesale auth — isolated desktop QA</title>
+<style>html,body{margin:0;background:#eaeaf0}iframe{display:block;border:0;margin:0 auto;width:900px;height:760px;max-width:100vw}</style>
+<iframe title="Isolated Stellar VPN authentication" src="/tests/compact-layout-qa.html?auth=1&amp;lang=Dansk"></iframe>
+<script>
+const params=new URLSearchParams(location.search),frame=document.querySelector('iframe');
+const width=Number(params.get('width'))||900,height=Number(params.get('height'))||760;
+frame.style.width=Math.max(320,Math.min(1280,width))+'px';frame.style.height=Math.max(400,Math.min(1000,height))+'px';
+frame.src='/tests/compact-layout-qa.html?auth=1&lang='+encodeURIComponent(params.get('lang')||'Dansk');
+</script>

@@ -7,6 +7,40 @@
   },
   "servers": [{"url": "/api/v2"}],
   "paths": {
+    "/vpn/auth": {
+      "post": {
+        "operationId": "provisionMissingVpnAuth",
+        "description": "After activation, issue missing VPN device credentials using the existing scoped bearer session. Server verifies active/trial subscription and derives account ownership; no caller account, subscription or device ID is trusted. Mutation: do not automatically retry ambiguous failures. Clients call only when native credentials are absent; secrets go directly to the native OS vault, never UI state or logs.",
+        "security": [{"bearerAuth": []}],
+        "responses": {"200": {"description": "One-time VPN authentication", "content": {"application/json": {"schema": {"type": "object", "required": ["data", "meta"], "properties": {"meta": {"$ref": "#/components/schemas/Meta"}, "data": {"type": "object", "required": ["vpn_state", "vpn_auth"], "properties": {"vpn_state": {"type": "string", "enum": ["ready"]}, "vpn_auth": {"type": "object", "required": ["username", "password", "device_id"], "properties": {"username": {"type": "string", "pattern": "^stvpn_[a-f0-9]{16}$"}, "password": {"type": "string", "pattern": "^[a-f0-9]{32}$", "writeOnly": true}, "device_id": {"type": "string"}}}}}}}}}}, "401": {"$ref": "#/components/responses/Error"}, "403": {"$ref": "#/components/responses/Error"}, "429": {"$ref": "#/components/responses/Error"}, "503": {"$ref": "#/components/responses/Error"}}
+      }
+    },
+    "/account/activation": {
+      "post": {
+        "operationId": "redeemVpnActivationCode",
+        "description": "Explicit rollout opt-in only after receipt and credit migrations. Server derives the account and VPN subscription from scoped bearer introspection. Retrying the same code resumes a durable ownership-bound receipt and never credits twice. No legacy consume-then-patch fallback; no automatic retry after ambiguous errors.",
+        "security": [{"bearerAuth": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "required": ["activation_code"], "properties": {"activation_code": {"type": "string", "pattern": "^[A-Za-z0-9-]{4,128}$", "writeOnly": true}}}}}},
+        "responses": {"200": {"description": "Credit committed or safely replayed", "content": {"application/json": {"schema": {"type": "object", "properties": {"data": {"type": "object", "properties": {"activated": {"type": "boolean", "enum": [true]}}}, "meta": {"$ref": "#/components/schemas/Meta"}}}}}}, "401": {"$ref": "#/components/responses/Error"}, "409": {"$ref": "#/components/responses/Error"}, "422": {"$ref": "#/components/responses/Error"}, "429": {"$ref": "#/components/responses/Error"}, "503": {"$ref": "#/components/responses/Error"}}
+      }
+    },
+    "/vpn/configuration": {
+      "post": {
+        "operationId": "getVpnConfiguration",
+        "description": "Explicit VPN staging opt-in only. Requires a scoped bearer and eligible VPN subscription. The requested server ID selects a catalog configuration from a pinned HTTPS host; its SHA-256 must match. Signature verification is deferred for this staging build. No arbitrary URL, device ID or account ID is accepted.",
+        "security": [{"bearerAuth": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "required": ["server_id"], "properties": {"server_id": {"type": "string", "pattern": "^[a-z0-9-]{1,64}$"}}}}}},
+        "responses": {"200": {"description": "Checksum-verified OpenVPN configuration", "content": {"application/json": {"schema": {"type": "object", "required": ["data", "meta"], "properties": {"meta": {"$ref": "#/components/schemas/Meta"}, "data": {"type": "object", "required": ["server_id", "config", "sha256"], "properties": {"server_id": {"type": "string"}, "config": {"type": "string", "maxLength": 131072}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}}}}}}}, "401": {"$ref": "#/components/responses/Error"}, "403": {"$ref": "#/components/responses/Error"}, "404": {"$ref": "#/components/responses/Error"}, "422": {"$ref": "#/components/responses/Error"}, "429": {"$ref": "#/components/responses/Error"}, "503": {"$ref": "#/components/responses/Error"}}
+      }
+    },
+    "/account": {
+      "post": {
+        "operationId": "getCurrentAccount",
+        "description": "Read-only account overview. Account ID comes exclusively from scoped token introspection. Subscription and device outages are explicit; no subscription activation, device creation or VPN credential issuance.",
+        "security": [{"bearerAuth": []}],
+        "responses": {"200": {"description": "Verified account and independently available service data", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AccountResponse"}}}}, "401": {"$ref": "#/components/responses/Error"}, "429": {"$ref": "#/components/responses/Error"}, "503": {"$ref": "#/components/responses/Error"}}
+      }
+    },
     "/health": {
       "get": {
         "operationId": "getHealth",
@@ -17,7 +51,7 @@
     "/servers": {
       "get": {
         "operationId": "listServers",
-        "description": "58 bundled test locations. Does not assert live availability or provide connection configurations.",
+        "description": "Fixture locations by default; live VPN service metadata after explicit VPN opt-in. Configurations are not included in this public response.",
         "parameters": [{"name": "country", "in": "query", "required": false, "schema": {"type": "string", "pattern": "^[A-Z]{2}$"}}],
         "responses": {
           "200": {"description": "Test locations", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ServerResponse"}}}},
@@ -26,10 +60,18 @@
         }
       }
     },
+    "/auth/account-login": {
+      "post": {
+        "operationId": "anonymousAccountLogin",
+        "description": "Sign in to an anonymous VPN account using exactly 16 digits and the existing Android subscription/user/device contracts. Ordinary Stellar ID accounts without a VPN token are rejected. Desktop sessions are capped at 24 hours from upstream token creation; desktop logout revokes desktop access without changing other sessions. The existing subscription lookup retains Android deferred-activation semantics.",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "required": ["account_number"], "additionalProperties": false, "properties": {"account_number": {"type": "string", "pattern": "^[0-9]{16}$", "format": "password", "writeOnly": true}}}}}},
+        "responses": {"200": {"description": "Scoped session; VPN access still requires an active subscription", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SessionResponse"}}}}, "401": {"$ref": "#/components/responses/Error"}, "422": {"$ref": "#/components/responses/Error"}, "429": {"$ref": "#/components/responses/Error"}, "503": {"$ref": "#/components/responses/Error"}}
+      }
+    },
     "/auth/login": {
       "post": {
         "operationId": "login",
-        "description": "10 credential attempts per minute per IP shared with registration. Disabled by default; returns 503 unless server identity integration is configured.",
+        "description": "10 credential attempts per minute per IP shared with registration. Identity integration is explicit. When VPN login is separately enabled, an eligible subscription gets a fresh device and one-time VPN credentials. There are no automatic retries for these mutations. vpn_state is ready, subscription_required or unavailable; account-only sign-in remains possible during VPN outages.",
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "required": ["username", "password"], "properties": {
           "username": {"type": "string", "minLength": 1, "maxLength": 254},
           "password": {"type": "string", "minLength": 1, "maxLength": 1024, "writeOnly": true}
@@ -40,10 +82,10 @@
     "/auth/register": {
       "post": {
         "operationId": "register",
-        "description": "Email registration; password minimum 12 characters. Shares the login attempt limit. Disabled until identity integration is configured.",
+        "description": "Email registration; password minimum 6 characters. Shares the login attempt limit. Disabled until identity integration is configured.",
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "required": ["username", "password"], "properties": {
           "username": {"type": "string", "format": "email", "maxLength": 254},
-          "password": {"type": "string", "minLength": 12, "maxLength": 1024, "writeOnly": true}
+          "password": {"type": "string", "minLength": 6, "maxLength": 1024, "writeOnly": true}
         }}}}},
         "responses": {"200": {"description": "Configured identity session", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SessionResponse"}}}}, "409": {"$ref": "#/components/responses/Error"}, "422": {"$ref": "#/components/responses/Error"}, "429": {"$ref": "#/components/responses/Error"}, "503": {"$ref": "#/components/responses/Error"}}
       }
@@ -69,11 +111,28 @@
     "securitySchemes": {"bearerAuth": {"type": "http", "scheme": "bearer", "description": "Syntax only in this foundation. No live token verification or revocation is connected."}},
     "responses": {"Error": {"description": "Explicit error; no upstream payload or exception details", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}}}},
     "schemas": {
+      "AccountResponse": {"type": "object", "required": ["data", "meta"], "properties": {
+        "meta": {"$ref": "#/components/schemas/Meta"},
+        "data": {"type": "object", "required": ["account_id", "subscription_state", "subscription", "devices_state", "devices"], "properties": {
+          "account_id": {"type": "string", "pattern": "^[1-9][0-9]*$"},
+          "subscription_state": {"type": "string", "enum": ["available", "none", "unavailable"]},
+          "subscription": {"type": "object", "nullable": true, "required": ["id", "status", "expires_at"], "properties": {
+            "id": {"type": "string", "maxLength": 128}, "status": {"type": "string", "enum": ["active", "inactive", "trial", "expired", "pending"]}, "expires_at": {"type": "string", "format": "date-time", "nullable": true}
+          }},
+          "devices_state": {"type": "string", "enum": ["available", "unavailable", "not_applicable"]},
+          "devices": {"type": "array", "nullable": true, "maxItems": 200, "items": {"type": "object", "required": ["id", "name"], "properties": {"id": {"type": "string", "pattern": "^(?:[1-9][0-9]*|[a-fA-F0-9]{8}-(?:[a-fA-F0-9]{4}-){3}[a-fA-F0-9]{12})$"}, "name": {"type": "string", "maxLength": 120}}}}
+        }}
+      }},
       "SessionMetadataResponse": {"type": "object", "required": ["data", "meta"], "properties": {
         "data": {"type": "object", "required": ["account_id", "expires_at"], "properties": {"account_id": {"type": "string", "pattern": "^[1-9][0-9]*$"}, "expires_at": {"type": "string", "format": "date-time"}}}, "meta": {"$ref": "#/components/schemas/Meta"}
       }},
       "SessionResponse": {"type": "object", "required": ["data", "meta"], "properties": {
-        "data": {"type": "object", "required": ["account_id", "expires_at", "access_token", "token_type"], "properties": {"account_id": {"type": "string", "pattern": "^[1-9][0-9]*$"}, "expires_at": {"type": "string", "format": "date-time"}, "access_token": {"type": "string", "maxLength": 256}, "token_type": {"type": "string", "enum": ["Bearer"]}}}, "meta": {"$ref": "#/components/schemas/Meta"}
+        "data": {"type": "object", "required": ["account_id", "expires_at", "access_token", "token_type"], "properties": {"account_id": {"type": "string", "pattern": "^[1-9][0-9]*$"}, "expires_at": {"type": "string", "format": "date-time"}, "access_token": {"type": "string", "maxLength": 256}, "token_type": {"type": "string", "enum": ["Bearer"]},
+          "vpn_state": {"type": "string", "enum": ["ready", "subscription_required", "unavailable"]},
+          "vpn_auth": {"type": "object", "nullable": true, "description": "One-time login response only. Never log, persist, or expose in account/session metadata.", "required": ["username", "password", "device_id"], "properties": {
+            "username": {"type": "string", "pattern": "^stvpn_[a-f0-9]{16}$"}, "password": {"type": "string", "pattern": "^[a-f0-9]{32}$", "format": "password"}, "device_id": {"type": "string", "format": "uuid"}
+          }}
+        }}, "meta": {"$ref": "#/components/schemas/Meta"}
       }},
       "Meta": {"type": "object", "required": ["api_version", "mode", "request_id"], "properties": {
         "api_version": {"type": "string", "enum": ["v2"]}, "mode": {"type": "string", "enum": ["fixture"]},

@@ -6,6 +6,7 @@ node_modules/
 target/
 .tools/
 .security-review/
+.ui-backups/
 src-tauri/gen/
 *.local
 .env
@@ -18,3 +19,4 @@ src-tauri/gen/
 *.log
 preview*.png
 .idea/
+src-tauri/resources/openvpn-runtime/

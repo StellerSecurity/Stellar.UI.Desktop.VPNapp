@@ -27,4 +27,13 @@ final class ScopedUserApiClient extends UserApiClient
     }
 
     public function __debugInfo(): array { return ['serviceCredentials' => '[redacted]']; }
+    public function androidUser(string $userId): \Illuminate\Http\Client\Response
+    {
+        return $this->sessionClient()->get('https://stellaruserapiprod.azurewebsites.net/api/v1/usercontroller/user/'.$userId);
+    }
+    /** Existing legacy API contract, server-to-server only. Never log URLs or retain HTTP exceptions. */
+    public function androidToken(#[\SensitiveParameter] string $token): \Illuminate\Http\Client\Response
+    {
+        return $this->sessionClient()->get('https://stellaruserapiprod.azurewebsites.net/api/v1/personaltokencontroller/'.rawurlencode($token));
+    }
 }

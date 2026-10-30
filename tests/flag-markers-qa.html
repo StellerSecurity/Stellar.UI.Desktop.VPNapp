@@ -1,0 +1,8 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Stellar flag marker QA</title>
+<link rel="stylesheet" href="/stellar-tokens.css"><link rel="stylesheet" href="/vpn.css">
+<style>body{padding:20px;background:#0d3f9c;color:white}.fixtures{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.fixture{position:relative;height:240px;padding:16px;border:1px solid #ffffff30;border-radius:16px}.map-panel{position:absolute;inset:40px 0 0;padding:0;background:none}.map-pin{top:50%}.map-pin:nth-child(1){left:25%}.map-pin:nth-child(2){left:50%}.map-pin:nth-child(3){left:75%}</style>
+<body class="stellar-theme"><h1>Flat flags · no API or tunnel commands</h1><div id="root"></div>
+<script type="module">
+import React from 'react';import{createRoot}from'react-dom/client';import{CountryFlag}from'/src/shared/ui/CountryFlag.tsx';
+createRoot(document.querySelector('#root')).render(React.createElement('div',{className:'fixtures'},...['disconnected','connecting','connected'].map(state=>React.createElement('section',{className:'fixture',key:state},state,React.createElement('main',{className:`map-panel ${state==='disconnected'?'':state}`},...['CH','IT','DK'].map((code,i)=>React.createElement('button',{key:code,className:`map-pin ${i===0?`selected ${state==='connected'?'secured':''}`:''}`,'aria-label':`${code} ${state}`},React.createElement(CountryFlag,{code,className:'map-pin-flag'}))))))));
+</script></body></html>

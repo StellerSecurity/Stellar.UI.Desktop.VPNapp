@@ -1,7 +1,7 @@
 // Only the isolated fixture host; never accepts production URLs or real credentials.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-const base='https://stellar-desktop-vpn-staging-ayakcqbcfvb2fqhc.westeurope-01.azurewebsites.net';
+const base='https://stellar-desktop-vpn-staging-premium-dtfhc6g5hfhch2gs.westeurope-01.azurewebsites.net';
 const checks=[];
 async function request(route,status,options={}){
  const response=await fetch(base+route,{...options,redirect:'error',signal:AbortSignal.timeout(45000),headers:{Accept:'application/json',...options.headers}});
@@ -37,6 +37,10 @@ try{
  assert(!('data' in login));
  const logout=await request('/api/v2/auth/logout',401,{method:'POST',headers:{Authorization:'Bearer fake-staging-probe-not-a-token'}});
  assert.equal(logout.error.code,'invalid_session');
+ const account=await request('/api/v2/account',401,{method:'POST'});
+ assert.equal(account.error.code,'unauthenticated');
+ const malformedAccount=await request('/api/v2/account',401,{method:'POST',headers:{Authorization:'Bearer fake-staging-probe-not-a-token'}});
+ assert.equal(malformedAccount.error.code,'invalid_session');
  await request('/api/v2/auth/register',422,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'invalid',password:'short'})});
  const cors=await fetch(base+'/api/v2/auth/login',{method:'OPTIONS',redirect:'error',headers:{Origin:'tauri://localhost','Access-Control-Request-Method':'POST','Access-Control-Request-Headers':'Content-Type'},signal:AbortSignal.timeout(45000)});
  assert.equal(cors.headers.get('access-control-allow-origin'),'tauri://localhost');

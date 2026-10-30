@@ -5,6 +5,7 @@ namespace Stellar\DesktopApi\Http\Controllers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Stellar\DesktopApi\Application\ServerService;
+use Stellar\DesktopApi\Application\IntegrationUnavailable;
 use Stellar\DesktopApi\Http\Responses\Envelope;
 
 final readonly class ServerController
@@ -18,6 +19,8 @@ final readonly class ServerController
             $servers = $this->servers->list($country);
         } catch (\InvalidArgumentException) {
             return Envelope::error('validation_failed', 'country must be a two-letter uppercase country code.', 422);
+        } catch (IntegrationUnavailable) {
+            return Envelope::error('integration_unavailable', 'VPN locations are unavailable.', 503);
         }
         return Envelope::success(array_map(fn ($s) => [
             'id' => $s->id, 'name' => $s->name, 'country_code' => $s->countryCode,

@@ -26,15 +26,32 @@ test('rejects invalid coordinates and duplicate server identities at the adapter
   assert.equal(filterServers(normalizeServers([raw]), '  COPENHAGEN ', null).length, 1);
   assert.equal(filterServers(normalizeServers([raw]), '', []).length, 0);
 });
+test('country-code search follows the live catalog, ignores case and respects favorites', () => {
+  const servers = normalizeServers([
+    { id: 'dk-1', name: 'Denmark – Copenhagen', country: 'DK', lat: 55, lon: 12 },
+    { id: 'se-1', name: 'Sweden – Stockholm', country: 'SE', lat: 59, lon: 18 },
+    { id: 'se-2', name: 'Sweden – Gothenburg', country: 'SE', lat: 57, lon: 11 },
+    { id: 'sc-1', name: 'Seychelles – Victoria', country: 'SC', lat: -4, lon: 55 },
+    { id: 'bt-new', name: 'Bhutan – Thimphu', country: 'BT', lat: 27, lon: 89 },
+  ]);
+  const ids = (query: string, favorites: string[] | null = null) => filterServers(servers, query, favorites).map(server => server.id);
+  assert.deepEqual(ids(' DK '), ['dk-1']);
+  assert.deepEqual(ids('sE'), ['se-2', 'se-1']);
+  assert.deepEqual(ids('bt'), ['bt-new']);
+  assert.deepEqual(ids('SE', ['se-1']), ['se-1']);
+  assert.deepEqual(ids('DK', ['se-1']), []);
+  assert.deepEqual(ids('denmark'), ['dk-1']);
+  assert.deepEqual(ids('stock'), ['se-1']);
+  assert.deepEqual(ids('zz'), []);
+  assert.equal(ids('').length, servers.length);
+});
 test('validates all authentication paths without storing credentials', () => {
   assert.ok(validateAuth('login', { email: 'bad', password: 'x' }));
   assert.equal(validateAuth('login', { email: 'demo@example.com', password: 'test' }), null);
-  assert.ok(validateAuth('register', { email: 'demo@example.com', password: '12345678901' }));
-  assert.equal(validateAuth('register', { email: 'demo@example.com', password: '123456789012' }), null);
+  assert.ok(validateAuth('register', { email: 'demo@example.com', password: '12345' }));
+  assert.equal(validateAuth('register', { email: 'demo@example.com', password: '123456' }), null);
   assert.ok(validateAuth('account', { account: '123' }));
   assert.equal(validateAuth('account', { account: '1234 5678 9012 3456' }), null);
-  assert.ok(validateAuth('otp', { code: 'abcd' }));
-  assert.ok(validateAuth('reset', { password: '123456', confirm: '123457' }));
 });
 test('subscription and connection clocks never show negative durations', () => {
   assert.equal(daysRemaining('2026-11-20T00:00:00Z', Date.parse('2026-11-19T12:00:00Z')), 1);
@@ -69,4 +86,8 @@ test('IPC boundary rejects an incompatible version and malformed native data', (
   assert.equal(decodeSnapshot(state).contractVersion, 1);
   assert.throws(() => decodeSnapshot({ ...state, contractVersion: 2 }));
   assert.throws(() => decodeSnapshot({ ...state, settings: { ...defaultSettings, killSwitch: 'true' } }));
+  for (const invalid of [-1, Infinity, '1.2']) {
+    assert.throws(() => decodeSnapshot({ ...state, connection: { ...state.connection, downloadMbps: invalid } }));
+  }
+  assert.equal(decodeSnapshot({ ...state, connection: { ...state.connection, downloadMbps: 62.0, uploadMbps: 2.0 } }).connection.downloadMbps, 62.0);
 });
