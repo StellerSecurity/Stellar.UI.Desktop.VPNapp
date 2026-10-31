@@ -54,7 +54,7 @@ jobs:
           # OpenDatabase mode 0 is read-only. No InstallProduct, ApplyPatch,
           # administrative install, MSI session or custom action is invoked.
           $installer = New-Object -ComObject WindowsInstaller.Installer
-          $database = $installer.GetType().InvokeMember('OpenDatabase', 'InvokeMethod', $null, $installer, @($file, 0))
+          $database = $installer.GetType().InvokeMember('OpenDatabase', 'GetProperty', $null, $installer, @([string]$file, [int]0))
           $queries = @(
               @{ table = 'Property'; sql = 'SELECT `Property`, `Value` FROM `Property`'; columns = 2 },
               @{ table = 'File'; sql = 'SELECT `File`, `FileName`, `Version`, `FileSize` FROM `File`'; columns = 4 },
