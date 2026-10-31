@@ -30,13 +30,13 @@ jobs:
           $ErrorActionPreference = 'Stop'
           if ($env:SOURCE_COMMIT -notmatch '^[a-f0-9]{40}$') { throw 'Exact source commit required.' }
           $files = @(
-            @{ path = 'native/windows/common.hpp'; sha256 = '0aaa60fe221ef70569c004e5e19070bf2be82941538e4d92cebaaf070e822ef9' },
+            @{ path = 'native/windows/common.hpp'; sha256 = '92937e9fe7461ef33fa5e4f7ace913ddf3ec21ef1254ae30902c1167e1a35c2a' },
             @{ path = 'native/windows/firewall.hpp'; sha256 = '1e979937afd0eec239215ef0bb7a938549070ded169679945f68ab944b66fb3a' },
             @{ path = 'native/windows/lifecycle.hpp'; sha256 = '72968ca610155b1aa19fd0bed66974e7766f350c2b9783fb8b9968af6c948f2f' },
             @{ path = 'native/windows/bridge.cpp'; sha256 = '0a4cb46afa0a00e1d1843950d44a5e48aceb45cbc577567601f2a6cca0b2d80e' },
             @{ path = 'native/windows/service.cpp'; sha256 = 'd7662529ebb89b44dfb8300cd7208c4baf5b13ed56a8a1ec9d4bc3d1ecfc7e29' },
             @{ path = 'native/windows/bridge-link-test.cpp'; sha256 = 'd7ef6820a2804c12bbda5900037f99c14a9a5ca6311d3bc9e234019c4983fed2' },
-            @{ path = 'scripts/windows-native-compile.ps1'; sha256 = '75151c082df2a9db9118ee1b4d300d5053dc0f842061e85aa65d4de2136db4d6' },
+            @{ path = 'scripts/windows-native-compile.ps1'; sha256 = 'd21799e6e854d7169df3dfa38266d6ddbb1dbbbd3fe09d2b5ac2c40aa81123c7' },
             @{ path = 'native/windows/compile-approval.json'; sha256 = '53c6f1634d5e9f1325288d3bf76e6e9f850ca73ccd2308da30e0a39e465690f6' }
           )
           $root = Join-Path $env:RUNNER_TEMP 'stellar-native-source'

@@ -13,6 +13,7 @@
 #include <wintrust.h>
 #include <softpub.h>
 #include <shlobj.h>
+#include <shellapi.h>
 #include <iphlpapi.h>
 #include <netioapi.h>
 #include <winhttp.h>

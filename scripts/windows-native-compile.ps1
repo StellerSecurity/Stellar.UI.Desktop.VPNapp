@@ -77,10 +77,12 @@ $native = Join-Path $root 'native\windows'
 Push-Location $out
 try {
     $flags = @('/nologo', '/c', '/std:c++20', '/EHsc', '/MT', '/W4', '/GS', '/sdl', '/guard:cf', '/utf-8', '/DUNICODE', '/D_UNICODE', '/D_WIN32_WINNT=0x0A00')
+    $compileFailures = @()
     foreach ($source in @('bridge', 'service', 'bridge-link-test')) {
         & $tools['cl.exe'] @flags (Join-Path $native ($source + '.cpp')) ('/Fo' + (Join-Path $out ($source + '.obj')))
-        if ($LASTEXITCODE -ne 0) { throw ('Native compilation failed: ' + $source) }
+        if ($LASTEXITCODE -ne 0) { $compileFailures += $source }
     }
+    if ($compileFailures.Count -gt 0) { throw ('Native compilation failed: ' + ($compileFailures -join ', ')) }
     & $tools['lib.exe'] '/NOLOGO' ('/OUT:' + (Join-Path $out 'stellar_windows.lib')) (Join-Path $out 'bridge.obj')
     if ($LASTEXITCODE -ne 0) { throw 'Bridge archive failed.' }
     $systemLibraries = @('advapi32.lib', 'shell32.lib', 'ole32.lib', 'wintrust.lib', 'crypt32.lib', 'ws2_32.lib', 'iphlpapi.lib', 'winhttp.lib', 'fwpuclnt.lib', 'rpcrt4.lib', 'wtsapi32.lib', 'bcrypt.lib', 'uuid.lib')
