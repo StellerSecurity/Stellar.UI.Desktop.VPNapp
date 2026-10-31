@@ -90,11 +90,22 @@ try {
             foreach ($item in $actual) {
                 if ($item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -or $ids -notcontains $item.Name -or $item.Length -ne $files[$item.Name].size) { throw 'Unexpected extracted object.' }
                 $metadata = $files[$item.Name]
-                $signature = Get-AuthenticodeSignature -LiteralPath $item.FullName
+                $reviewPath = $item.FullName
+                # MSI identifiers end in a merge-module GUID, not .cat. Preserve
+                # the byte hash but restore the original extension so Windows
+                # selects the catalog SIP instead of the generic file SIP.
+                if ($metadata.name -eq 'ovpn-dco.cat') {
+                    $catalogDirectory = Join-Path $root ('catalog-' + $item.Name)
+                    [IO.Directory]::CreateDirectory($catalogDirectory) | Out-Null
+                    $reviewPath = Join-Path $catalogDirectory 'ovpn-dco.cat'
+                    [IO.File]::Copy($item.FullName, $reviewPath, $false)
+                    if ((Get-FileHash -LiteralPath $reviewPath -Algorithm SHA256).Hash -ne (Get-FileHash -LiteralPath $item.FullName -Algorithm SHA256).Hash) { throw 'Catalog bytes changed during static naming.' }
+                }
+                $signature = Get-AuthenticodeSignature -LiteralPath $reviewPath
                 $subject = $null; $thumbprint = $null
                 if ($null -ne $signature.SignerCertificate) { $subject = $signature.SignerCertificate.Subject; $thumbprint = $signature.SignerCertificate.Thumbprint }
                 [ordered]@{ id = $item.Name; name = $metadata.name; size = $item.Length; sha256 = (Get-FileHash -LiteralPath $item.FullName -Algorithm SHA256).Hash.ToLowerInvariant(); signature = $signature.Status.ToString(); signer = $subject; thumbprint = $thumbprint } | ConvertTo-Json -Compress
-                $extracted[$item.Name] = $item.FullName
+                $extracted[$item.Name] = $reviewPath
                 if ($metadata.name -match '\.(inf|sha256|txt)$' -and $item.Length -le 65536) {
                     [ordered]@{ id = $item.Name; staticText = [IO.File]::ReadAllText($item.FullName) } | ConvertTo-Json -Compress
                 }

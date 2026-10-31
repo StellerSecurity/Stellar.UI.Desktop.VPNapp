@@ -24,7 +24,9 @@ test('static extraction validates every cabinet entry before system decoding and
   assert(source.includes('$size -ne $files[$id].size'));
   assert(source.includes('$expandedSize -gt 134217728'));
   assert(source.indexOf('Cabinet file does not match') < source.indexOf('& $expand'));
-  assert(source.includes('Get-AuthenticodeSignature -LiteralPath $item.FullName'));
+  assert(source.includes('Get-AuthenticodeSignature -LiteralPath $reviewPath'));
+  assert(source.includes("Join-Path $catalogDirectory 'ovpn-dco.cat'"));
+  assert(source.includes('Catalog bytes changed during static naming.'));
   assert(source.includes('catalogMembershipVerified = $true'));
   assert(source.includes('CryptCATAdminCalcHashFromFileHandle2'));
   assert(source.includes('CryptCATGetMemberInfo(catalog, tag)'));
