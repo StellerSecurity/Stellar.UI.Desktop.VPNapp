@@ -1,6 +1,6 @@
-# First-party native compilation only. No installs, downloads, tool discovery,
-# service/driver registration, signing, packaging, or executable smoke tests.
-param([switch] $RunSyntheticTests)
+# First-party native compilation and optional isolated synthetic tests. No
+# installs/downloads, service/driver registration, signing or packaging.
+param([switch] $RunSyntheticTests, [string] $OutputDirectory = '')
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) { throw 'Native Windows required.' }
@@ -50,7 +50,15 @@ foreach ($directory in @($vc, $bin) + $include + $libraries) {
 }
 # Use an isolated compiler copy without Visual Studio telemetry/remote-config
 # components. No installed tool is renamed, removed or modified.
-$out = Join-Path $env:RUNNER_TEMP ('stellar-native-compile-' + [Guid]::NewGuid().ToString('N'))
+if ([string]::IsNullOrEmpty($OutputDirectory)) {
+    $out = Join-Path $env:RUNNER_TEMP ('stellar-native-compile-' + [Guid]::NewGuid().ToString('N'))
+} else {
+    if (-not [IO.Path]::IsPathRooted($OutputDirectory)) { throw 'An absolute build output directory is required.' }
+    $out = [IO.Path]::GetFullPath($OutputDirectory)
+    if (Test-Path -LiteralPath $out) { throw 'Build output must be a fresh directory.' }
+    $parent = Get-Item -LiteralPath ([IO.Path]::GetDirectoryName($out))
+    if (-not $parent.PSIsContainer -or ($parent.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'Unexpected build output parent.' }
+}
 $stagedBin = Join-Path $out 'tools'
 [IO.Directory]::CreateDirectory($stagedBin) | Out-Null
 $stagedTools = @{}

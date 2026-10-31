@@ -37,7 +37,7 @@ jobs:
             @{ path = 'native/windows/bridge.cpp'; sha256 = '0a4cb46afa0a00e1d1843950d44a5e48aceb45cbc577567601f2a6cca0b2d80e' },
             @{ path = 'native/windows/service.cpp'; sha256 = 'c7ab08a115307ff91e9aa13936b317415f624344199db3220be13b0891c96b06' },
             @{ path = 'native/windows/bridge-link-test.cpp'; sha256 = 'd7ef6820a2804c12bbda5900037f99c14a9a5ca6311d3bc9e234019c4983fed2' },
-            @{ path = 'scripts/windows-native-compile.ps1'; sha256 = '61394b8396609047f75b9c01c3462ac8a8e0a8966c72e6be33b1e9fe6c689079' },
+            @{ path = 'scripts/windows-native-compile.ps1'; sha256 = '04d8f3937e7ae5c0fcd78c1fb8db86194b4dc37de47b5e174e482b686da5f6a3' },
             @{ path = 'native/windows/compile-approval.json'; sha256 = 'd044068f202e74210cd5e5062a21f3ee7011dd01709327e0456e488853a6eaa4' }
           )
           $root = Join-Path $env:RUNNER_TEMP 'stellar-native-source'
@@ -63,3 +63,16 @@ jobs:
       - name: Compile native code and run synthetic first-party tests only
         run: |
           & (Join-Path $env:STELLAR_NATIVE_ROOT 'scripts/windows-native-compile.ps1') -RunSyntheticTests
+      - name: Verify explicit Cargo output directory and reject output reuse
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $script = Join-Path $env:STELLAR_NATIVE_ROOT 'scripts/windows-native-compile.ps1'
+          $output = Join-Path $env:RUNNER_TEMP 'stellar-cargo-native-output'
+          & $script -OutputDirectory $output
+          if (-not (Test-Path -LiteralPath (Join-Path $output 'stellar_windows.lib'))) { throw 'Cargo bridge archive is missing.' }
+          $rejected = $false
+          try { & $script -OutputDirectory $output } catch {
+              if ($_.Exception.Message -ne 'Build output must be a fresh directory.') { throw }
+              $rejected = $true
+          }
+          if (-not $rejected) { throw 'Existing build output was unexpectedly reused.' }

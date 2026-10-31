@@ -30,3 +30,13 @@ test('compile-only phase never starts service binaries, installs drivers or fetc
     assert.match(line, /^\s*& \$tools\['(?:cl|lib|link)\.exe'\]/);
   }
 });
+test('Rust and helper entry points share the verified script rather than PATH compiler commands', () => {
+  const read = path => fs.readFileSync(new URL('../' + path, import.meta.url), 'utf8');
+  for (const text of [read('src-tauri/build.rs'), read('scripts/build-windows-helper.mjs')]) {
+    assert(text.includes('windows-native-compile.ps1'));
+    assert(text.includes('-OutputDirectory'));
+    assert(!/Command::new\("(?:cl|lib|link)\.exe"\)|spawnSync\(['"](?:cl|lib|link)\.exe['"]/.test(text));
+    assert(!text.includes('windows-toolchain-execution.approved'));
+  }
+  assert(source.includes('Build output must be a fresh directory.'));
+});

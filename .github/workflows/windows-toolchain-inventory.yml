@@ -31,11 +31,11 @@ jobs:
           # credentials, enumerate profiles, or collect environment variables.
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
-
+          
           if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
               throw 'Run this inventory on the Windows machine intended for native testing.'
           }
-
+          
           function Get-ToolMetadata([string] $Name, [string] $Path = '', [bool] $CheckSignature = $false) {
               if ([string]::IsNullOrEmpty($Path)) {
                   $command = Get-Command -Name $Name -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -71,7 +71,7 @@ jobs:
                   signerThumbprint = $thumbprint
               }
           }
-
+          
           $tools = @('cl.exe', 'lib.exe', 'link.exe', 'rc.exe', 'signtool.exe', 'cargo.exe', 'rustc.exe', 'node.exe', 'makensis.exe') |
               ForEach-Object { Get-ToolMetadata $_ }
           # The hosted runner has MSVC installed but does not initialize a Developer
@@ -124,7 +124,27 @@ jobs:
                   }
               }
           }
-
+          
+          # Read installation metadata only, never rustup/cargo/rustc execution or network.
+          $rustToolchains = @()
+          $rustRoot = Join-Path $env:USERPROFILE '.rustup\toolchains'
+          if (Test-Path -LiteralPath $rustRoot -PathType Container) {
+              foreach ($directory in Get-ChildItem -LiteralPath $rustRoot -Directory) {
+                  if ($directory.Name -notmatch '^(stable|[0-9]+\.[0-9]+\.[0-9]+)-x86_64-pc-windows-msvc$' -or
+                      ($directory.Attributes -band [IO.FileAttributes]::ReparsePoint)) { continue }
+                  $rustBin = Join-Path $directory.FullName 'bin'
+                  $components = @()
+                  foreach ($file in Get-ChildItem -LiteralPath $rustBin -File) {
+                      if ($file.Extension -in @('.exe', '.dll')) { $components += Get-ToolMetadata $file.Name $file.FullName $true }
+                  }
+                  $metadata = ''
+                  $manifest = Join-Path $directory.FullName 'lib\rustlib\multirust-channel-manifest.toml'
+                  if (Test-Path -LiteralPath $manifest -PathType Leaf) {
+                      $metadata = (Select-String -LiteralPath $manifest -Pattern '^date = ', '^version = ' | Select-Object -First 5 | ForEach-Object { $_.Line }) -join "`n"
+                  }
+                  $rustToolchains += [ordered]@{ directory = $directory.Name; manifestVersionMetadata = $metadata; components = $components }
+              }
+          }
           [ordered]@{
               schema = 1
               runnerImageVersion = $env:ImageVersion
@@ -135,5 +155,6 @@ jobs:
               sdkVersions = $sdkVersions
               tools = @($tools)
               compilerComponents = $compilerComponents
+              rustToolchains = $rustToolchains
               approved = $false
           } | ConvertTo-Json -Depth 6

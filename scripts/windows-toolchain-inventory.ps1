@@ -97,6 +97,26 @@ if (Test-Path -LiteralPath $sdkKey) {
     }
 }
 
+# Read installation metadata only, never rustup/cargo/rustc execution or network.
+$rustToolchains = @()
+$rustRoot = Join-Path $env:USERPROFILE '.rustup\toolchains'
+if (Test-Path -LiteralPath $rustRoot -PathType Container) {
+    foreach ($directory in Get-ChildItem -LiteralPath $rustRoot -Directory) {
+        if ($directory.Name -notmatch '^(stable|[0-9]+\.[0-9]+\.[0-9]+)-x86_64-pc-windows-msvc$' -or
+            ($directory.Attributes -band [IO.FileAttributes]::ReparsePoint)) { continue }
+        $rustBin = Join-Path $directory.FullName 'bin'
+        $components = @()
+        foreach ($file in Get-ChildItem -LiteralPath $rustBin -File) {
+            if ($file.Extension -in @('.exe', '.dll')) { $components += Get-ToolMetadata $file.Name $file.FullName $true }
+        }
+        $metadata = ''
+        $manifest = Join-Path $directory.FullName 'lib\rustlib\multirust-channel-manifest.toml'
+        if (Test-Path -LiteralPath $manifest -PathType Leaf) {
+            $metadata = (Select-String -LiteralPath $manifest -Pattern '^date = ', '^version = ' | Select-Object -First 5 | ForEach-Object { $_.Line }) -join "`n"
+        }
+        $rustToolchains += [ordered]@{ directory = $directory.Name; manifestVersionMetadata = $metadata; components = $components }
+    }
+}
 [ordered]@{
     schema = 1
     runnerImageVersion = $env:ImageVersion
@@ -107,5 +127,6 @@ if (Test-Path -LiteralPath $sdkKey) {
     sdkVersions = $sdkVersions
     tools = @($tools)
     compilerComponents = $compilerComponents
+    rustToolchains = $rustToolchains
     approved = $false
 } | ConvertTo-Json -Depth 6
