@@ -13,17 +13,24 @@ $ipv6 = @(Get-NetIPAddress -AddressFamily IPv6 -ErrorAction SilentlyContinue | W
 $powercfg = Join-Path ([Environment]::SystemDirectory) 'powercfg.exe'
 $signature = Get-AuthenticodeSignature -LiteralPath $powercfg
 if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'Microsoft') { throw 'System power capability reader not verified.' }
-$power = (& $powercfg '/a' 2>&1 | Out-String).Trim()
-if ($LASTEXITCODE -ne 0) { throw 'Power capability query failed.' }
+$priorErrorPreference = $ErrorActionPreference
+try {
+    # Windows VMs can emit a diagnostic on stderr even for this read-only query.
+    # Record it as unavailable/unknown rather than losing the whole inventory.
+    $ErrorActionPreference = 'Continue'
+    $power = (& $powercfg '/a' 2>&1 | Out-String).Trim()
+    $powerExitCode = $LASTEXITCODE
+} finally { $ErrorActionPreference = $priorErrorPreference }
 # Hosted Windows images use English. Unknown output must not imply support.
 $available = ($power -split 'The following sleep states are not available on this system:', 2)[0]
-$sleep = $available -match '(?m)^\s*Standby \((S3|S0 Low Power Idle)\)'
+$sleep = $powerExitCode -eq 0 -and $available -match '(?m)^\s*Standby \((S3|S0 Low Power Idle)\)'
 $service = Get-Service -Name 'StellarVPNDesktop' -ErrorAction SilentlyContinue
 $root = Join-Path $env:ProgramFiles 'Stellar VPN'
 $runtimeManifest = Test-Path -LiteralPath (Join-Path $root 'Runtime\runtime.sha256') -PathType Leaf
 $helper = Test-Path -LiteralPath (Join-Path $root 'stellar-vpn-service.exe') -PathType Leaf
 $blockers = @()
 if ($os.ProductType -ne 1) { $blockers += 'Server OS is not Windows 10/11 desktop acceptance.' }
+if ($powerExitCode -ne 0) { $blockers += 'Power capability query failed; sleep support is unverified.' }
 if (-not $sleep) { $blockers += 'S3/Modern Standby unavailable: real sleep/resume cannot be tested here.' }
 if ($wifi.Count -eq 0) { $blockers += 'No physical Wi-Fi interface: real Wi-Fi switching/roaming cannot be tested here.' }
 if ($active.Count -lt 2) { $blockers += 'Fewer than two active interfaces: independent network handover is not available.' }
@@ -39,6 +46,7 @@ if ($null -eq $service -or -not $helper -or -not $runtimeManifest) { $blockers +
     manufacturer = $computer.Manufacturer
     model = $computer.Model
     sleepAvailable = $sleep
+    powerQueryExitCode = $powerExitCode
     powerCapabilities = $power
     adapterCount = $adapters.Count
     activeAdapterCount = $active.Count

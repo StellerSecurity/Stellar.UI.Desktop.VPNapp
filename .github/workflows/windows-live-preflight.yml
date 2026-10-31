@@ -36,5 +36,5 @@ jobs:
               $output = [IO.File]::Open($script, [IO.FileMode]::CreateNew)
               try { $input.CopyTo($output) } finally { $output.Dispose(); $input.Dispose() }
           } finally { $response.Dispose() }
-          if ((Get-FileHash -LiteralPath $script -Algorithm SHA256).Hash.ToLowerInvariant() -ne 'bd3e6484296bff4fe4e8bfbf81a75d995289fbd1c9930f5ea060a9d099a51124') { throw 'Unreviewed preflight source.' }
+          if ((Get-FileHash -LiteralPath $script -Algorithm SHA256).Hash.ToLowerInvariant() -ne '34cd9ed53415f0ef6a61bc39cf272ae30fb12d1ae30054bba99d7e839dfa7e27') { throw 'Unreviewed preflight source.' }
           & $script
