@@ -5,8 +5,7 @@ test('Windows runtime review pins approved bytes and never installs or executes 
   const source = fs.readFileSync(new URL('../.github/workflows/windows-runtime-static-review.yml', import.meta.url), 'utf8');
   assert(source.includes('permissions: {}'));
   assert(source.includes('33104dd02c48cba172612882b1af6276422b1b4340d4c9c84dd2afb4b356fe9f'));
-  assert(source.includes("'OpenDatabase', 'GetProperty'"));
-  assert(source.includes("@([string]$file, [int]0)"));
+  assert(source.includes('$installer.OpenDatabase([string]$file, [int]0)'));
   assert(source.includes('Get-AuthenticodeSignature'));
   assert(source.includes('$request.AllowAutoRedirect = $false'));
   assert(!/uses:|Start-Process|msiexec\.exe|Expand-Archive|Invoke-Expression|InstallProduct\s*\(/i.test(source));
