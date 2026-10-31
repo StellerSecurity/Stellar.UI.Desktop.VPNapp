@@ -78,6 +78,7 @@ if (Test-Path -LiteralPath $msvcRoot) {
     }
 }
 $sdkVersions = @()
+$resourceCompilerComponents = @()
 $sdkKey = 'HKLM:\SOFTWARE\Microsoft\Windows Kits\Installed Roots'
 if (Test-Path -LiteralPath $sdkKey) {
     $installed = Get-ItemProperty -LiteralPath $sdkKey -Name KitsRoot10 -ErrorAction SilentlyContinue
@@ -91,6 +92,12 @@ if (Test-Path -LiteralPath $sdkKey) {
                 foreach ($name in @('rc.exe', 'signtool.exe')) {
                     $path = Join-Path $installed.KitsRoot10 ('bin\' + $version + '\x64\' + $name)
                     if (Test-Path -LiteralPath $path) { $tools += Get-ToolMetadata $name $path }
+                }
+                if ($version -eq '10.0.26100.0') {
+                    foreach ($name in @('rc.exe', 'rcdll.dll')) {
+                        $path = Join-Path $installed.KitsRoot10 ('bin\' + $version + '\x64\' + $name)
+                        if (Test-Path -LiteralPath $path -PathType Leaf) { $resourceCompilerComponents += Get-ToolMetadata $name $path $true }
+                    }
                 }
             }
         }
@@ -128,5 +135,6 @@ if (Test-Path -LiteralPath $rustRoot -PathType Container) {
     tools = @($tools)
     compilerComponents = $compilerComponents
     rustToolchains = $rustToolchains
+    resourceCompilerComponents = $resourceCompilerComponents
     approved = $false
 } | ConvertTo-Json -Depth 6

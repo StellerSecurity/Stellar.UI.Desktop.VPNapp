@@ -31,11 +31,11 @@ jobs:
           # credentials, enumerate profiles, or collect environment variables.
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
-          
+
           if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
               throw 'Run this inventory on the Windows machine intended for native testing.'
           }
-          
+
           function Get-ToolMetadata([string] $Name, [string] $Path = '', [bool] $CheckSignature = $false) {
               if ([string]::IsNullOrEmpty($Path)) {
                   $command = Get-Command -Name $Name -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -71,7 +71,7 @@ jobs:
                   signerThumbprint = $thumbprint
               }
           }
-          
+
           $tools = @('cl.exe', 'lib.exe', 'link.exe', 'rc.exe', 'signtool.exe', 'cargo.exe', 'rustc.exe', 'node.exe', 'makensis.exe') |
               ForEach-Object { Get-ToolMetadata $_ }
           # The hosted runner has MSVC installed but does not initialize a Developer
@@ -106,6 +106,7 @@ jobs:
               }
           }
           $sdkVersions = @()
+          $resourceCompilerComponents = @()
           $sdkKey = 'HKLM:\SOFTWARE\Microsoft\Windows Kits\Installed Roots'
           if (Test-Path -LiteralPath $sdkKey) {
               $installed = Get-ItemProperty -LiteralPath $sdkKey -Name KitsRoot10 -ErrorAction SilentlyContinue
@@ -120,11 +121,17 @@ jobs:
                               $path = Join-Path $installed.KitsRoot10 ('bin\' + $version + '\x64\' + $name)
                               if (Test-Path -LiteralPath $path) { $tools += Get-ToolMetadata $name $path }
                           }
+                          if ($version -eq '10.0.26100.0') {
+                              foreach ($name in @('rc.exe', 'rcdll.dll')) {
+                                  $path = Join-Path $installed.KitsRoot10 ('bin\' + $version + '\x64\' + $name)
+                                  if (Test-Path -LiteralPath $path -PathType Leaf) { $resourceCompilerComponents += Get-ToolMetadata $name $path $true }
+                              }
+                          }
                       }
                   }
               }
           }
-          
+
           # Read installation metadata only, never rustup/cargo/rustc execution or network.
           $rustToolchains = @()
           $rustRoot = Join-Path $env:USERPROFILE '.rustup\toolchains'
@@ -156,5 +163,6 @@ jobs:
               tools = @($tools)
               compilerComponents = $compilerComponents
               rustToolchains = $rustToolchains
+              resourceCompilerComponents = $resourceCompilerComponents
               approved = $false
           } | ConvertTo-Json -Depth 6
