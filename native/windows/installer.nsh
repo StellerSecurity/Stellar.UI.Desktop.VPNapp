@@ -8,6 +8,8 @@
 
 !macro NSIS_HOOK_PREINSTALL
   !insertmacro STELLAR_FIXED_DIRECTORY
+  MessageBox MB_OKCANCEL|MB_ICONINFORMATION "Stellar VPN will install its administrator-managed network helper and reviewed, signed VPN network driver. The helper starts with Windows. Uninstall removes only Stellar's adapter and helper, leaving shared drivers and other VPN apps intact." IDOK +2
+  Abort
   IfFileExists "$INSTDIR\stellar-vpn-service.exe" 0 stellar_preinstall_done
   ExecWait '"$INSTDIR\stellar-vpn-service.exe" --stop-for-update' $0
   StrCmp $0 0 stellar_preinstall_done
@@ -18,12 +20,15 @@
 
 !macro NSIS_HOOK_POSTINSTALL
   !insertmacro STELLAR_FIXED_DIRECTORY
-  MessageBox MB_OKCANCEL|MB_ICONINFORMATION "Stellar VPN will install its administrator-managed network helper and reviewed, signed VPN network driver. The helper starts with Windows and is removed when you uninstall Stellar VPN." IDOK +2
-  Abort
   ExecWait '"$INSTDIR\stellar-vpn-service.exe" --repair-install' $0
+  StrCmp $0 3010 stellar_postinstall_reboot
   StrCmp $0 0 stellar_postinstall_done
   MessageBox MB_ICONSTOP "The network helper could not start. Open Stellar VPN to repair the installation."
   SetErrorLevel 1
+  Goto stellar_postinstall_done
+  stellar_postinstall_reboot:
+  SetRebootFlag true
+  MessageBox MB_OK|MB_ICONINFORMATION "Stellar VPN is installed. Restart Windows before connecting so the network adapter can finish setup. Windows will not restart automatically."
   stellar_postinstall_done:
 !macroend
 

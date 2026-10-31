@@ -106,6 +106,16 @@ static void migration_tests() {
     expect(sha256(data.file) == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", "native SHA256 mismatch");
 }
 static void bridge_tests() {
+    expect(owned_adapter_instance(L"ROOT\\STELLARVPNDESKTOP\\0000"), "Stellar adapter identity rejected");
+    expect(owned_adapter_instance(L"root\\stellarvpndesktop\\0000"), "case-insensitive Windows identity rejected");
+    for (const auto* id : {L"ROOT\\NET\\0000", L"ROOT\\OVPN-DCO\\0000", L"ROOT\\STELLARVPNDESKTOP\\0001",
+        L"ROOT\\STELLARVPNDESKTOP\\0000\\OTHER", L"ROOT\\STELLARVPNDESKTOP-OTHER\\0000", L""})
+        expect(!owned_adapter_instance(id), "foreign adapter identity accepted");
+    expect(!owned_adapter_instance(std::wstring(adapter_instance) + std::wstring(1, L'\0')), "embedded NUL ownership alias accepted");
+    expect(adapter_guid_valid(L"{12345678-1234-1234-1234-123456789ABC}"), "valid network adapter GUID rejected");
+    for (const auto* id : {L"", L"{12345678-1234-1234-1234-123456789ABG}", L"{12345678-1234-1234-1234-123456789ABC}\" --up evil",
+        L"12345678-1234-1234-1234-123456789ABC", L"{12345678_1234-1234-1234-123456789ABC}"})
+        expect(!adapter_guid_valid(id), "unsafe adapter GUID accepted");
     expect(!service_needs_stop_control(SERVICE_STOPPED), "stopped helper requested another stop");
     expect(!service_needs_stop_control(SERVICE_STOP_PENDING), "stopping helper requested a duplicate stop");
     expect(service_needs_stop_control(SERVICE_RUNNING), "running helper skipped stop control");

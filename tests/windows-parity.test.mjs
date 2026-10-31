@@ -56,3 +56,23 @@ test('Windows vault identity is preserved across updates rather than renaming th
   assert(read('src-tauri/src/infrastructure/windows.rs').includes('stellar_windows_legacy_replace'));
   assert.equal(JSON.parse(read('src-tauri/legacy-migration.json')).enabled, false);
 });
+test('Windows owns one fixed adapter and never borrows or deletes shared VPN devices', () => {
+  const lifecycle = read('native/windows/lifecycle.hpp');
+  const service = read('native/windows/service.cpp');
+  const installer = read('native/windows/installer.nsh');
+  assert(lifecycle.includes('ROOT\\\\STELLARVPNDESKTOP\\\\0000'));
+  assert(lifecycle.includes('SetupDiOpenDeviceInfoW(set, adapter_instance'));
+  assert(lifecycle.includes('device.verify_owner()'));
+  assert(lifecycle.includes('SPDRP_HARDWAREID'));
+  assert(lifecycle.includes('DIF_REGISTERDEVICE'));
+  assert(lifecycle.includes('DIF_REMOVE'));
+  assert(!/SetupDiEnumDeviceInfo|DiUninstallDriver|\/delete-driver/.test(lifecycle));
+  assert(service.includes('auto adapter = installed_adapter_guid()'));
+  assert(service.includes('--dev-node'));
+  assert(service.includes('remove_service(true); remove_owned_adapter();'));
+  assert(service.includes('install_service(); return reboot ? ERROR_SUCCESS_REBOOT_REQUIRED : 0'));
+  assert(installer.includes('StrCmp $0 3010 stellar_postinstall_reboot'));
+  assert(installer.includes('SetRebootFlag true'));
+  assert(!/^\s*Reboot\s*$/m.test(installer));
+  assert(installer.indexOf('MB_OKCANCEL') < installer.indexOf('--stop-for-update'));
+});

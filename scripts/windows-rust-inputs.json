@@ -79,15 +79,15 @@
     },
     {
       "path": "native/windows/installer.nsh",
-      "sha256": "22b59bac6489d411c11701c9c2684c65745e40666a1891bec282b02f507ffe9e"
+      "sha256": "59c932def2adfa9295f3ebb4e137055252ee0a2635ebed6fb472a803f599effc"
     },
     {
       "path": "native/windows/lifecycle.hpp",
-      "sha256": "058353fcc77677f31636833239dd83d14f90d9159719ce543412a7df69d1d261"
+      "sha256": "6c364913604a97d0836303b5417986446c28dea0095794c547d2dec4c98d360c"
     },
     {
       "path": "native/windows/native-tests.cpp",
-      "sha256": "d131e552b770bfc1a2e1e30de5a60715be9635cbc9755f602f836c93c1181b42"
+      "sha256": "67ab64ac6f96ebd1d4188bc482778306855d9742e1cfe7ff5f6136ab766b0b3c"
     },
     {
       "path": "native/windows/release-policy.json",
@@ -99,11 +99,11 @@
     },
     {
       "path": "native/windows/service.cpp",
-      "sha256": "446adeb6a5a792f474b5822278ba715cba6ff42cf5442e8945ffb20a0342f27e"
+      "sha256": "b0df74c2011eeee7e62195739f32a051cfa08751a28f3c4a431c76a64cb62510"
     },
     {
       "path": "scripts/windows-native-compile.ps1",
-      "sha256": "04d8f3937e7ae5c0fcd78c1fb8db86194b4dc37de47b5e174e482b686da5f6a3"
+      "sha256": "fac3bf54b9811213535de4ce236213058eb974e4bab8b089ea14e390e3dd11a0"
     },
     {
       "path": "src-tauri/Cargo.toml",

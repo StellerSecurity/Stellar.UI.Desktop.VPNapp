@@ -193,7 +193,8 @@ static void monitor(uint64_t generation, uint64_t expiry, std::string username, 
         int address_size = sizeof(local); check(getsockname(reservation, reinterpret_cast<sockaddr*>(&local), &address_size) == 0);
         uint16_t port = ntohs(local.sin_port); closesocket(reservation);
         auto executable = install_root() / L"Runtime" / L"openvpn.exe";
-        std::wstring command = L"\"" + executable.wstring() + L"\" --config \"" + (session.directory / L"client.ovpn").wstring()
+        auto adapter = installed_adapter_guid();
+        std::wstring command = L"\"" + executable.wstring() + L"\" --dev-node \"" + adapter + L"\" --config \"" + (session.directory / L"client.ovpn").wstring()
             + L"\" --management 127.0.0.1 " + std::to_wstring(port) + L" \"" + (session.directory / L"management.pass").wstring()
             + L"\" --management-query-passwords --management-hold --management-forget-disconnect --management-signal --windows-driver ovpn-dco --block-outside-dns --log NUL";
         handle job(CreateJobObjectW(nullptr, nullptr)); check(job.value != nullptr);
@@ -359,13 +360,18 @@ static void WINAPI service_main(DWORD, LPWSTR*) {
 }
 int wmain(int argc, wchar_t** argv) {
     if (argc == 2 && std::wstring(argv[1]) == L"--repair-install") {
-        try { require_administrator(); verify_runtime(); provision_reviewed_driver(); install_service(); return 0; } catch (...) { return 1; }
+        try {
+            require_administrator(); verify_runtime(); bool driver_reboot = provision_reviewed_driver();
+            bool adapter_reboot = ensure_owned_adapter();
+            bool reboot = driver_reboot || adapter_reboot;
+            install_service(); return reboot ? ERROR_SUCCESS_REBOOT_REQUIRED : 0;
+        } catch (...) { return 1; }
     }
     if (argc == 2 && std::wstring(argv[1]) == L"--stop-for-update") {
         try { remove_service(false); return 0; } catch (...) { return 1; }
     }
     if (argc == 2 && std::wstring(argv[1]) == L"--uninstall-service") {
-        try { remove_service(true); firewall f; f.uninstall(); clean_orphaned_sessions(); return 0; } catch (...) { return 1; }
+        try { remove_service(true); remove_owned_adapter(); firewall f; f.uninstall(); clean_orphaned_sessions(); return 0; } catch (...) { return 1; }
     }
     // Fixed installer-only cleanup command; caller must already be elevated.
     if (argc == 2 && std::wstring(argv[1]) == L"--uninstall-cleanup") {

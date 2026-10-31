@@ -94,7 +94,7 @@ try {
     if ($compileFailures.Count -gt 0) { throw ('Native compilation failed: ' + ($compileFailures -join ', ')) }
     & $tools['lib.exe'] '/NOLOGO' ('/OUT:' + (Join-Path $out 'stellar_windows.lib')) (Join-Path $out 'bridge.obj')
     if ($LASTEXITCODE -ne 0) { throw 'Bridge archive failed.' }
-    $systemLibraries = @('advapi32.lib', 'shell32.lib', 'ole32.lib', 'wintrust.lib', 'crypt32.lib', 'ws2_32.lib', 'iphlpapi.lib', 'winhttp.lib', 'fwpuclnt.lib', 'rpcrt4.lib', 'wtsapi32.lib', 'bcrypt.lib', 'uuid.lib')
+    $systemLibraries = @('advapi32.lib', 'shell32.lib', 'ole32.lib', 'wintrust.lib', 'crypt32.lib', 'ws2_32.lib', 'iphlpapi.lib', 'winhttp.lib', 'fwpuclnt.lib', 'rpcrt4.lib', 'wtsapi32.lib', 'bcrypt.lib', 'uuid.lib', 'setupapi.lib', 'newdev.lib')
     $linkFlags = @('/NOLOGO', '/SUBSYSTEM:CONSOLE', '/DYNAMICBASE', '/NXCOMPAT', '/HIGHENTROPYVA', '/GUARD:CF', '/INCREMENTAL:NO', '/MANIFEST:NO')
     & $tools['link.exe'] @linkFlags ('/OUT:' + (Join-Path $out 'stellar-vpn-service.exe')) (Join-Path $out 'service.obj') @systemLibraries
     if ($LASTEXITCODE -ne 0) { throw 'Service linking failed.' }
