@@ -1,5 +1,8 @@
 fn main() {
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
+        assert!(std::env::var("CARGO_CFG_TARGET_ARCH").as_deref() == Ok("x86_64")
+            && std::env::var("CARGO_CFG_TARGET_ENV").as_deref() == Ok("msvc"),
+            "Only the reviewed Windows x86_64 MSVC toolchain is supported");
         // One reviewed implementation validates exact hashes/signatures and uses
         // absolute compiler paths. Never invoke a PATH-selected cl/lib/link.
         let workspace = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap()).join("..");
