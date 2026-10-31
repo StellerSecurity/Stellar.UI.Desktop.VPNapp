@@ -22,7 +22,9 @@ try {
                 $id = [string]$row.StringData(1)
                 $name = ([string]$row.StringData(2) -split '\|')[-1]
                 $size = [long]$row.StringData(3)
-                if ($files.Count -ge 4096 -or $id -notmatch '^[A-Za-z0-9_][A-Za-z0-9_.-]{0,199}$' -or $name -notmatch '^[A-Za-z0-9_][A-Za-z0-9_.-]{0,199}$' -or $size -lt 0 -or $size -gt 67108864 -or $files.ContainsKey($id)) { throw 'Unsafe or oversized file metadata.' }
+                # Display names may contain spaces (e.g. OpenVPN HOWTO.url).
+                # Only the stricter File identifier is used as an output path.
+                if ($files.Count -ge 4096 -or $id -notmatch '^[A-Za-z0-9_][A-Za-z0-9_.-]{0,199}$' -or $name -notmatch '^[A-Za-z0-9_][A-Za-z0-9_. -]{0,199}$' -or $size -lt 0 -or $size -gt 67108864 -or $files.ContainsKey($id)) { throw 'Unsafe or oversized file metadata.' }
                 $files[$id] = @{ name = $name; size = $size }
             } finally { [Runtime.InteropServices.Marshal]::FinalReleaseComObject($row) | Out-Null }
         }
