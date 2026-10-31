@@ -25,7 +25,10 @@ test('static extraction validates every cabinet entry before system decoding and
   assert(source.includes('$expandedSize -gt 134217728'));
   assert(source.indexOf('Cabinet file does not match') < source.indexOf('& $expand'));
   assert(source.includes('Get-AuthenticodeSignature -LiteralPath $item.FullName'));
-  assert(source.includes('catalogMembershipVerified = $false'));
-  assert(!/msiexec|InstallProduct\s*\(|Start-Process|Invoke-Expression|Add-Type|rundll32|regsvr32/i.test(source));
+  assert(source.includes('catalogMembershipVerified = $true'));
+  assert(source.includes('CryptCATAdminCalcHashFromFileHandle2'));
+  assert(source.includes('CryptCATGetMemberInfo(catalog, tag)'));
+  assert(source.includes('Catalog negative control failed.'));
+  assert(!/msiexec|InstallProduct\s*\(|Start-Process|Invoke-Expression|rundll32|regsvr32|CryptCATAdminAddCatalog/i.test(source));
   assert(!/^\s*&\s+(?!\$expand)/m.test(source));
 });

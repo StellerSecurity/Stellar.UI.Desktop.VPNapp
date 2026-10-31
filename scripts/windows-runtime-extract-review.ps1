@@ -102,7 +102,67 @@ try {
         }
     } finally { $media.Close(); [Runtime.InteropServices.Marshal]::FinalReleaseComObject($media) | Out-Null }
     if ($extracted.Count -ne $files.Count) { throw 'Incomplete extraction coverage.' }
-    [ordered]@{ review = 'static-extraction-only'; filesInspected = $extracted.Count; packageExtracted = $true; packageExecuted = $false; serviceInstalled = $false; driverInstalled = $false; catalogMembershipVerified = $false; releaseApproved = $false } | ConvertTo-Json -Compress
+    # First-party interop with the OS trust library. This opens catalog data
+    # read-only, calculates Authenticode hashes and never registers a catalog.
+    if ([Environment]::SystemDirectory -ne 'C:\Windows\System32') { throw 'Unexpected Windows system directory.' }
+    Add-Type -TypeDefinition @'
+using System;
+using System.IO;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
+public static class StellarStaticCatalog {
+    const string Trust = @"C:\Windows\System32\wintrust.dll";
+    [DllImport(Trust, CharSet=CharSet.Unicode, ExactSpelling=true, SetLastError=true)]
+    static extern bool CryptCATAdminAcquireContext2(out IntPtr context, IntPtr subsystem, string algorithm, IntPtr policy, uint flags);
+    [DllImport(Trust, ExactSpelling=true, SetLastError=true)]
+    static extern bool CryptCATAdminCalcHashFromFileHandle2(IntPtr context, IntPtr file, ref uint size, [Out] byte[] hash, uint flags);
+    [DllImport(Trust, ExactSpelling=true)]
+    static extern bool CryptCATAdminReleaseContext(IntPtr context, uint flags);
+    [DllImport(Trust, CharSet=CharSet.Unicode, ExactSpelling=true, SetLastError=true)]
+    static extern IntPtr CryptCATOpen(string path, uint flags, IntPtr provider, uint version, uint encoding);
+    [DllImport(Trust, CharSet=CharSet.Unicode, ExactSpelling=true)]
+    static extern IntPtr CryptCATGetMemberInfo(IntPtr catalog, string tag);
+    [DllImport(Trust, ExactSpelling=true)]
+    static extern bool CryptCATClose(IntPtr catalog);
+    public static bool Contains(string catalogPath, string filePath) {
+        IntPtr context;
+        if (!CryptCATAdminAcquireContext2(out context, IntPtr.Zero, "SHA256", IntPtr.Zero, 0)) throw new Win32Exception();
+        try {
+            string tag;
+            using (var file = File.OpenRead(filePath)) {
+                uint size = 0;
+                if (!CryptCATAdminCalcHashFromFileHandle2(context, file.SafeFileHandle.DangerousGetHandle(), ref size, null, 0) || size != 32) throw new Win32Exception();
+                byte[] hash = new byte[size];
+                if (!CryptCATAdminCalcHashFromFileHandle2(context, file.SafeFileHandle.DangerousGetHandle(), ref size, hash, 0)) throw new Win32Exception();
+                tag = BitConverter.ToString(hash).Replace("-", "");
+            }
+            IntPtr catalog = CryptCATOpen(catalogPath, 4, IntPtr.Zero, 0x200, 0);
+            if (catalog == IntPtr.Zero || catalog == new IntPtr(-1)) throw new Win32Exception();
+            try { return CryptCATGetMemberInfo(catalog, tag) != IntPtr.Zero; }
+            finally { CryptCATClose(catalog); }
+        } finally { CryptCATAdminReleaseContext(context, 0); }
+    }
+}
+'@
+    $suffix = '.1057B5BE_89F7_469C_A3FD_D6662CD1D229'
+    $groups = @(
+        @{ catalog = 'ovpndco_nx20.cat'; members = @('ovpndco.inf', 'ovpndco_nx20.sys') },
+        @{ catalog = 'ovpndco_nx21.cat'; members = @('ovpndco_nx21.inf', 'ovpndco_nx21.sys') }
+    )
+    foreach ($group in $groups) {
+        $catId = $group.catalog + $suffix
+        if (-not $extracted.ContainsKey($catId)) { throw 'Required driver catalog missing.' }
+        $cat = $extracted[$catId]
+        $catSignature = Get-AuthenticodeSignature -LiteralPath $cat
+        if ($catSignature.Status -ne 'Valid' -or $catSignature.SignerCertificate.Subject -notmatch 'Microsoft Windows Hardware Compatibility Publisher') { throw 'Driver catalog trust not verified.' }
+        foreach ($member in $group.members) {
+            $memberId = $member + $suffix
+            if (-not $extracted.ContainsKey($memberId) -or -not [StellarStaticCatalog]::Contains($cat, $extracted[$memberId])) { throw 'Driver file does not belong to its signed catalog.' }
+            [ordered]@{ catalog = $catId; member = $memberId; sha256CatalogMember = $true; catalogSignature = 'Valid' } | ConvertTo-Json -Compress
+        }
+        if ([StellarStaticCatalog]::Contains($cat, $extracted['config.README.txt'])) { throw 'Catalog negative control failed.' }
+    }
+    [ordered]@{ review = 'static-extraction-only'; filesInspected = $extracted.Count; packageExtracted = $true; packageExecuted = $false; serviceInstalled = $false; driverInstalled = $false; catalogMembershipVerified = $true; catalogNegativeControls = 2; releaseApproved = $false } | ConvertTo-Json -Compress
 } finally {
     [Runtime.InteropServices.Marshal]::FinalReleaseComObject($database) | Out-Null
     [Runtime.InteropServices.Marshal]::FinalReleaseComObject($installer) | Out-Null
