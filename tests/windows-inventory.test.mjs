@@ -6,7 +6,8 @@ test('Windows inventory reads exact tool metadata without executing discovered b
   assert(source.includes('Get-FileHash'));
   assert(source.includes('$file.VersionInfo.ProductVersion'));
   assert(source.includes('approved = $false'));
-  assert(source.includes('signatureVerified = $false'));
+  assert(source.includes('Get-AuthenticodeSignature -LiteralPath $file.FullName'));
+  assert(source.includes("signatureVerified = ($signatureStatus -eq 'Valid')"));
   assert(!/Start-Process|Invoke-Expression|Invoke-WebRequest|Invoke-RestMethod|DownloadFile|\bwinget\b|\bchoco\b|&\s*\$command/i.test(source));
   assert(!/Get-ChildItem[^\n]*-Recurse|Get-ChildItem[^\n]*Env:|Get-Content[^\n]*(?:\.env|credential|token|profile)/i.test(source));
 });
