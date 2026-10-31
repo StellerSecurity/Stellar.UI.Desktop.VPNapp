@@ -89,4 +89,18 @@ jobs:
               [Runtime.InteropServices.Marshal]::FinalReleaseComObject($database) | Out-Null
               [Runtime.InteropServices.Marshal]::FinalReleaseComObject($installer) | Out-Null
           }
-          '{"review":"static-only","packageExecuted":false,"packageExtracted":false,"serviceInstalled":false,"driverInstalled":false,"releaseApproved":false}'
+          # Explicit user approval: unpack these exact approved MSI bytes only
+          # for static hashes, Authenticode and driver metadata inspection.
+          $script = Join-Path $root 'windows-runtime-extract-review.ps1'
+          $source = 'https://raw.githubusercontent.com/StellerSecurity/Stellar.UI.Desktop.VPNapp/${{ github.sha }}/scripts/windows-runtime-extract-review.ps1'
+          $request = [Net.HttpWebRequest]::Create($source)
+          $request.AllowAutoRedirect = $false
+          $request.Timeout = 30000
+          $response = $request.GetResponse()
+          try {
+              $input = $response.GetResponseStream()
+              $output = [IO.File]::Open($script, [IO.FileMode]::CreateNew)
+              try { $input.CopyTo($output) } finally { $output.Dispose(); $input.Dispose() }
+          } finally { $response.Dispose() }
+          if ((Get-FileHash -LiteralPath $script -Algorithm SHA256).Hash.ToLowerInvariant() -ne '03019b014ae0c95e56cb51114422869eb1a0b8e6cfaec80302fdfa4b04167e54') { throw 'Unapproved first-party extraction script.' }
+          & $script -Package $file
