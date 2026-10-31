@@ -2,9 +2,12 @@
 //! an app the user deliberately quit. Only our exact registration is changed.
 use stellar_core::domain::AppError;
 use std::path::Path;
+#[cfg(target_os = "macos")]
 const LABEL: &str = "org.stellarvpn.desktop.autostart";
+#[cfg(target_os = "macos")]
 fn failed() -> AppError { AppError::new("startup_unavailable", "Could not update automatic startup. Check your macOS login items and try again.") }
 
+#[cfg(target_os = "macos")]
 fn plist(executable: &Path) -> Result<String, AppError> {
     let path = executable.to_str().filter(|path| executable.is_absolute() && !path.chars().any(char::is_control)).ok_or_else(failed)?;
     let path = path.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;").replace('\'', "&apos;");
@@ -97,7 +100,9 @@ pub fn instance(directory: &Path) -> Result<Option<InstanceGuard>, AppError> {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(target_os = "macos")]
     use super::*;
+    #[cfg(target_os = "macos")]
     #[test] fn registration_uses_one_literal_argument_and_no_shell_or_relaunch_loop() {
         let xml = plist(Path::new("/Applications/Stellar & VPN.app/Contents/MacOS/Stellar VPN")).unwrap();
         assert!(xml.contains("Stellar &amp; VPN.app"));
@@ -106,6 +111,13 @@ mod tests {
         assert!(!xml.contains("/bin/sh"));
         assert!(plist(Path::new("relative")).is_err());
         assert!(plist(Path::new("/Applications/bad\npath")).is_err());
+    }
+    #[cfg(target_os = "windows")]
+    #[test] fn development_binary_never_registers_a_windows_login_item() {
+        // Fixed C++ install-root check rejects this Cargo test executable before
+        // opening the Run key. The test must never register a CI login item.
+        assert!(super::super::windows::autostart(true).is_ok());
+        assert!(super::super::windows::autostart(false).is_ok());
     }
     #[cfg(target_os = "macos")]
     #[test] fn registration_is_reversible_and_instance_lock_prevents_duplicate_tunnels() {

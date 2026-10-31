@@ -239,7 +239,7 @@
     },
     {
       "path": "src-tauri/src/infrastructure/session.rs",
-      "sha256": "100bae2e1916ef269cde1c37447bd97e1b24357163e8c0447285effddb69d042"
+      "sha256": "c96e54bd7602009973b8c508b46ccbd28f45c69d1d3de83f18b929f80b8e615f"
     },
     {
       "path": "src-tauri/src/infrastructure/session_windows.rs",
@@ -247,7 +247,7 @@
     },
     {
       "path": "src-tauri/src/infrastructure/startup.rs",
-      "sha256": "cf95d50ad67a9211593299943a0122f9d9d36c1239a85beee670dc9da6e051c3"
+      "sha256": "b254fde9be901e1a54b9b5199cd61f78664e9d60d331528a6e0c1083e9dc0683"
     },
     {
       "path": "src-tauri/src/infrastructure/vpn.rs",
@@ -299,7 +299,7 @@
     },
     {
       "path": "src-tauri/src/updates/trust.rs",
-      "sha256": "419e01f652b50aa1f34ec1cdd9ef1ec10a57c6d99ab759f6e5d3d736f4d1aaf1"
+      "sha256": "81a60b34fd670842351aa8e46c90a2e026775d1d6c7d844ce9e52c6f062dbc37"
     },
     {
       "path": "src-tauri/src/updates/windows.rs",

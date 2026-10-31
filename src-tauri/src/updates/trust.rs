@@ -6,6 +6,7 @@ use stellar_core::domain::AppError;
 
 pub const CHANNEL: &str = "desktop-v2";
 pub const FEED: &str = "https://desktopreleasesassetsprod.stellarsecurity.com/vpn/desktop-v2/latest.json";
+#[cfg(target_os = "macos")]
 pub const PRODUCT: &str = "org.stellarsecurity.vpn.desktop";
 // Original VPN Minisign public key, from the tracked legacy configuration.
 // Never load this trust root from the server, settings, environment or IPC.

@@ -16,13 +16,13 @@ const SERVICE: &str = "org.stellarvpn.desktop.session.selftest.v2";
 const ACCOUNT: &str = "current-session";
 const LIMIT: usize = 2048;
 const DISPLAY_LIMIT: usize = 49_152;
-#[cfg(not(test))]
+#[cfg(all(not(test), target_os = "macos"))]
 // v1 was created by ad hoc development builds: preserving its ACL also
 // preserves their obsolete code identity and causes repeated access prompts.
 // Rebuild display-only data under the certificate-backed identity instead.
 // Never read/delete the old item as migration.
 const DISPLAY_SERVICE: &str = "org.stellarvpn.desktop.account-cache.v2";
-#[cfg(test)]
+#[cfg(all(test, target_os = "macos"))]
 const DISPLAY_SERVICE: &str = "org.stellarvpn.desktop.account-cache.selftest.v2";
 fn unavailable() -> AppError { AppError::new("session_storage_unavailable", "Couldn’t remember this login securely.") }
 fn now() -> u64 { std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs() }
