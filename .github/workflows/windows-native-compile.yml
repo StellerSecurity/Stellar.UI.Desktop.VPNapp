@@ -36,8 +36,8 @@ jobs:
             @{ path = 'native/windows/bridge.cpp'; sha256 = '0a4cb46afa0a00e1d1843950d44a5e48aceb45cbc577567601f2a6cca0b2d80e' },
             @{ path = 'native/windows/service.cpp'; sha256 = 'd7662529ebb89b44dfb8300cd7208c4baf5b13ed56a8a1ec9d4bc3d1ecfc7e29' },
             @{ path = 'native/windows/bridge-link-test.cpp'; sha256 = 'd7ef6820a2804c12bbda5900037f99c14a9a5ca6311d3bc9e234019c4983fed2' },
-            @{ path = 'scripts/windows-native-compile.ps1'; sha256 = '07e8947c5e0d68d6b0e01dfe22b8288f9f63fcc26d65154d6aeb04f3dfccdbf1' },
-            @{ path = 'native/windows/compile-approval.json'; sha256 = 'a92617d582558268dd3d80f13b95e5e6fcf11cc7350c736499e13d3159448e0d' }
+            @{ path = 'scripts/windows-native-compile.ps1'; sha256 = '75151c082df2a9db9118ee1b4d300d5053dc0f842061e85aa65d4de2136db4d6' },
+            @{ path = 'native/windows/compile-approval.json'; sha256 = '53c6f1634d5e9f1325288d3bf76e6e9f850ca73ccd2308da30e0a39e465690f6' }
           )
           $root = Join-Path $env:RUNNER_TEMP 'stellar-native-source'
           [IO.Directory]::CreateDirectory($root) | Out-Null

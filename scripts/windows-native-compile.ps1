@@ -18,8 +18,13 @@ $tools = @{}
 $pins = @($review.components)
 if ($pins.Count -lt 3 -or $pins.Count -gt 100) { throw 'Missing exact MSVC component pins.' }
 foreach ($pin in $pins) {
-    if ($pin.name -notmatch '^[A-Za-z0-9_.-]+\.(exe|dll)$' -or $pin.sha256 -notmatch '^[a-f0-9]{64}$' -or [string]::IsNullOrEmpty($pin.signer)) { throw 'Invalid toolchain pin.' }
+    if ($pin.name -notmatch '^(?:[A-Za-z0-9_.-]+\.(exe|dll)|1033/(?:clui|linkui)\.dll)$' -or $pin.sha256 -notmatch '^[a-f0-9]{64}$' -or [string]::IsNullOrEmpty($pin.signer)) { throw 'Invalid toolchain pin.' }
     $file = Get-Item -LiteralPath (Join-Path $bin $pin.name)
+    if ($pin.name.StartsWith('1033/')) {
+        $languageDirectory = Get-Item -LiteralPath (Join-Path $bin '1033')
+        if ($languageDirectory.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Resource directory reparse point rejected.' }
+        if ($file.VersionInfo.ProductVersion -ne $review.compilerVersion) { throw 'Compiler resource version changed.' }
+    }
     if ($file.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Toolchain reparse point rejected.' }
     if ((Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant() -ne $pin.sha256) { throw 'Toolchain hash changed; re-review required.' }
     $signature = Get-AuthenticodeSignature -LiteralPath $file.FullName
@@ -53,6 +58,7 @@ foreach ($pin in $pins) {
     $nativeLibrary = $pin.name.EndsWith('.dll') -and $pin.name -notmatch '^(Microsoft\.|System\.|Newtonsoft\.)' -and $pin.name -ne 'd3dcompiler_47.dll'
     if (-not ($nativeExecutable -or $nativeLibrary)) { continue }
     $destination = Join-Path $stagedBin $pin.name
+    [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($destination)) | Out-Null
     [IO.File]::Copy($tools[$pin.name], $destination, $false)
     if ((Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant() -ne $pin.sha256) { throw 'Staged compiler hash changed.' }
     $stagedTools[$pin.name] = $destination

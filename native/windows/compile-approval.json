@@ -6,6 +6,16 @@
   "userApproval": "2026-10-31: explicit approval after exact review, including closed-source inspection limitation",
   "components": [
     {
+      "name": "1033/clui.dll",
+      "sha256": "8877a566cf0e39504f1eebed7a37202974d2dc91e850ef24175c9433fe82b7ab",
+      "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+    },
+    {
+      "name": "1033/linkui.dll",
+      "sha256": "437129ea3e4b102753d197ca79333273f69c0fa075bcf62b339e501613c9a102",
+      "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+    },
+    {
       "name": "atlprov.dll",
       "sha256": "fc4c78bf6d6007a89ef48a1e9d805565a516464d9ff5282eac3d8d47f6139f39",
       "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
