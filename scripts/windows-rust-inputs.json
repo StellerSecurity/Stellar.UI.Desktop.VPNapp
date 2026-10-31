@@ -83,11 +83,11 @@
     },
     {
       "path": "native/windows/lifecycle.hpp",
-      "sha256": "72968ca610155b1aa19fd0bed66974e7766f350c2b9783fb8b9968af6c948f2f"
+      "sha256": "058353fcc77677f31636833239dd83d14f90d9159719ce543412a7df69d1d261"
     },
     {
       "path": "native/windows/native-tests.cpp",
-      "sha256": "734a1a5052fdf2a87cab9642160b6b6ff7992f8547cc3e547a3f0dcab1815cff"
+      "sha256": "4d0bb9e88f5cce92a64f1dfedfbfd9f025bd1c55af6c63cd53dfaab1297ab08a"
     },
     {
       "path": "native/windows/release-policy.json",

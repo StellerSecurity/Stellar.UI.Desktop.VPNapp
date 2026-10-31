@@ -22,12 +22,21 @@ inline void verify_service(SC_HANDLE service) {
     check(_wcsicmp(config->lpBinaryPathName, expected.c_str()) == 0 && _wcsicmp(config->lpServiceStartName, L"LocalSystem") == 0
         && config->dwServiceType == SERVICE_WIN32_OWN_PROCESS);
 }
+inline bool service_needs_stop_control(DWORD state) {
+    return state != SERVICE_STOPPED && state != SERVICE_STOP_PENDING;
+}
 inline void stop_service(SC_HANDLE service) {
     SERVICE_STATUS_PROCESS status{}; DWORD size = 0;
     check(QueryServiceStatusEx(service, SC_STATUS_PROCESS_INFO, reinterpret_cast<BYTE*>(&status), sizeof(status), &size));
     if (status.dwCurrentState == SERVICE_STOPPED) return;
     SERVICE_STATUS previous{};
-    if (!ControlService(service, SERVICE_CONTROL_STOP, &previous)) check(GetLastError() == ERROR_SERVICE_NOT_ACTIVE);
+    // An update/uninstall can race an existing stop. Do not send another
+    // control to a STOP_PENDING service: Windows can reject it as busy.
+    if (service_needs_stop_control(status.dwCurrentState) && !ControlService(service, SERVICE_CONTROL_STOP, &previous)) {
+        auto error = GetLastError();
+        check(QueryServiceStatusEx(service, SC_STATUS_PROCESS_INFO, reinterpret_cast<BYTE*>(&status), sizeof(status), &size));
+        check(error == ERROR_SERVICE_NOT_ACTIVE || status.dwCurrentState == SERVICE_STOP_PENDING || status.dwCurrentState == SERVICE_STOPPED);
+    }
     auto deadline = GetTickCount64() + 45000;
     do {
         check(QueryServiceStatusEx(service, SC_STATUS_PROCESS_INFO, reinterpret_cast<BYTE*>(&status), sizeof(status), &size));

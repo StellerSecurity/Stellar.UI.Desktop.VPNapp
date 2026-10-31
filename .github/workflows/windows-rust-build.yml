@@ -30,7 +30,7 @@ jobs:
           if ($env:SOURCE_COMMIT -notmatch '^[a-f0-9]{40}$') { throw 'Exact source commit required.' }
           $files = @(
             @{ path = 'scripts/windows-rust-build.ps1'; sha256 = '55ecb53a52fcaf063fc84330078eb5c4ac86b0c01be43656bbf50bedbc657c0b' },
-            @{ path = 'scripts/windows-rust-inputs.json'; sha256 = '12a9640e5173f728bd554f6f9c342e477f68e5a8d5d4f53aef62cab9d8a990bb' }
+            @{ path = 'scripts/windows-rust-inputs.json'; sha256 = 'ee8970e4674abe2ef3b2ee6d5db5a2ba7a6074ead1c3c7b4a31289f2efe76d7f' }
           )
           $root = Join-Path $env:RUNNER_TEMP 'stellar-rust-harness'
           [IO.Directory]::CreateDirectory($root) | Out-Null

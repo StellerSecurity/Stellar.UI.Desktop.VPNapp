@@ -94,6 +94,10 @@ static void migration_tests() {
     expect(sha256(data.file) == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", "native SHA256 mismatch");
 }
 static void bridge_tests() {
+    expect(!service_needs_stop_control(SERVICE_STOPPED), "stopped helper requested another stop");
+    expect(!service_needs_stop_control(SERVICE_STOP_PENDING), "stopping helper requested a duplicate stop");
+    expect(service_needs_stop_control(SERVICE_RUNNING), "running helper skipped stop control");
+    expect(service_needs_stop_control(SERVICE_PAUSED), "paused helper skipped stop control");
     unsigned char bytes[256]{};
     expect(stellar_windows_exchange(nullptr, 0, bytes, sizeof(bytes), 100) == -1, "invalid IPC input accepted");
     expect(stellar_windows_network_stamp(nullptr) == 0, "invalid network stamp output accepted");
