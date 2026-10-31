@@ -6,7 +6,7 @@ const source = fs.readFileSync(new URL('../scripts/windows-native-compile.ps1', 
 test('hosted compile source pins match exact local files and keep credentials and third-party actions out', () => {
   const workflow = fs.readFileSync(new URL('../.github/workflows/windows-native-compile.yml', import.meta.url), 'utf8');
   const pins = [...workflow.matchAll(/path = '([^']+)'; sha256 = '([a-f0-9]{64})'/g)];
-  assert.equal(pins.length, 8);
+  assert.equal(pins.length, 9);
   for (const [, path, hash] of pins) {
     assert.equal(createHash('sha256').update(fs.readFileSync(new URL('../' + path, import.meta.url))).digest('hex'), hash, path);
   }

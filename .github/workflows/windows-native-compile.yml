@@ -30,14 +30,15 @@ jobs:
           $ErrorActionPreference = 'Stop'
           if ($env:SOURCE_COMMIT -notmatch '^[a-f0-9]{40}$') { throw 'Exact source commit required.' }
           $files = @(
+            @{ path = 'native/windows/native-tests.cpp'; sha256 = '734a1a5052fdf2a87cab9642160b6b6ff7992f8547cc3e547a3f0dcab1815cff' },
             @{ path = 'native/windows/common.hpp'; sha256 = '92937e9fe7461ef33fa5e4f7ace913ddf3ec21ef1254ae30902c1167e1a35c2a' },
             @{ path = 'native/windows/firewall.hpp'; sha256 = '1e979937afd0eec239215ef0bb7a938549070ded169679945f68ab944b66fb3a' },
             @{ path = 'native/windows/lifecycle.hpp'; sha256 = '72968ca610155b1aa19fd0bed66974e7766f350c2b9783fb8b9968af6c948f2f' },
             @{ path = 'native/windows/bridge.cpp'; sha256 = '0a4cb46afa0a00e1d1843950d44a5e48aceb45cbc577567601f2a6cca0b2d80e' },
             @{ path = 'native/windows/service.cpp'; sha256 = 'c7ab08a115307ff91e9aa13936b317415f624344199db3220be13b0891c96b06' },
             @{ path = 'native/windows/bridge-link-test.cpp'; sha256 = 'd7ef6820a2804c12bbda5900037f99c14a9a5ca6311d3bc9e234019c4983fed2' },
-            @{ path = 'scripts/windows-native-compile.ps1'; sha256 = '96f00de93046ceec2f87fdcde842c009f63baa7b00f87b0f3a73085f1038ac9e' },
-            @{ path = 'native/windows/compile-approval.json'; sha256 = '53c6f1634d5e9f1325288d3bf76e6e9f850ca73ccd2308da30e0a39e465690f6' }
+            @{ path = 'scripts/windows-native-compile.ps1'; sha256 = '61394b8396609047f75b9c01c3462ac8a8e0a8966c72e6be33b1e9fe6c689079' },
+            @{ path = 'native/windows/compile-approval.json'; sha256 = 'd044068f202e74210cd5e5062a21f3ee7011dd01709327e0456e488853a6eaa4' }
           )
           $root = Join-Path $env:RUNNER_TEMP 'stellar-native-source'
           [IO.Directory]::CreateDirectory($root) | Out-Null
@@ -59,6 +60,6 @@ jobs:
           [IO.Directory]::CreateDirectory($reviewDirectory) | Out-Null
           [IO.File]::Copy((Join-Path $root 'native/windows/compile-approval.json'), (Join-Path $reviewDirectory 'windows-native-compile-approval.json'))
           "STELLAR_NATIVE_ROOT=$root" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-      - name: Compile and link only; never execute generated binaries
+      - name: Compile native code and run synthetic first-party tests only
         run: |
-          & (Join-Path $env:STELLAR_NATIVE_ROOT 'scripts/windows-native-compile.ps1')
+          & (Join-Path $env:STELLAR_NATIVE_ROOT 'scripts/windows-native-compile.ps1') -RunSyntheticTests

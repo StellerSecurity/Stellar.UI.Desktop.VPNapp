@@ -1,5 +1,6 @@
 # First-party native compilation only. No installs, downloads, tool discovery,
 # service/driver registration, signing, packaging, or executable smoke tests.
+param([switch] $RunSyntheticTests)
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) { throw 'Native Windows required.' }
@@ -93,5 +94,24 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Bridge linking failed.' }
     foreach ($name in @('stellar-vpn-service.exe', 'stellar_windows.lib', 'bridge-link-test.exe')) {
         [ordered]@{ artifact = $name; sha256 = (Get-FileHash -LiteralPath (Join-Path $out $name) -Algorithm SHA256).Hash.ToLowerInvariant(); executed = $false; releaseApproved = $false } | ConvertTo-Json -Compress
+    }
+    if ($RunSyntheticTests) {
+        if ($review.syntheticTestsApproved -ne $true) { throw 'Synthetic native test execution approval is missing.' }
+        & $tools['cl.exe'] @flags (Join-Path $native 'native-tests.cpp') ('/Fo' + (Join-Path $out 'native-tests.obj'))
+        if ($LASTEXITCODE -ne 0) { throw 'Native synthetic test compilation failed.' }
+        $test = Join-Path $out 'native-tests.exe'
+        & $tools['link.exe'] @linkFlags ('/OUT:' + $test) (Join-Path $out 'native-tests.obj') @systemLibraries
+        if ($LASTEXITCODE -ne 0) { throw 'Native synthetic test linking failed.' }
+        # This first-party test entry point never calls the included service entry
+        # point. It uses private synthetic files and does not install or connect.
+        $start = New-Object Diagnostics.ProcessStartInfo
+        $start.FileName = $test
+        $start.WorkingDirectory = $out
+        $start.UseShellExecute = $false
+        $process = [Diagnostics.Process]::Start($start)
+        try {
+            if (-not $process.WaitForExit(30000)) { $process.Kill(); $process.WaitForExit(); throw 'Native synthetic tests timed out.' }
+            if ($process.ExitCode -ne 0) { throw 'Native synthetic tests failed.' }
+        } finally { $process.Dispose() }
     }
 } finally { Pop-Location }

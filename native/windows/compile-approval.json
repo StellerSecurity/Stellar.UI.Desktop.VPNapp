@@ -1,6 +1,8 @@
 {
   "approved": true,
   "scope": "native-cpp-compile-only",
+  "syntheticTestsApproved": true,
+  "syntheticTestApproval": "User requested all remaining Windows tests; first-party synthetic tests only. No service/driver/firewall/network changes.",
   "compilerVersion": "14.44.35229.0",
   "sdkDirectory": "10.0.26100.0",
   "userApproval": "2026-10-31: explicit approval after exact review, including closed-source inspection limitation",
