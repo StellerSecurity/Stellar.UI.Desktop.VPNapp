@@ -1,0 +1,92 @@
+name: Windows runtime static review only
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['stellar/windows-hosted-inventory']
+    paths: ['.github/workflows/windows-runtime-static-review.yml']
+
+permissions: {}
+
+jobs:
+  inspect:
+    if: github.repository == 'StellerSecurity/Stellar.UI.Desktop.VPNapp'
+    runs-on: windows-2022
+    timeout-minutes: 8
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: Read approved MSI signature and database without running installation actions
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+          $name = 'OpenVPN-2.7.8-I002-amd64.msi'
+          $expected = '33104dd02c48cba172612882b1af6276422b1b4340d4c9c84dd2afb4b356fe9f'
+          $root = Join-Path $env:RUNNER_TEMP 'stellar-runtime-static-review'
+          [IO.Directory]::CreateDirectory($root) | Out-Null
+          $file = Join-Path $root $name
+          if (Test-Path -LiteralPath $file) { throw 'Fresh review file required.' }
+          $request = [Net.HttpWebRequest]::Create('https://build.openvpn.net/downloads/releases/' + $name)
+          $request.AllowAutoRedirect = $false
+          $request.Timeout = 30000
+          $response = $request.GetResponse()
+          try {
+              if ($response.ContentLength -ne 5922816) { throw 'Unexpected package size.' }
+              $input = $response.GetResponseStream()
+              $output = [IO.File]::Open($file, [IO.FileMode]::CreateNew)
+              try {
+                  $buffer = New-Object byte[] 65536
+                  $total = 0
+                  while (($count = $input.Read($buffer, 0, $buffer.Length)) -gt 0) {
+                      $total += $count
+                      if ($total -gt 5922816) { throw 'Package exceeds approved size.' }
+                      $output.Write($buffer, 0, $count)
+                  }
+                  if ($total -ne 5922816) { throw 'Truncated review package.' }
+              } finally { $output.Dispose(); $input.Dispose() }
+          } finally { $response.Dispose() }
+          if ((Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw 'Unapproved package bytes.' }
+          $signature = Get-AuthenticodeSignature -LiteralPath $file
+          if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'OpenVPN') { throw 'Official MSI signature not verified.' }
+          [ordered]@{ package = $name; sha256 = $expected; signature = $signature.Status.ToString(); signer = $signature.SignerCertificate.Subject; signerThumbprint = $signature.SignerCertificate.Thumbprint } | ConvertTo-Json -Compress
+
+          # OpenDatabase mode 0 is read-only. No InstallProduct, ApplyPatch,
+          # administrative install, MSI session or custom action is invoked.
+          $installer = New-Object -ComObject WindowsInstaller.Installer
+          $database = $installer.GetType().InvokeMember('OpenDatabase', 'InvokeMethod', $null, $installer, @($file, 0))
+          $queries = @(
+              @{ table = 'Property'; sql = 'SELECT `Property`, `Value` FROM `Property`'; columns = 2 },
+              @{ table = 'File'; sql = 'SELECT `File`, `FileName`, `Version`, `FileSize` FROM `File`'; columns = 4 },
+              @{ table = 'CustomAction'; sql = 'SELECT `Action`, `Type`, `Source`, `Target` FROM `CustomAction`'; columns = 4 },
+              @{ table = 'Binary'; sql = 'SELECT `Name` FROM `Binary`'; columns = 1 }
+          )
+          try {
+              foreach ($query in $queries) {
+                  $view = $database.GetType().InvokeMember('OpenView', 'InvokeMethod', $null, $database, @($query.sql))
+                  try {
+                      $view.GetType().InvokeMember('Execute', 'InvokeMethod', $null, $view, $null) | Out-Null
+                      $rows = 0
+                      while ($null -ne ($record = $view.GetType().InvokeMember('Fetch', 'InvokeMethod', $null, $view, $null))) {
+                          try {
+                              $rows++
+                              if ($rows -gt 4096) { throw 'Unbounded MSI metadata.' }
+                              $values = @()
+                              for ($column = 1; $column -le $query.columns; $column++) {
+                                  $value = $record.GetType().InvokeMember('StringData', 'GetProperty', $null, $record, @($column))
+                                  if ($value.Length -gt 32768) { throw 'Oversized metadata field.' }
+                                  $values += $value
+                              }
+                              [ordered]@{ table = $query.table; values = $values } | ConvertTo-Json -Compress
+                          } finally { [Runtime.InteropServices.Marshal]::FinalReleaseComObject($record) | Out-Null }
+                      }
+                  } finally {
+                      $view.GetType().InvokeMember('Close', 'InvokeMethod', $null, $view, $null) | Out-Null
+                      [Runtime.InteropServices.Marshal]::FinalReleaseComObject($view) | Out-Null
+                  }
+              }
+          } finally {
+              [Runtime.InteropServices.Marshal]::FinalReleaseComObject($database) | Out-Null
+              [Runtime.InteropServices.Marshal]::FinalReleaseComObject($installer) | Out-Null
+          }
+          '{"review":"static-only","packageExecuted":false,"packageExtracted":false,"serviceInstalled":false,"driverInstalled":false,"releaseApproved":false}'
