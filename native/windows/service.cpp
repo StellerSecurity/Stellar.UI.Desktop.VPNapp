@@ -76,11 +76,31 @@ static std::vector<endpoint> validate_config(const std::string& config) {
     for (auto& e : endpoints) e.protocol = static_cast<uint8_t>(protocol.rfind("udp", 0) == 0 ? IPPROTO_UDP : IPPROTO_TCP);
     return endpoints;
 }
+static std::vector<std::pair<std::string, std::string>> parse_runtime_manifest(std::istream& input) {
+    std::vector<std::pair<std::string, std::string>> entries;
+    std::set<std::string> names;
+    std::string line;
+    while (std::getline(input, line)) {
+        check(line.size() <= 256);
+        std::istringstream fields(line); std::string hash, name, extra;
+        check(static_cast<bool>(fields >> hash >> name) && !(fields >> extra));
+        check(entries.size() < 128 && hash.size() == 64 && std::all_of(hash.begin(), hash.end(), [](char c) { return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'); }));
+        check(!name.empty() && name.size() <= 128 && name != "." && name != ".." && name.find("..") == std::string::npos
+            && std::all_of(name.begin(), name.end(), [](char c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '.' || c == '-' || c == '_'; }));
+        auto canonical = name;
+        for (auto& c : canonical) if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
+        check(canonical != "runtime.sha256" && names.insert(canonical).second);
+        entries.emplace_back(hash, name);
+    }
+    check(input.eof() && !input.bad() && !entries.empty());
+    return entries;
+}
 static void verify_runtime() {
     auto root = install_root() / L"Runtime"; trusted_machine_path(root);
     auto manifest = root / L"runtime.sha256"; check(regular_no_links(manifest)); trusted_machine_path(manifest);
-    std::ifstream input(manifest); std::string hash, name; std::set<std::wstring> files;
-    while (input >> hash >> name) {
+    check(std::filesystem::file_size(manifest) <= 32768);
+    std::ifstream input(manifest); std::set<std::wstring> files;
+    for (const auto& [hash, name] : parse_runtime_manifest(input)) {
         check(files.size() < 128 && hash.size() == 64 && std::all_of(hash.begin(), hash.end(), [](char c) { return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'); }));
         check(!name.empty() && name.size() <= 128 && name != "." && name != ".." && name.find("..") == std::string::npos
             && std::all_of(name.begin(), name.end(), [](char c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '.' || c == '-' || c == '_'; }));

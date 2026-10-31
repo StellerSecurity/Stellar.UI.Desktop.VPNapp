@@ -39,6 +39,18 @@ struct fixture {
     }
 };
 static void parser_tests() {
+    const std::string digest(64, 'a');
+    auto runtime = [&](const std::string& text) { std::istringstream input(text); return parse_runtime_manifest(input); };
+    expect(runtime(digest + "  openvpn.exe\r\n").size() == 1, "valid CRLF runtime manifest rejected");
+    expect(runtime(digest + "  openvpn.exe").size() == 1, "valid final runtime line rejected");
+    for (const auto& text : {std::string(), digest, digest + "  openvpn.exe\n" + digest,
+        digest + "  openvpn.exe unexpected\n", digest + "  ../openvpn.exe\n", digest + "  runtime.sha256\n",
+        digest + "  openvpn.exe\n" + digest + "  OPENVPN.EXE\n", digest + "  openvpn.exe\n\n"})
+        rejects([&] { runtime(text); }, "malformed runtime manifest accepted");
+    auto bad_hash = digest; bad_hash[0] = 'g';
+    rejects([&] { runtime(bad_hash + "  openvpn.exe\n"); }, "invalid runtime digest accepted");
+    std::istringstream broken(digest + "  openvpn.exe"); broken.setstate(std::ios::badbit);
+    rejects([&] { parse_runtime_manifest(broken); }, "runtime read error accepted");
     for (const auto& protocol : {"udp", "udp4", "tcp-client", "tcp4-client"}) {
         auto endpoints = validate_config(configuration(protocol));
         expect(endpoints.size() == 1 && endpoints[0].address == 0xc000020a && endpoints[0].port == 1194,

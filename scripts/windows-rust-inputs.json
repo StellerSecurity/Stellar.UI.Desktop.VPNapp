@@ -87,7 +87,7 @@
     },
     {
       "path": "native/windows/native-tests.cpp",
-      "sha256": "4d0bb9e88f5cce92a64f1dfedfbfd9f025bd1c55af6c63cd53dfaab1297ab08a"
+      "sha256": "d131e552b770bfc1a2e1e30de5a60715be9635cbc9755f602f836c93c1181b42"
     },
     {
       "path": "native/windows/release-policy.json",
@@ -99,7 +99,7 @@
     },
     {
       "path": "native/windows/service.cpp",
-      "sha256": "c7ab08a115307ff91e9aa13936b317415f624344199db3220be13b0891c96b06"
+      "sha256": "446adeb6a5a792f474b5822278ba715cba6ff42cf5442e8945ffb20a0342f27e"
     },
     {
       "path": "scripts/windows-native-compile.ps1",
