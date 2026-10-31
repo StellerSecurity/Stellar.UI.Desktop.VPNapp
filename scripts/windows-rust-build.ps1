@@ -1,6 +1,6 @@
 # Exact reviewed hosted Rust/SDK toolchain and locked source graph only.
 # No installer/driver/service registration, GUI launch or production credentials.
-param([Parameter(Mandatory = $true)][string] $SourceCommit)
+param([Parameter(Mandatory = $true)][string] $SourceCommit, [switch] $ExportInterfaceTest)
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 if ($SourceCommit -notmatch '^[a-f0-9]{40}$') { throw 'Exact first-party source commit required.' }
@@ -93,5 +93,38 @@ try {
     & $cargo build --locked --offline --target x86_64-pc-windows-msvc -p stellar-vpn-desktop
     if ($LASTEXITCODE -ne 0) { throw 'Windows desktop debug build failed.' }
     Verify-Lock
+    if ($ExportInterfaceTest) {
+        # A standalone UI test, not the installer or VPN runtime. Embed the
+        # pinned frontend snapshot instead of depending on a localhost server.
+        $uiRoot = Join-Path $root 'native/windows/preview-ui'
+        $uiFiles = @($manifest.files | Where-Object { $_.path.StartsWith('native/windows/preview-ui/') })
+        if ($uiFiles.Count -ne 6) { throw 'Exact six-file frontend snapshot required.' }
+        foreach ($entry in $uiFiles) {
+            $relative = $entry.path.Substring('native/windows/preview-ui/'.Length)
+            $destination = Join-Path $root ('dist/' + $relative)
+            [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($destination)) | Out-Null
+            [IO.File]::Copy((Join-Path $root $entry.path), $destination)
+        }
+        & $cargo build --locked --offline --target x86_64-pc-windows-msvc -p stellar-vpn-desktop --features tauri/custom-protocol
+        if ($LASTEXITCODE -ne 0) { throw 'Standalone Windows interface build failed.' }
+        Verify-Lock
+        $output = Join-Path $env:RUNNER_TEMP 'stellar-windows-interface-test'
+        if (Test-Path -LiteralPath $output) { throw 'Fresh interface test output required.' }
+        [IO.Directory]::CreateDirectory($output) | Out-Null
+        $executable = Join-Path $output 'Stellar VPN Interface Test.exe'
+        [IO.File]::Copy((Join-Path $env:CARGO_TARGET_DIR 'x86_64-pc-windows-msvc/debug/stellar-vpn-desktop.exe'), $executable)
+        $proof = [ordered]@{
+            schema = 1; sourceCommit = $SourceCommit; architecture = 'x86_64'; kind = 'standalone-interface-test'
+            frontendSnapshot = $uiFiles; executableSha256 = (Get-FileHash -LiteralPath $executable -Algorithm SHA256).Hash.ToLowerInvariant()
+            signed = $false; releaseApproved = $false; vpnRuntimeIncluded = $false; serviceIncluded = $false; driverIncluded = $false
+            limitation = 'UI test only. No VPN service/driver is installed. Windows ARM cannot load the x64 VPN driver.'
+        }
+        [IO.File]::WriteAllText((Join-Path $output 'build-info.json'), ($proof | ConvertTo-Json -Depth 5), $utf8)
+        $zip = Join-Path $env:RUNNER_TEMP 'stellar-windows-interface-test.zip'
+        if (Test-Path -LiteralPath $zip) { throw 'Fresh interface artifact required.' }
+        Compress-Archive -LiteralPath $executable, (Join-Path $output 'build-info.json') -DestinationPath $zip -CompressionLevel Optimal
+        "STELLAR_WINDOWS_PREVIEW_ZIP=$zip" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        $proof | ConvertTo-Json -Depth 5 -Compress
+    }
     [ordered]@{ suite = 'windows-rust-debug-build-and-tests'; sourceCommit = $SourceCommit; lockedArchivesVerified = $archives.Count; releaseApproved = $false; serviceInstalled = $false; driverInstalled = $false; appExecuted = $false } | ConvertTo-Json -Compress
 } finally { Pop-Location }

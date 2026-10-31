@@ -17,13 +17,18 @@ test('Windows Rust job pins only the approved graph and first-party source input
     assert.equal(createHash('sha256').update(fs.readFileSync(new URL('../' + file.path, import.meta.url))).digest('hex'), file.sha256, file.path);
   }
 });
-test('Rust workflow validates the harness and avoids actions, credentials and installers', () => {
+test('Rust workflow validates the harness and uses only its pinned first-party export action', () => {
   const workflow = read('.github/workflows/windows-rust-build.yml');
   assert(workflow.includes('permissions: {}'));
-  assert(!/uses:|secrets\.|actions\/checkout/.test(workflow));
+  assert(!/secrets\.|actions\/checkout/.test(workflow));
+  assert.deepEqual([...workflow.matchAll(/uses:\s*(\S+)/g)].map(x => x[1]), ['./.github/actions/upload-windows-interface-test']);
   for (const [, name, hash] of workflow.matchAll(/path = '([^']+)'; sha256 = '([a-f0-9]{64})'/g))
     assert.equal(createHash('sha256').update(read(name)).digest('hex'), hash, name);
   const script = read('scripts/windows-rust-build.ps1');
   for (const guard of ['Get-FileHash', 'Get-AuthenticodeSignature', 'RUSTC_WORKSPACE_WRAPPER', 'CARGO_HOME', 'Verify-Lock', 'CARGO_NET_OFFLINE', 'cargo test --locked --offline', 'cargo build --locked --offline']) assert(script.includes(guard), guard);
   assert(!/&\s*[^\n]*rustup|\bnpm\b|\bwinget\b|\bchoco\b|\bpnputil\b|New-Service|Start-Service|Start-Process|Invoke-Expression/.test(script));
+  assert(script.includes('--features tauri/custom-protocol'));
+  assert(script.includes('Exact six-file frontend snapshot required.'));
+  assert(script.includes('vpnRuntimeIncluded = $false; serviceIncluded = $false; driverIncluded = $false'));
+  assert(script.includes("Compress-Archive -LiteralPath $executable, (Join-Path $output 'build-info.json')"));
 });
