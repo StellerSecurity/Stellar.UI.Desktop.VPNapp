@@ -52,11 +52,26 @@ pub fn sync(app: &tauri::AppHandle, enabled: bool) -> Result<(), AppError> {
         if !executable.to_string_lossy().contains(".app/Contents/MacOS/") { return Ok(()); }
         sync_at(&app.path().home_dir().map_err(|_| failed())?, &executable, enabled)
     }
-    #[cfg(not(target_os = "macos"))]
-    { let _ = (app, enabled); Ok(()) } // Native Windows/Linux engine work remains pending.
+    #[cfg(target_os = "windows")]
+    { let _ = app; super::windows::autostart(enabled) }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    { let _ = (app, enabled); Ok(()) }
 }
 
 pub fn background_launch() -> bool { std::env::args().any(|arg| arg == "--autostart") }
+
+#[cfg(target_os = "windows")]
+pub struct InstanceGuard(std::sync::Mutex<Option<isize>>);
+#[cfg(target_os = "windows")]
+impl InstanceGuard {
+    pub fn release_for_restart(&self) {
+        if let Some(handle) = self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).take() { super::windows::close_instance(handle); }
+    }
+}
+#[cfg(target_os = "windows")]
+impl Drop for InstanceGuard { fn drop(&mut self) { self.release_for_restart(); } }
+#[cfg(target_os = "windows")]
+pub fn instance(_: &Path) -> Result<Option<InstanceGuard>, AppError> { super::windows::instance().map(|value| value.map(|h| InstanceGuard(std::sync::Mutex::new(Some(h))))) }
 
 #[cfg(target_os = "macos")]
 pub struct InstanceGuard(std::sync::Mutex<Option<std::fs::File>>);

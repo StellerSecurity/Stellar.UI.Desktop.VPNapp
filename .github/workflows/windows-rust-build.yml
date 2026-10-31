@@ -1,0 +1,55 @@
+name: Windows Rust build and tests
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['stellar/windows-hosted-inventory']
+    paths:
+      - '.github/workflows/windows-rust-build.yml'
+
+permissions: {}
+
+concurrency:
+  group: windows-rust-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    if: github.repository == 'StellerSecurity/Stellar.UI.Desktop.VPNapp'
+    runs-on: windows-2022
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: Fetch exact first-party build harness only
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:SOURCE_COMMIT -notmatch '^[a-f0-9]{40}$') { throw 'Exact source commit required.' }
+          $files = @(
+            @{ path = 'scripts/windows-rust-build.ps1'; sha256 = '3f26006e2a7ae9faab1b0a92f225ac4d0b2b199ee50cd3ede40460ecc9cc80de' },
+            @{ path = 'scripts/windows-rust-inputs.json'; sha256 = 'cddfda1917ab8ea88e3c057fdbb6c184dcf68239955b2d3952806cb4885f4fce' }
+          )
+          $root = Join-Path $env:RUNNER_TEMP 'stellar-rust-harness'
+          [IO.Directory]::CreateDirectory($root) | Out-Null
+          foreach ($entry in $files) {
+              $destination = Join-Path $root $entry.path
+              [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($destination)) | Out-Null
+              $request = [Net.HttpWebRequest]::Create('https://raw.githubusercontent.com/StellerSecurity/Stellar.UI.Desktop.VPNapp/' + $env:SOURCE_COMMIT + '/' + $entry.path)
+              $request.AllowAutoRedirect = $false
+              $request.Timeout = 30000
+              $response = $request.GetResponse()
+              try {
+                  $output = [IO.File]::Create($destination)
+                  try { $response.GetResponseStream().CopyTo($output) } finally { $output.Dispose() }
+              } finally { $response.Dispose() }
+              if ((Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant() -ne $entry.sha256) { throw 'Build harness hash mismatch.' }
+          }
+          "STELLAR_RUST_HARNESS=$root" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Verify tools; fetch locked sources; build and test offline
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          & (Join-Path $env:STELLAR_RUST_HARNESS 'scripts/windows-rust-build.ps1') -SourceCommit $env:SOURCE_COMMIT

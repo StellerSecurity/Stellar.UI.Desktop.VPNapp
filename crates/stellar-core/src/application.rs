@@ -213,7 +213,14 @@ impl DesktopService {
         if settings.auto_rotate && !self.engine.supports_rotation() { return Err(AppError::new("feature_unavailable", "Auto Rotate is unavailable on this platform.")); }
         settings.validate()?;
         if settings.kill_switch != self.settings.kill_switch { self.engine.set_kill_switch(settings.kill_switch)?; }
-        self.preferences.save(&settings, &self.session)?;
+        if let Err(error) = self.preferences.save(&settings, &self.session) {
+            if settings.kill_switch != self.settings.kill_switch && self.engine.set_kill_switch(self.settings.kill_switch).is_err() {
+                // PF accepted the new mode but rollback failed. Publish the
+                // actual applied mode, never claim the old protection remains.
+                self.settings.kill_switch = settings.kill_switch;
+            }
+            return Err(error);
+        }
         if self.settings.auto_rotate != settings.auto_rotate {
             self.rotation.reset(settings.auto_rotate, self.connection.status == ConnectionStatus::Connected, std::time::Instant::now());
             if !settings.auto_rotate { self.rotation_target = None; }
@@ -387,6 +394,36 @@ mod tests {
         assert!(service.recover_connection("dk-1").is_err());
     }
     struct ProtectedEngine;
+    struct FailingPreferences;
+    impl PreferencesRepository for FailingPreferences {
+        fn load(&self) -> Result<(Settings, Session), AppError> { Ok((Settings::default(), Session::default())) }
+        fn save(&self, _: &Settings, _: &Session) -> Result<(), AppError> { Err(AppError::new("preferences_failed", "Could not save settings")) }
+    }
+    struct ObservedProtection(std::sync::Arc<std::sync::Mutex<Vec<bool>>>);
+    impl VpnEngine for ObservedProtection {
+        fn supports_kill_switch(&self) -> bool { true }
+        fn set_kill_switch(&mut self, enabled: bool) -> Result<(), AppError> { self.0.lock().unwrap().push(enabled); Ok(()) }
+        fn connect(&mut self, _: &str) -> Result<ConnectionSnapshot, AppError> { Ok(ConnectionSnapshot::default()) }
+        fn disconnect(&mut self) -> Result<ConnectionSnapshot, AppError> { Ok(ConnectionSnapshot::default()) }
+    }
+    #[test] fn failed_preferences_restore_the_previous_firewall_mode() {
+        let calls = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let mut service = DesktopService::new(Box::new(FailingPreferences), Box::new(ObservedProtection(calls.clone()))).unwrap();
+        assert!(service.save_settings(Settings { kill_switch: true, ..Settings::default() }).is_err());
+        assert_eq!(*calls.lock().unwrap(), vec![false, true, false]);
+        assert!(!service.snapshot().settings.kill_switch);
+    }
+    #[test] fn kill_switch_can_change_during_an_established_connection() {
+        let mut service = DesktopService::new(Box::new(MemoryPreferences), Box::new(ProtectedEngine)).unwrap();
+        service.accept_account_session(u64::MAX).unwrap(); grant(&mut service);
+        service.connect("dk-1").unwrap();
+        for enabled in [true, false, true] {
+            service.save_settings(Settings { kill_switch: enabled, ..Settings::default() }).unwrap();
+            assert_eq!(service.snapshot().settings.kill_switch, enabled);
+            assert_eq!(service.snapshot().connection.status, ConnectionStatus::Connected);
+            assert_eq!(service.snapshot().connection.server_id.as_deref(), Some("dk-1"));
+        }
+    }
     impl VpnEngine for ProtectedEngine {
         fn supports_kill_switch(&self) -> bool { true }
         fn set_kill_switch(&mut self, _: bool) -> Result<(), AppError> { Ok(()) }

@@ -1,0 +1,4 @@
+{
+  "enabled": false,
+  "reason": "Enable in a release only after both API migration endpoints, the receipt database migration and native upgrade tests pass."
+}

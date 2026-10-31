@@ -86,6 +86,15 @@ fn candidate() -> Candidate { Candidate { version: "1.2.3".into(), notes: String
     assert!(manifest(json.replace("\"notes\":", "\"pubkey\":").as_bytes(), "1.0.0", "darwin-aarch64").is_err());
     assert!(manifest(&vec![b' '; MAX_MANIFEST + 1], "1.0.0", "darwin-aarch64").is_err());
 }
+#[test] fn windows_installer_feed_is_pinned_and_cannot_swap_mac_artifacts() {
+    let url = "https://desktopreleasesassetsprod.stellarsecurity.com/vpn/desktop-v2/1.2.3/windows-x86_64/Stellar-VPN-setup.exe";
+    assert!(artifact_url_for_target(url, "1.2.3", "windows-x86_64"));
+    assert!(!artifact_url_for_target(url, "1.2.3", "darwin-aarch64"));
+    assert!(!artifact_url_for_target(&candidate().url, "1.2.3", "windows-x86_64"));
+    for bad in [url.replace("https:", "http:"), url.replace(".com/", ".com.evil/"), url.replace("1.2.3/", "9.9.9/"), format!("{url}?override=1"), url.replace("Stellar-VPN", "%2fStellar-VPN")] {
+        assert!(!artifact_url_for_target(&bad, "1.2.3", "windows-x86_64"));
+    }
+}
 #[test] fn archive_traversal_links_and_wrong_products_are_refused() {
     archive_paths("Stellar VPN.app/\nStellar VPN.app/Contents/a\n", "drwx\n-rwx\n").unwrap();
     archive_paths("Stellar VPN.app\nStellar VPN.app/Contents/a\n", "drwx\n-rwx\n").unwrap();

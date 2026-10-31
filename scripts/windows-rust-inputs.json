@@ -1,0 +1,333 @@
+{
+  "schema": 1,
+  "files": [
+    {
+      "path": "Cargo.lock",
+      "sha256": "4319eceb2a78a39d3c25c3417ce6444997ceb186ccc1cd3fa113ff5c638800d1"
+    },
+    {
+      "path": "Cargo.toml",
+      "sha256": "517f342991744bca0efa307c0620c2548ddbe42786d69de849d1bbc7326cce83"
+    },
+    {
+      "path": "crates/stellar-core/Cargo.toml",
+      "sha256": "a17a9b020a34cd42d09ffb93cc190d592369adc1fd0584a806767388858df781"
+    },
+    {
+      "path": "crates/stellar-core/src/application.rs",
+      "sha256": "395c7ff12859b844d64dd25c240b98461da28ad6b54d930e77cad60d5f112be4"
+    },
+    {
+      "path": "crates/stellar-core/src/domain.rs",
+      "sha256": "4c88e2f3700b9a7c357f913c88a92ee00c08ea6b9972ea003091ca8e6a08d1c5"
+    },
+    {
+      "path": "crates/stellar-core/src/helper_protocol.rs",
+      "sha256": "1018c352904ec128fb3afeecea5ba8b697561a76c882d75e6b4a32797660f1bb"
+    },
+    {
+      "path": "crates/stellar-core/src/lib.rs",
+      "sha256": "ce334de0cc1897d3ab003748e4d1c180c73d82550f277d220d8f97524df442fd"
+    },
+    {
+      "path": "crates/stellar-core/src/notifications.rs",
+      "sha256": "dc0c44670f8d0f5c865bfe9bcb283af7e162caac6eb5d4423ebc4b5905cb31c0"
+    },
+    {
+      "path": "crates/stellar-core/src/openvpn.rs",
+      "sha256": "37d2a3e1d7dfa9f0179c78c5e2c805bc8b8965cf38c9aa27fe6a4e538cb5447c"
+    },
+    {
+      "path": "crates/stellar-core/src/ports.rs",
+      "sha256": "427ec88ff3f8afeee9eddba414d426dea31fe4afed146cfaae82adafe8d7462f"
+    },
+    {
+      "path": "crates/stellar-core/src/recovery.rs",
+      "sha256": "08c3c34178f70f53a454bb987826f7c737432ecf851a516322c7e5c79797b662"
+    },
+    {
+      "path": "crates/stellar-core/src/rotation.rs",
+      "sha256": "b8759e1a9b9df7258633ab8723d23817409de9d77e9ccd60d30734be2946561e"
+    },
+    {
+      "path": "crates/stellar-vpn-helper/Cargo.toml",
+      "sha256": "0e576bd08d89d3a588f09b6f760fba1866d56b8d63c429f74944a1cc9f7dc37d"
+    },
+    {
+      "path": "crates/stellar-vpn-helper/src/main.rs",
+      "sha256": "33449057893ba9d2ac225be2b17f29088a166dbb670f69ea8f3f1d1cb8f8d3ec"
+    },
+    {
+      "path": "native/windows/bridge-link-test.cpp",
+      "sha256": "d7ef6820a2804c12bbda5900037f99c14a9a5ca6311d3bc9e234019c4983fed2"
+    },
+    {
+      "path": "native/windows/bridge.cpp",
+      "sha256": "0a4cb46afa0a00e1d1843950d44a5e48aceb45cbc577567601f2a6cca0b2d80e"
+    },
+    {
+      "path": "native/windows/common.hpp",
+      "sha256": "92937e9fe7461ef33fa5e4f7ace913ddf3ec21ef1254ae30902c1167e1a35c2a"
+    },
+    {
+      "path": "native/windows/compile-approval.json",
+      "sha256": "d044068f202e74210cd5e5062a21f3ee7011dd01709327e0456e488853a6eaa4"
+    },
+    {
+      "path": "native/windows/firewall.hpp",
+      "sha256": "1e979937afd0eec239215ef0bb7a938549070ded169679945f68ab944b66fb3a"
+    },
+    {
+      "path": "native/windows/installer.nsh",
+      "sha256": "22b59bac6489d411c11701c9c2684c65745e40666a1891bec282b02f507ffe9e"
+    },
+    {
+      "path": "native/windows/lifecycle.hpp",
+      "sha256": "72968ca610155b1aa19fd0bed66974e7766f350c2b9783fb8b9968af6c948f2f"
+    },
+    {
+      "path": "native/windows/native-tests.cpp",
+      "sha256": "734a1a5052fdf2a87cab9642160b6b6ff7992f8547cc3e547a3f0dcab1815cff"
+    },
+    {
+      "path": "native/windows/release-policy.json",
+      "sha256": "5fd5dd736a75925cd453e5b67d8835bc8a0fa47d1c6b19b560fbc7314dcbadf6"
+    },
+    {
+      "path": "native/windows/rust-build-approval.json",
+      "sha256": "648bed184116d55dce795cea0611d2d84a722101e7d5e14b9a3fdef2e5d610d9"
+    },
+    {
+      "path": "native/windows/service.cpp",
+      "sha256": "c7ab08a115307ff91e9aa13936b317415f624344199db3220be13b0891c96b06"
+    },
+    {
+      "path": "scripts/windows-native-compile.ps1",
+      "sha256": "04d8f3937e7ae5c0fcd78c1fb8db86194b4dc37de47b5e174e482b686da5f6a3"
+    },
+    {
+      "path": "src-tauri/Cargo.toml",
+      "sha256": "4498d211e053a85260a1d6eae6f763f2bb539fa1c4d9836bd2ed2977639ffad5"
+    },
+    {
+      "path": "src-tauri/build.rs",
+      "sha256": "ab9e3aa14616cb0f61f4dfadd4a3350120688f09b59db8ca7747de295931d0aa"
+    },
+    {
+      "path": "src-tauri/capabilities/main.json",
+      "sha256": "07c1a515e8f11341b8a6c56702cd3767efd2781fe8c5acb3143b1f9a17dfcc32"
+    },
+    {
+      "path": "src-tauri/capabilities/updates.json",
+      "sha256": "189ae2bb21b50215195ff8af912d1230a93837f34e7d0e242ed14ada24980a5f"
+    },
+    {
+      "path": "src-tauri/icons/128x128.png",
+      "sha256": "c742c270194ecfe5583bf4623eaff762ebd4e0dda5aef10080bbb89fcf63c34f"
+    },
+    {
+      "path": "src-tauri/icons/128x128@2x.png",
+      "sha256": "cb073469d0b2d7a69bc38f48f96194bbb0c4b5e5a0e2a3a0829189018b3dd488"
+    },
+    {
+      "path": "src-tauri/icons/32x32.png",
+      "sha256": "25ce1191a58529de6a9496eb4f660d4109ce67fce517e842bba807e6870611d6"
+    },
+    {
+      "path": "src-tauri/icons/64x64.png",
+      "sha256": "56f1d657dacb5ea77004894ca0d9e3b8970a45f4506da541757b54dab195ee94"
+    },
+    {
+      "path": "src-tauri/icons/Square107x107Logo.png",
+      "sha256": "d11aaf826ef19969cf81503bbd0482566f6f3304968be3972e0977ce7633ad0c"
+    },
+    {
+      "path": "src-tauri/icons/Square142x142Logo.png",
+      "sha256": "584b670e7923a2457d9044926da366de57ee6b63155d9d78bcc863131a7e8cc6"
+    },
+    {
+      "path": "src-tauri/icons/Square150x150Logo.png",
+      "sha256": "b46fe1473856b654c4b72cbc40c34efc59e8d1372a17133289a20570b1c2abc5"
+    },
+    {
+      "path": "src-tauri/icons/Square284x284Logo.png",
+      "sha256": "e3c6edb7e17d27ebf545e1dbc7bf5be325be4192637510f9af499f037b163a20"
+    },
+    {
+      "path": "src-tauri/icons/Square30x30Logo.png",
+      "sha256": "557850eaa266bb1016d61201da698880a701ae47f245fa98ba52a3bb63864501"
+    },
+    {
+      "path": "src-tauri/icons/Square310x310Logo.png",
+      "sha256": "1c60534319a0840dab251cdf9140a654e899393bbfe4f3c038856032b1ac47bf"
+    },
+    {
+      "path": "src-tauri/icons/Square44x44Logo.png",
+      "sha256": "d145f5469f1936beeada564d4301feb064d468d7a4ee9146d20746aa98278ad7"
+    },
+    {
+      "path": "src-tauri/icons/Square71x71Logo.png",
+      "sha256": "0857c8079cc14c5f7d8cd168a7e48401959eb81f68c6e123add0b841c6a4a061"
+    },
+    {
+      "path": "src-tauri/icons/Square89x89Logo.png",
+      "sha256": "fec5d6181078975e3b66bd608ad63a276b611b8c3ee989787e8ae2043fb1a2e1"
+    },
+    {
+      "path": "src-tauri/icons/StoreLogo.png",
+      "sha256": "9ca15d6e162673cd8d7d7787cadd17877aef8dbb6aec1d91c4fb13986177eb16"
+    },
+    {
+      "path": "src-tauri/icons/icon.icns",
+      "sha256": "abe2bfcc78bddb23b861c3313d74c8b0b16ec81e954a1f49eae72ad812a40c9c"
+    },
+    {
+      "path": "src-tauri/icons/icon.ico",
+      "sha256": "2e171ce63930b1368098ea5cbf62a64e2d1b05bc06c86e4fb0572b86d4a58bbc"
+    },
+    {
+      "path": "src-tauri/icons/icon.png",
+      "sha256": "93cd9aa76c2f11bc570a232092ae659ad3afdab1b49aea38153aa5e29b434613"
+    },
+    {
+      "path": "src-tauri/icons/tray.rgba",
+      "sha256": "0fb6bceefdffb9c79c5f0331e037eef0c28ab29307dad367d3136385bcef181c"
+    },
+    {
+      "path": "src-tauri/legacy-migration.json",
+      "sha256": "f0d0f568d80852e1915cd1e529d3053190f11a86cf5a59bb38bf41cb1810e192"
+    },
+    {
+      "path": "src-tauri/permissions/desktop.toml",
+      "sha256": "66d3218e25f6ae66edc06fa93b7fd16c6ef332810900c7ac78ac17f06f443df1"
+    },
+    {
+      "path": "src-tauri/permissions/updates.toml",
+      "sha256": "b415961544a04a8de946af03da917273a590463caf0378c2abf39de8310ec3b2"
+    },
+    {
+      "path": "src-tauri/src/Info.plist",
+      "sha256": "972a4327230c39a0b99cf88006cf2e3dfd811590a7af203c474d1c8b08a76a4f"
+    },
+    {
+      "path": "src-tauri/src/commands.rs",
+      "sha256": "1987bf8f1d860917faf2f9a86681ba8b85b69e317c18df59309fd7764b7183c5"
+    },
+    {
+      "path": "src-tauri/src/infrastructure/legacy_login.rs",
+      "sha256": "1101aa2e71481cddef1780a1b160fa795ff36260c4fd1ca1787cd1736e6d1b7e"
+    },
+    {
+      "path": "src-tauri/src/infrastructure/links.rs",
+      "sha256": "82aa525ce9f935b0196ac730d354c79caa016442912fe803b1890d8d2e58358d"
+    },
+    {
+      "path": "src-tauri/src/infrastructure/mod.rs",
+      "sha256": "b6eabcfa264eb304998af982f6558961412281b32d4ed170f858d57fc6b770d9"
+    },
+    {
+      "path": "src-tauri/src/infrastructure/network.rs",
+      "sha256": "2e023dd00a84b240d0e4f72f0a9269f4f7caf9a51499e60446b3e2dd2b711c0d"
+    },
+    {
+      "path": "src-tauri/src/infrastructure/preferences.rs",
+      "sha256": "0fc2d46a24150dbb74ade0ecf416e032eec9a318526fd00a823715668efd1a77"
+    },
+    {
+      "path": "src-tauri/src/infrastructure/server_ids.rs",
+      "sha256": "dc05277153bf7a51563e2351097b103b813769ff4a4dc0149f31efbe6fcea7ee"
+    },
+    {
+      "path": "src-tauri/src/infrastructure/session.rs",
+      "sha256": "100bae2e1916ef269cde1c37447bd97e1b24357163e8c0447285effddb69d042"
+    },
+    {
+      "path": "src-tauri/src/infrastructure/session_windows.rs",
+      "sha256": "cf94be4136bf141a54418bd8176658a65485372db93011c06543a732579850b0"
+    },
+    {
+      "path": "src-tauri/src/infrastructure/startup.rs",
+      "sha256": "cf95d50ad67a9211593299943a0122f9d9d36c1239a85beee670dc9da6e051c3"
+    },
+    {
+      "path": "src-tauri/src/infrastructure/vpn.rs",
+      "sha256": "82534ab85ed58a83ec3d3de41e1b6da5d58d46b870d9f207f7193ed8786f5451"
+    },
+    {
+      "path": "src-tauri/src/infrastructure/windows.rs",
+      "sha256": "ee1f921ab78307ee742b75ef461c64dc4469711c67294f152f06e4c7129ab6b9"
+    },
+    {
+      "path": "src-tauri/src/infrastructure/windows_engine_tests.rs",
+      "sha256": "978d52a66e4250fd68ae9404ebc72a89b304cbc94ded0a83b252db8883330880"
+    },
+    {
+      "path": "src-tauri/src/infrastructure/windows_vpn.rs",
+      "sha256": "ea645735036ab0df16f6df73f8cdbbf7d73c73720ed750e2d9fd1bf88cf8e723"
+    },
+    {
+      "path": "src-tauri/src/lib.rs",
+      "sha256": "016871dd7387664a6c054edab82a4ddec298410a1b245df24f4b3c4ddef343c0"
+    },
+    {
+      "path": "src-tauri/src/main.rs",
+      "sha256": "ae22d2575fdbb31052d6981a541edf03081e1b6f95096df029bda7d389d838e4"
+    },
+    {
+      "path": "src-tauri/src/notifications.rs",
+      "sha256": "6fc82fcb04e01fa53dc8f73f201accdcdf5a34cb52f8254e5b626760daad25a2"
+    },
+    {
+      "path": "src-tauri/src/tray.rs",
+      "sha256": "2726c3b3ce3fed6bb33026ae9665d973b12eb92119b7017df1a5df2e88499f18"
+    },
+    {
+      "path": "src-tauri/src/updates/macos.rs",
+      "sha256": "ca4b14124cd78f73e5597468f1182145187afdfc4dbd9d1fde7851842a8320c4"
+    },
+    {
+      "path": "src-tauri/src/updates/mod.rs",
+      "sha256": "f118cce3e1e75c79647466dcc77d09f2b807d8767fa841ad2222f14c93a0ccc2"
+    },
+    {
+      "path": "src-tauri/src/updates/process.rs",
+      "sha256": "e806e7ce6e13307d3e85a00defbc70e3d2ee6549b66dc7a278104d8e3b0c7f9f"
+    },
+    {
+      "path": "src-tauri/src/updates/tests.rs",
+      "sha256": "5b602b1dbbd1251631abb56ba9031fa668a8de3d6cc11e7a3fef9ca1229d0afe"
+    },
+    {
+      "path": "src-tauri/src/updates/trust.rs",
+      "sha256": "419e01f652b50aa1f34ec1cdd9ef1ec10a57c6d99ab759f6e5d3d736f4d1aaf1"
+    },
+    {
+      "path": "src-tauri/src/updates/windows.rs",
+      "sha256": "249e3985bebc934fd5238246ba5adeb63b8d12446fd4aa8edc542227952e30fe"
+    },
+    {
+      "path": "src-tauri/tauri.conf.json",
+      "sha256": "1b8e110ef4c5871de0ff870fc3d63002971337afa455d57c69de8767b73c723d"
+    },
+    {
+      "path": "src/shared/i18n/notices.ts",
+      "sha256": "09a3bddf84221681cdafe3a87cd9e71f97f0853e2488d93799ba8830b0e0ae39"
+    },
+    {
+      "path": "vendor/glib-0.18.5/COPYRIGHT",
+      "sha256": "dae402989de65164815b7e2b6bc2b9576285434c3785934c8b6ece0fa055960d"
+    },
+    {
+      "path": "vendor/glib-0.18.5/Cargo.toml",
+      "sha256": "bcd52d812b4c111864ae8e88ba6c0a8311eb0cf781b5e81634950b4619592132"
+    },
+    {
+      "path": "vendor/glib-0.18.5/LICENSE",
+      "sha256": "8cf56d10131ce201cf69ab74b111d3ebac1acca3833d7efb39ae357224b70edb"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/lib.rs",
+      "sha256": "70abc92bf0d02f3c4989034501065cdf64d70901e511f6720d8cd65fcbb662e1"
+    }
+  ]
+}

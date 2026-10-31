@@ -6,7 +6,7 @@ use stellar_core::domain::AppError;
 
 pub const CHANNEL: &str = "desktop-v2";
 pub const FEED: &str = "https://desktopreleasesassetsprod.stellarsecurity.com/vpn/desktop-v2/latest.json";
-pub const PRODUCT: &str = "org.stellarvpn.desktop.preview";
+pub const PRODUCT: &str = "org.stellarsecurity.vpn.desktop";
 // Original VPN Minisign public key, from the tracked legacy configuration.
 // Never load this trust root from the server, settings, environment or IPC.
 pub const PUBLIC_KEY: &str = "RWQUGfAK3zjGYaQPFF9NwbJtSiBwmbRGcPwjdnrkWfJwc/RDrV70avz2";
@@ -51,6 +51,8 @@ pub struct Candidate { pub version: String, pub notes: String, pub url: String, 
 pub fn platform() -> &'static str {
     if cfg!(all(target_os = "macos", target_arch = "aarch64")) { "darwin-aarch64" }
     else if cfg!(all(target_os = "macos", target_arch = "x86_64")) { "darwin-x86_64" }
+    else if cfg!(all(target_os = "windows", target_arch = "x86_64")) { "windows-x86_64" }
+    else if cfg!(all(target_os = "windows", target_arch = "aarch64")) { "windows-aarch64" }
     else { "unsupported" }
 }
 pub fn valid_url(raw: &str, version: &str) -> bool {
@@ -67,6 +69,14 @@ pub fn artifact_url(raw: &str, version: &str) -> bool {
     let normalized = raw.replace("%20", "_").replace(' ', "_");
     valid_url(&normalized, version) && !raw.contains('\\') && !raw.contains(['\r', '\n'])
 }
+pub fn artifact_url_for_target(raw: &str, version: &str, target: &str) -> bool {
+    if target.starts_with("darwin-") { return matches!(target, "darwin-aarch64" | "darwin-x86_64") && artifact_url(raw, version); }
+    if !matches!(target, "windows-x86_64" | "windows-aarch64") || !raw.ends_with("-setup.exe") { return false; }
+    // Reuse the exact origin/path/encoding checks without accepting a Mac archive
+    // in the Windows slot or a Windows executable in either Mac slot.
+    let Some(stem) = raw.strip_suffix("-setup.exe") else { return false; };
+    artifact_url(&format!("{stem}.app.tar.gz"), version)
+}
 pub fn manifest(bytes: &[u8], installed: &str, target: &str) -> Result<Option<Candidate>, AppError> {
     if bytes.is_empty() { return Ok(None); } // HTTP 204 from a dynamic feed.
     if bytes.len() > MAX_MANIFEST { return Err(failure()); }
@@ -77,7 +87,7 @@ pub fn manifest(bytes: &[u8], installed: &str, target: &str) -> Result<Option<Ca
     if manifest.platforms.len() > 16 || manifest.notes.as_ref().is_some_and(|v| v.len() > 8192) || manifest.pub_date.as_ref().is_some_and(|v| v.len() > 64) { return Err(failure()); }
     if Version::parse(&manifest.version)? <= Version::parse(installed)? { return Ok(None); }
     let item = manifest.platforms.get(target).ok_or_else(failure)?;
-    if !artifact_url(&item.url, &manifest.version) || item.signature.is_empty() || item.signature.len() > MAX_SIGNATURE { return Err(failure()); }
+    if !artifact_url_for_target(&item.url, &manifest.version, target) || item.signature.is_empty() || item.signature.len() > MAX_SIGNATURE { return Err(failure()); }
     Ok(Some(Candidate { version: manifest.version, notes: manifest.notes.unwrap_or_default(), url: item.url.clone(), signature: item.signature.clone() }))
 }
 

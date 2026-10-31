@@ -34,9 +34,14 @@ pub struct SavedSession {
     pub vpn_username: String,
     pub vpn_password: String,
     pub onboarding: bool,
+    // Temporary cleanup receipt, protected in the same OS vault as the new session.
+    pub legacy_token: Option<String>,
 }
 impl SavedSession {
     pub fn validate(&self) -> Result<(), AppError> {
+        if let Some(legacy) = &self.legacy_token {
+            if legacy == &self.token || !super::legacy_login::valid_token(legacy) { return Err(unavailable()); }
+        }
         let (id, secret) = self.token.split_once('|').ok_or_else(unavailable)?;
         if self.expires_at <= now() || id.is_empty() || id.starts_with('0') || !id.bytes().all(|c| c.is_ascii_digit())
             || id.len() > 32 || secret.len() != 40 || !secret.bytes().all(|c| c.is_ascii_alphanumeric())
@@ -53,13 +58,13 @@ impl SavedSession {
     }
     fn encode(&self) -> Result<Vec<u8>, AppError> {
         self.validate()?;
-        Ok(format!("1\n{}\n{}\n{}\n{}\n{}\n{}", self.expires_at, self.token, self.account_id, self.vpn_username, self.vpn_password, u8::from(self.onboarding)).into_bytes())
+        Ok(format!("2\n{}\n{}\n{}\n{}\n{}\n{}\n{}", self.expires_at, self.token, self.account_id, self.vpn_username, self.vpn_password, u8::from(self.onboarding), self.legacy_token.as_deref().unwrap_or("")).into_bytes())
     }
     fn decode(bytes: &[u8]) -> Result<Self, AppError> {
         if bytes.len() > LIMIT { return Err(unavailable()); }
         let fields: Vec<_> = std::str::from_utf8(bytes).map_err(|_| unavailable())?.split('\n').collect();
-        if fields.len() != 7 || fields[0] != "1" || !matches!(fields[6], "0" | "1") { return Err(unavailable()); }
-        let value = Self { expires_at: fields[1].parse().map_err(|_| unavailable())?, token: fields[2].into(), account_id: fields[3].into(), vpn_username: fields[4].into(), vpn_password: fields[5].into(), onboarding: fields[6] == "1" };
+        if !((fields.len() == 7 && fields[0] == "1") || (fields.len() == 8 && fields[0] == "2")) || !matches!(fields[6], "0" | "1") { return Err(unavailable()); }
+        let value = Self { expires_at: fields[1].parse().map_err(|_| unavailable())?, token: fields[2].into(), account_id: fields[3].into(), vpn_username: fields[4].into(), vpn_password: fields[5].into(), onboarding: fields[6] == "1", legacy_token: fields.get(7).filter(|s| !s.is_empty()).map(|s| s.to_string()) };
         value.validate()?;
         Ok(value)
     }
@@ -69,6 +74,7 @@ impl Drop for SavedSession {
         for text in [&mut self.token, &mut self.vpn_username, &mut self.vpn_password] {
             for byte in unsafe { text.as_bytes_mut() } { unsafe { std::ptr::write_volatile(byte, 0) }; }
         }
+        if let Some(legacy) = &mut self.legacy_token { unsafe { legacy.as_bytes_mut().fill(0) }; }
     }
 }
 #[derive(Default)]
@@ -103,6 +109,16 @@ pub fn load(directory: &Path) -> Result<Option<SavedSession>, AppError> {
     let result = SavedSession::decode(&bytes);
     for byte in &mut bytes { unsafe { std::ptr::write_volatile(byte, 0) }; }
     match result { Ok(value) => Ok(Some(value)), Err(_) => { forget(directory)?; Ok(None) } }
+}
+/// Only clears a cleanup receipt on an already validated durable session.
+/// A failed optional cleanup must never set the logout guard or erase that session.
+pub fn clear_migration_receipt(value: &SavedSession) -> Result<(), AppError> {
+    value.validate()?;
+    if value.legacy_token.is_some() { return Err(unavailable()); }
+    let mut bytes = value.encode()?;
+    let result = platform::save(&bytes);
+    for byte in &mut bytes { unsafe { std::ptr::write_volatile(byte, 0) }; }
+    result
 }
 
 pub fn load_account_cache(expected_token: &str) -> Result<Option<String>, AppError> {
@@ -209,7 +225,18 @@ mod platform {
 #[cfg(test)]
 mod tests {
     use super::*;
-    fn sample() -> SavedSession { SavedSession { expires_at: u64::MAX, token: format!("42|{}", "a".repeat(40)), account_id: "42".into(), vpn_username: format!("stvpn_{}", "a".repeat(16)), vpn_password: "b".repeat(32), onboarding: true } }
+    fn sample() -> SavedSession { SavedSession { expires_at: u64::MAX, token: format!("42|{}", "a".repeat(40)), account_id: "42".into(), vpn_username: format!("stvpn_{}", "a".repeat(16)), vpn_password: "b".repeat(32), onboarding: true, legacy_token: None } }
+    #[test] fn v1_vault_sessions_remain_readable_and_migration_receipts_are_validated() {
+        let original = sample();
+        let old = format!("1\n{}\n{}\n{}\n{}\n{}\n1", original.expires_at, original.token, original.account_id, original.vpn_username, original.vpn_password);
+        assert!(SavedSession::decode(old.as_bytes()).unwrap().legacy_token.is_none());
+        let mut migrated = sample();
+        migrated.legacy_token = Some(format!("7|{}", "c".repeat(40)));
+        let restored = SavedSession::decode(&migrated.encode().unwrap()).unwrap();
+        assert_eq!(restored.legacy_token, migrated.legacy_token);
+        migrated.legacy_token = Some(migrated.token.clone()); assert!(migrated.validate().is_err());
+        migrated.legacy_token = Some("invalid".into()); assert!(migrated.validate().is_err());
+    }
     #[test] fn session_round_trip_is_bounded_and_keeps_original_expiry() {
         let value = sample(); let restored = SavedSession::decode(&value.encode().unwrap()).unwrap();
         assert_eq!(restored.expires_at, value.expires_at); assert_eq!(restored.token, value.token); assert!(restored.onboarding);

@@ -1,4 +1,4 @@
 [[permission]]
 identifier = "allow-desktop-preview"
 description = "Allows local preview session, settings and simulated connection commands."
-commands.allow = ["bootstrap", "select_location", "connect_preview", "disconnect_preview", "cancel_connection", "prepare_vpn_configuration", "save_settings", "accept_account_session", "restore_account_session", "has_vpn_auth", "accept_vpn_auth", "read_cached_account", "write_cached_account", "update_subscription_access", "logout", "complete_onboarding", "open_stellar_link", "show_main", "show_locations", "hide_tray", "quit_preview"]
+commands.allow = ["bootstrap", "installation_status", "open_network_helper", "select_location", "connect_preview", "disconnect_preview", "cancel_connection", "prepare_vpn_configuration", "save_settings", "accept_account_session", "restore_account_session", "legacy_login_candidate", "finish_legacy_login", "has_vpn_auth", "accept_vpn_auth", "read_cached_account", "write_cached_account", "update_subscription_access", "logout", "complete_onboarding", "open_stellar_link", "show_main", "show_locations", "hide_tray", "quit_preview"]

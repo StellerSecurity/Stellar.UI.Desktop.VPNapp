@@ -7,15 +7,24 @@ pub struct NetworkChanges {
     revision: Arc<AtomicU64>,
     seen: u64,
     stopping: Arc<AtomicBool>,
+    #[cfg(target_os = "windows")]
+    physical_stamp: Option<u64>,
 }
 impl NetworkChanges {
     pub fn new() -> Result<Self, ()> {
-        let value = Self { revision: Arc::default(), seen: 0, stopping: Arc::default() };
+        let value = Self { revision: Arc::default(), seen: 0, stopping: Arc::default(),
+            #[cfg(target_os = "windows")] physical_stamp: super::windows::network_stamp().ok() };
         #[cfg(target_os = "macos")]
         platform::start(value.revision.clone(), value.stopping.clone())?;
         Ok(value)
     }
     pub fn changed(&mut self) -> bool {
+        #[cfg(target_os = "windows")]
+        if let Ok(next) = super::windows::network_stamp() {
+            // Existing native app monitor polls this. Physical adapters only;
+            // VPN-interface creation and webview timers cannot trigger a loop.
+            return replace_if_changed(&mut self.physical_stamp, next);
+        }
         let revision = self.revision.load(Ordering::Acquire);
         let changed = revision != self.seen;
         self.seen = revision;

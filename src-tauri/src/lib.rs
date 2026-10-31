@@ -14,7 +14,7 @@ pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
             let directory = app.path().app_data_dir()?;
-            #[cfg(target_os = "macos")]
+            #[cfg(any(target_os = "macos", target_os = "windows"))]
             match infrastructure::startup::instance(&directory).map_err(|error| std::io::Error::other(error.message))? {
                 Some(guard) => { app.manage(guard); },
                 None => { app.handle().exit(0); return Ok(()); },
@@ -45,9 +45,10 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            commands::bootstrap, commands::select_location, commands::connect_preview, commands::disconnect_preview, commands::update_subscription_access,
+            commands::bootstrap, commands::installation_status, commands::open_network_helper, commands::select_location, commands::connect_preview, commands::disconnect_preview, commands::update_subscription_access,
             commands::save_settings, commands::accept_account_session, commands::has_vpn_auth, commands::accept_vpn_auth,
             commands::restore_account_session,
+            commands::legacy_login_candidate, commands::finish_legacy_login,
             commands::read_cached_account, commands::write_cached_account,
             commands::prepare_vpn_configuration,
             commands::logout, commands::complete_onboarding, commands::open_stellar_link, commands::cancel_connection,

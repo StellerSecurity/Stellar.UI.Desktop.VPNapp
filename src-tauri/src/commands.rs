@@ -42,26 +42,72 @@ pub async fn bootstrap(app: AppHandle) -> Result<DesktopSnapshot, AppError> {
         Ok(snapshot)
     }).await
 }
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstallationStatus { platform: &'static str, helper: &'static str, firewall_verified: bool, language: String }
+#[tauri::command]
+pub async fn installation_status(app: AppHandle) -> Result<InstallationStatus, AppError> {
+    let (helper, firewall_verified) = tauri::async_runtime::spawn_blocking(crate::infrastructure::vpn::installation_check).await
+        .map_err(|_| AppError::new("setup_unavailable", "Installation check unavailable"))?;
+    let language = background(app, |service| Ok(service.snapshot().settings.language)).await?;
+    Ok(InstallationStatus { platform: if cfg!(target_os = "macos") { "macos" } else if cfg!(target_os = "windows") { "windows" } else { "unsupported" }, helper, firewall_verified, language })
+}
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct VpnAuthInput { username: String, password: String }
+#[tauri::command]
+pub async fn open_network_helper(app: AppHandle) -> Result<(), AppError> {
+    #[cfg(target_os = "macos")]
+    {
+        let package = app.path().resource_dir().map_err(|_| AppError::new("setup_unavailable", "Setup unavailable"))?.join("NetworkHelper.pkg");
+        tauri::async_runtime::spawn_blocking(move || {
+            let failed = || AppError::new("setup_unavailable", "Setup could not finish. Check macOS permission prompts and try again.");
+            let metadata = std::fs::symlink_metadata(&package).map_err(|_| failed())?;
+            if !metadata.is_file() || metadata.file_type().is_symlink() { return Err(failed()); }
+            let checksum = std::process::Command::new("/usr/bin/shasum").args(["-a", "256"]).arg(&package).output().map_err(|_| failed())?;
+            let expected = include_str!("../resources/NetworkHelper.sha256").trim();
+            if !checksum.status.success() || std::str::from_utf8(&checksum.stdout).ok().and_then(|s| s.split_whitespace().next()) != Some(expected) { return Err(failed()); }
+            // Open only this build's fixed package. Installer owns administrator consent.
+            std::process::Command::new("/usr/bin/open").args(["-b", "com.apple.installer", "--"]).arg(package).spawn().map(|_| ()).map_err(|_| failed())
+        }).await.map_err(|_| AppError::new("setup_unavailable", "Setup unavailable"))?
+    }
+    #[cfg(target_os = "windows")]
+    { let _ = app; tauri::async_runtime::spawn_blocking(crate::infrastructure::windows::repair).await.map_err(|_| AppError::new("setup_unavailable", "Setup unavailable"))? }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    { let _ = app; Err(AppError::new("setup_unavailable", "Setup unavailable")) }
+}
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RestoredIdentity { access_token: String, account_id: String, expires_at: u64 }
+pub struct RestoredIdentity { access_token: String, account_id: String, expires_at: u64, migration_pending: bool }
 #[derive(serde::Serialize)]
 pub struct AcceptedSession { #[serde(flatten)] session: Session, remembered: bool }
 #[tauri::command]
-pub async fn accept_account_session(expires_at: u64, vpn_auth: Option<VpnAuthInput>, access_token: String, account_id: String, app: AppHandle) -> Result<AcceptedSession, AppError> {
+pub async fn accept_account_session(expires_at: u64, vpn_auth: Option<VpnAuthInput>, access_token: String, account_id: String, legacy_token: Option<String>, app: AppHandle) -> Result<AcceptedSession, AppError> {
     let (vpn_username, vpn_password) = vpn_auth.map(|auth| (auth.username, auth.password)).unwrap_or_default();
-    let saved = crate::infrastructure::session::SavedSession { expires_at, token: access_token, account_id, vpn_username, vpn_password, onboarding: false };
+    let migrating = legacy_token.is_some();
+    let saved = crate::infrastructure::session::SavedSession { expires_at, token: access_token, account_id, vpn_username, vpn_password, onboarding: migrating, legacy_token };
     saved.validate()?;
     background(app.clone(), move |service| {
         let directory = app.path().app_data_dir().map_err(|_| AppError::new("session_storage_unavailable", "Session storage is unavailable."))?;
-        // Invalidate any older saved account before accepting a different login.
-        crate::infrastructure::session::forget(&directory)?;
+        if migrating {
+            if !crate::infrastructure::legacy_login::enabled() || service.snapshot().session.authenticated
+                || directory.join("session-forgotten").exists() || directory.join("legacy-login-migrated").exists() {
+                return Err(AppError::new("invalid_session", "Session changed."));
+            }
+            // Migration must be durable before the legacy login is touched or the UI is authenticated.
+            if let Err(error) = crate::infrastructure::session::save(&directory, &saved) {
+                // This attempt created the guard; retain the legacy retry path, not a fake logout.
+                let _ = std::fs::remove_file(directory.join("session-forgotten"));
+                return Err(error);
+            }
+        } else {
+            // Invalidate any older saved account before accepting a different ordinary login.
+            crate::infrastructure::session::forget(&directory)?;
+        }
         let session = service.accept_account_session(expires_at)?;
         if let Some(credentials) = saved.credentials()? { service.accept_vpn_credentials(credentials)?; }
-        let remembered = crate::infrastructure::session::save(&directory, &saved).is_ok();
+        let session = if migrating { service.complete_onboarding()? } else { session };
+        let remembered = migrating || crate::infrastructure::session::save(&directory, &saved).is_ok();
         let state = app.state::<crate::infrastructure::session::RememberedSession>();
         let mut cache = state.0.lock().map_err(|_| AppError::new("state_unavailable", "Session storage is unavailable."))?;
         cache.attempted = true; cache.saved = Some(saved);
@@ -85,7 +131,39 @@ pub async fn restore_account_session(app: AppHandle) -> Result<Option<RestoredId
         }
         service.expire_session()?;
         if !service.snapshot().session.authenticated { cache.saved = None; return Ok(None); }
-        Ok(cache.saved.as_ref().map(|saved| RestoredIdentity { access_token: saved.token.clone(), account_id: saved.account_id.clone(), expires_at: saved.expires_at.saturating_mul(1000) }))
+        Ok(cache.saved.as_ref().map(|saved| RestoredIdentity { access_token: saved.token.clone(), account_id: saved.account_id.clone(), expires_at: saved.expires_at.saturating_mul(1000), migration_pending: saved.legacy_token.is_some() }))
+    }).await
+}
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LegacyLoginCandidate { store_token: Option<String> }
+#[tauri::command]
+pub async fn legacy_login_candidate(app: AppHandle) -> Result<Option<LegacyLoginCandidate>, AppError> {
+    background(app.clone(), move |service| {
+        let directory = app.path().app_data_dir().map_err(|_| AppError::new("migration_unavailable", "Migration unavailable."))?;
+        if !crate::infrastructure::legacy_login::enabled() || service.snapshot().session.authenticated
+            || directory.join("session-forgotten").exists() || directory.join("legacy-login-migrated").exists() { return Ok(None); }
+        Ok(Some(LegacyLoginCandidate { store_token: crate::infrastructure::legacy_login::token(&directory)? }))
+    }).await
+}
+#[tauri::command]
+pub async fn finish_legacy_login(expected_token: String, app: AppHandle) -> Result<Option<String>, AppError> {
+    background(app.clone(), move |service| {
+        service.expire_session()?;
+        if !service.snapshot().session.authenticated { return Err(AppError::new("invalid_session", "Session changed.")); }
+        let directory = app.path().app_data_dir().map_err(|_| AppError::new("migration_unavailable", "Migration unavailable."))?;
+        // Re-read the protected vault. In-memory success is never enough to erase legacy credentials.
+        let Some(mut durable) = crate::infrastructure::session::load(&directory)? else { return Ok(None); };
+        if durable.token != expected_token { return Err(AppError::new("invalid_session", "Session changed.")); }
+        let Some(old) = durable.legacy_token.as_deref() else { return Ok(None); };
+        crate::infrastructure::legacy_login::finish(&directory, Some(old))?;
+        let old = durable.legacy_token.take();
+        // Keep the vault receipt if a save fails: the next startup can safely repeat cleanup.
+        crate::infrastructure::session::clear_migration_receipt(&durable)?;
+        let state = app.state::<crate::infrastructure::session::RememberedSession>();
+        let mut cache = state.0.lock().map_err(|_| AppError::new("state_unavailable", "Session storage unavailable."))?;
+        if let Some(saved) = cache.saved.as_mut().filter(|saved| saved.token == expected_token) { saved.legacy_token = None; }
+        Ok(old)
     }).await
 }
 #[tauri::command]
