@@ -67,6 +67,13 @@ if (Test-Path -LiteralPath $msvcRoot) {
             foreach ($file in $files) {
                 $compilerComponents += Get-ToolMetadata $file.Name $file.FullName $true
             }
+            # Metadata only for the compiler's English diagnostic resources.
+            foreach ($name in @('clui.dll', 'linkui.dll')) {
+                $path = Join-Path $bin ('1033\' + $name)
+                if (Test-Path -LiteralPath $path -PathType Leaf) {
+                    $compilerComponents += Get-ToolMetadata ('1033/' + $name) $path $true
+                }
+            }
         }
     }
 }
