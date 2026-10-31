@@ -1,0 +1,40 @@
+name: Windows live test environment preflight
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['stellar/windows-hosted-inventory']
+    paths: ['.github/workflows/windows-live-preflight.yml']
+
+permissions: {}
+
+jobs:
+  inspect:
+    if: github.repository == 'StellerSecurity/Stellar.UI.Desktop.VPNapp'
+    runs-on: windows-2022
+    timeout-minutes: 5
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: Read OS, sleep and interface capabilities without changing them
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+          if ($env:SOURCE_COMMIT -notmatch '^[a-f0-9]{40}$') { throw 'Exact source commit required.' }
+          $script = Join-Path $env:RUNNER_TEMP 'stellar-windows-live-preflight.ps1'
+          if (Test-Path -LiteralPath $script) { throw 'Fresh first-party script required.' }
+          $url = 'https://raw.githubusercontent.com/StellerSecurity/Stellar.UI.Desktop.VPNapp/' + $env:SOURCE_COMMIT + '/scripts/windows-live-preflight.ps1'
+          $request = [Net.HttpWebRequest]::Create($url)
+          $request.AllowAutoRedirect = $false
+          $request.Timeout = 30000
+          $response = $request.GetResponse()
+          try {
+              $input = $response.GetResponseStream()
+              $output = [IO.File]::Open($script, [IO.FileMode]::CreateNew)
+              try { $input.CopyTo($output) } finally { $output.Dispose(); $input.Dispose() }
+          } finally { $response.Dispose() }
+          if ((Get-FileHash -LiteralPath $script -Algorithm SHA256).Hash.ToLowerInvariant() -ne 'bd3e6484296bff4fe4e8bfbf81a75d995289fbd1c9930f5ea060a9d099a51124') { throw 'Unreviewed preflight source.' }
+          & $script
