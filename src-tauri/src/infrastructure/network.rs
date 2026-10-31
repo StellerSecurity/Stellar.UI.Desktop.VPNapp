@@ -25,6 +25,9 @@ impl NetworkChanges {
             // VPN-interface creation and webview timers cannot trigger a loop.
             return replace_if_changed(&mut self.physical_stamp, next);
         }
+        self.revision_changed()
+    }
+    fn revision_changed(&mut self) -> bool {
         let revision = self.revision.load(Ordering::Acquire);
         let changed = revision != self.seen;
         self.seen = revision;
@@ -197,12 +200,13 @@ mod tests {
     use super::*;
     #[test]
     fn network_events_coalesce_and_are_not_lost_when_work_is_busy() {
-        let mut watcher = NetworkChanges { revision: Arc::default(), seen: 0, stopping: Arc::default() };
-        assert!(!watcher.changed());
+        let mut watcher = NetworkChanges { revision: Arc::default(), seen: 0, stopping: Arc::default(),
+            #[cfg(target_os = "windows")] physical_stamp: None };
+        assert!(!watcher.revision_changed());
         watcher.revision.fetch_add(3, Ordering::Release);
-        assert!(watcher.changed()); assert!(!watcher.changed());
+        assert!(watcher.revision_changed()); assert!(!watcher.revision_changed());
         watcher.revision.fetch_add(1, Ordering::Release);
-        assert!(watcher.changed());
+        assert!(watcher.revision_changed());
     }
     #[test]
     fn repeated_notifications_with_unchanged_physical_state_never_reconnect() {

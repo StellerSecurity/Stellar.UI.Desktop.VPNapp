@@ -1,5 +1,8 @@
+#[cfg(not(target_os = "windows"))]
 use std::collections::HashMap;
-use stellar_core::{domain::{AppError, ConnectionSnapshot, ConnectionStatus}, ports::VpnEngine, openvpn::{VpnCredentials, ValidatedConfig}};
+use stellar_core::domain::{AppError, ConnectionSnapshot};
+#[cfg(not(target_os = "windows"))]
+use stellar_core::{domain::ConnectionStatus, ports::VpnEngine, openvpn::{VpnCredentials, ValidatedConfig}};
 #[cfg(target_os = "windows")]
 pub use super::windows_vpn::OpenVpnEngine;
 #[cfg(not(target_os = "windows"))]
@@ -10,6 +13,7 @@ impl Default for OpenVpnEngine {
         Self { credentials: None, configurations: HashMap::new(), connected: false, expires_at: 0, traffic: None, kill_switch: false, firewall_supported: firewall_supported() }
     }
 }
+#[cfg(not(target_os = "windows"))]
 fn firewall_supported() -> bool {
     #[cfg(target_os = "macos")]
     {
@@ -47,6 +51,7 @@ pub fn installation_check() -> (&'static str, bool) {
     ("unavailable", false)
 }
 pub fn known_server(id: &str) -> bool { !id.is_empty() && id.len() <= 64 && id.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-') }
+#[cfg(not(target_os = "windows"))]
 fn unavailable() -> AppError { AppError::new("vpn_helper_unavailable", "The Stellar VPN system helper is unavailable.") }
 #[cfg(target_os = "macos")]
 fn helper() -> Result<std::os::unix::net::UnixStream, AppError> {
@@ -166,6 +171,7 @@ impl VpnEngine for OpenVpnEngine {
         Ok(None)
     }
 }
+#[cfg(not(target_os = "windows"))]
 fn live_protection(enabled: bool) -> Result<(), AppError> {
     #[cfg(target_os = "macos")]
     {

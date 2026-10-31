@@ -215,7 +215,7 @@
     },
     {
       "path": "src-tauri/src/infrastructure/legacy_login.rs",
-      "sha256": "1101aa2e71481cddef1780a1b160fa795ff36260c4fd1ca1787cd1736e6d1b7e"
+      "sha256": "d37eefb961363948399b2ddd9fdeda49f302abc4739d0463634d9d6960ae5d21"
     },
     {
       "path": "src-tauri/src/infrastructure/links.rs",
@@ -227,7 +227,7 @@
     },
     {
       "path": "src-tauri/src/infrastructure/network.rs",
-      "sha256": "2e023dd00a84b240d0e4f72f0a9269f4f7caf9a51499e60446b3e2dd2b711c0d"
+      "sha256": "cacc8b09fa6041b36d29a92c661defd458e601959c306cb86a3b95bf637aa1fd"
     },
     {
       "path": "src-tauri/src/infrastructure/preferences.rs",
@@ -251,11 +251,11 @@
     },
     {
       "path": "src-tauri/src/infrastructure/vpn.rs",
-      "sha256": "82534ab85ed58a83ec3d3de41e1b6da5d58d46b870d9f207f7193ed8786f5451"
+      "sha256": "1fd629fe5391a2886da55954bf55957b168ab1b069d96fd5c17214965f9d0066"
     },
     {
       "path": "src-tauri/src/infrastructure/windows.rs",
-      "sha256": "ee1f921ab78307ee742b75ef461c64dc4469711c67294f152f06e4c7129ab6b9"
+      "sha256": "7e28f1e67c57d9cbe4d25b4b6e70972ce62e826fe63d7e02115e1760b68cd7b7"
     },
     {
       "path": "src-tauri/src/infrastructure/windows_engine_tests.rs",

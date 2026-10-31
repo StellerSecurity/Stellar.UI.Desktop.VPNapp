@@ -1,5 +1,7 @@
 //! Reads only the known old Tauri store. No profile scan, password reuse or network.
-use std::{fs, io::{Read, Write}, path::Path};
+use std::{fs, io::Write, path::Path};
+#[cfg(target_os = "macos")]
+use std::io::Read;
 use stellar_core::domain::AppError;
 const LIMIT: u64 = 65536;
 const AUTH_KEYS: &[&str] = &["bearer_token", "stellar_vpn_username", "stellar_vpn_password", "account_number", "device_name"];
@@ -148,5 +150,36 @@ mod tests {
         assert_eq!(fs::read_to_string(&outside).unwrap(), raw);
         fs::remove_file(&source).unwrap(); fs::remove_file(&outside).unwrap();
         fs::remove_file(directory.join("legacy-login-migrated")).unwrap(); fs::remove_dir(directory).unwrap();
+    }
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn windows_cleanup_is_atomic_preserves_preferences_and_rejects_linked_tokens() {
+        let directory = std::env::temp_dir().join(format!("stellar-migration-selftest-{}-{}", std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        fs::create_dir(&directory).unwrap();
+        let source = directory.join(".stellar-vpn.dat");
+        let linked = directory.join("synthetic-hardlink");
+        let marker = directory.join("legacy-login-migrated");
+        let unrelated = directory.join("unrelated-selftest");
+        let old = format!("7|{}", "a".repeat(40));
+        let raw = format!(r#"{{"bearer_token":"{old}","stellar_vpn_password":"synthetic","theme":"dark","auto_connect":true}}"#);
+        fs::write(&source, &raw).unwrap();
+        assert!(finish_store(&directory, Some("wrong")).is_err());
+        assert_eq!(fs::read_to_string(&source).unwrap(), raw);
+        fs::hard_link(&source, &linked).unwrap();
+        assert!(finish_store(&directory, Some(&old)).is_err());
+        assert_eq!(fs::read_to_string(&linked).unwrap(), raw);
+        fs::remove_file(&linked).unwrap();
+        finish_store(&directory, Some(&old)).unwrap();
+        let cleaned = fs::read_to_string(&source).unwrap();
+        assert!(!cleaned.contains(&old) && !cleaned.contains("synthetic"));
+        assert!(cleaned.contains("dark") && cleaned.contains("auto_connect"));
+        finish_store(&directory, Some(&old)).unwrap();
+        fs::remove_file(&marker).unwrap();
+        fs::write(&unrelated, "untouched").unwrap();
+        fs::hard_link(&unrelated, &marker).unwrap();
+        finish_store(&directory, Some(&old)).unwrap();
+        assert_eq!(fs::read_to_string(&unrelated).unwrap(), "untouched");
+        for file in [source, marker, unrelated] { fs::remove_file(file).unwrap(); }
+        fs::remove_dir(directory).unwrap();
     }
 }

@@ -87,6 +87,9 @@ try {
     & $cargo test --locked --offline --target x86_64-pc-windows-msvc -p stellar-vpn-desktop --lib
     if ($LASTEXITCODE -ne 0) { throw 'Windows desktop Rust tests failed.' }
     Verify-Lock
+    & $cargo test --locked --offline --target x86_64-pc-windows-msvc -p stellar-vpn-desktop --lib infrastructure::session::tests::windows_vault_round_trip_and_delete -- --ignored --exact
+    if ($LASTEXITCODE -ne 0) { throw 'Synthetic Windows Credential Manager test failed.' }
+    Verify-Lock
     & $cargo build --locked --offline --target x86_64-pc-windows-msvc -p stellar-vpn-desktop
     if ($LASTEXITCODE -ne 0) { throw 'Windows desktop debug build failed.' }
     Verify-Lock

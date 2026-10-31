@@ -38,8 +38,7 @@ pub fn https(url: &str, max: usize, mut consume: impl FnMut(&[u8]) -> Result<(),
     if result == 1 && !context.failed { Ok(()) } else { Err(failure()) }
 }
 pub fn launch_installer(path: &Path) -> Result<(), AppError> {
-    use std::os::windows::ffi::OsStrExt;
-    let path: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
+    let path = wide(path)?;
     if unsafe { stellar_windows_launch_installer(path.as_ptr()) } == 1 { Ok(()) } else { Err(failure()) }
 }
 pub fn repair() -> Result<(), AppError> { if unsafe { stellar_windows_repair() } == 1 { Ok(()) } else { Err(failure()) } }
@@ -62,4 +61,27 @@ pub fn legacy_read(path: &Path) -> Result<Option<String>, AppError> {
 pub fn legacy_replace(path: &Path, old: &str, replacement: &str) -> Result<(), AppError> {
     let path = wide(path)?;
     if unsafe { stellar_windows_legacy_replace(path.as_ptr(), old.as_ptr(), old.len(), replacement.as_ptr(), replacement.len()) } == 1 { Ok(()) } else { Err(failure()) }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn native_boundary_rejects_invalid_requests_before_network_or_elevation() {
+        assert!(exchange(vec![0], 40001).is_err());
+        assert!(https("https://example.invalid/vpn/desktop-v2/file", 1024, |_| panic!("must not connect")).is_err());
+        assert!(https("https://desktopreleasesassetsprod.stellarsecurity.com/other/file", 1024, |_| panic!("must not connect")).is_err());
+        assert!(launch_installer(Path::new("synthetic\0installer.exe")).is_err());
+        assert!(legacy_read(Path::new("synthetic\0.stellar-vpn.dat")).is_err());
+        assert!(legacy_replace(Path::new("synthetic\0.stellar-vpn.dat"), "old", "new").is_err());
+    }
+    #[test]
+    fn native_instance_lock_releases_without_registering_a_service() {
+        struct Lock(isize);
+        impl Drop for Lock { fn drop(&mut self) { close_instance(self.0); } }
+        let first = Lock(instance().unwrap().expect("first native lock"));
+        assert!(instance().unwrap().is_none());
+        drop(first);
+        let second = Lock(instance().unwrap().expect("released native lock"));
+        drop(second);
+    }
 }
