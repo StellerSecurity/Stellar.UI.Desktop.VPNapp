@@ -1,12 +1,30 @@
 {
   "schema": 1,
   "files": [
-    { "path": "native/windows/preview-ui/assets/app-icon-CXXrWLgr.png", "sha256": "46da88c5724492c5f3a49a73ff1937e38cd6ad1dffd2f70433c36fa193b5f34e" },
-    { "path": "native/windows/preview-ui/assets/index-B-97DEmu.js", "sha256": "3a83ada822ca0f3b945f726e179bc6faf8aec514a7e83c5f54c50feec5319220" },
-    { "path": "native/windows/preview-ui/assets/index-B2WNdMPG.css", "sha256": "9eef281cbca3d6c79b9c240fa1a55897cc1da03a6a623a10649613e86227136f" },
-    { "path": "native/windows/preview-ui/assets/stellar-vpn-logo-DlzHSNow.png", "sha256": "010a384eeaf7254ade811c77c8f8ad854a6c80b49c1ca41526c17b64cdf6cb8d" },
-    { "path": "native/windows/preview-ui/assets/world-countries-Bwle1vj3.geojson", "sha256": "a4d67eac9c75d5b6f20170d2b07bb53ea791536b0c8e5ebae3ba94df093f76e0" },
-    { "path": "native/windows/preview-ui/index.html", "sha256": "195c16e42dbe1a1e6d7814313eb062b06020e1ffd864702d867ef66e8dc25a50" },
+    {
+      "path": "native/windows/preview-ui/assets/app-icon-CXXrWLgr.png",
+      "sha256": "46da88c5724492c5f3a49a73ff1937e38cd6ad1dffd2f70433c36fa193b5f34e"
+    },
+    {
+      "path": "native/windows/preview-ui/assets/index-BpioyA79.js",
+      "sha256": "414577e50c17402b276c9a1abbd350542bd956f9621507f212cd42433a033322"
+    },
+    {
+      "path": "native/windows/preview-ui/assets/index-B2WNdMPG.css",
+      "sha256": "9eef281cbca3d6c79b9c240fa1a55897cc1da03a6a623a10649613e86227136f"
+    },
+    {
+      "path": "native/windows/preview-ui/assets/stellar-vpn-logo-DlzHSNow.png",
+      "sha256": "010a384eeaf7254ade811c77c8f8ad854a6c80b49c1ca41526c17b64cdf6cb8d"
+    },
+    {
+      "path": "native/windows/preview-ui/assets/world-countries-Bwle1vj3.geojson",
+      "sha256": "a4d67eac9c75d5b6f20170d2b07bb53ea791536b0c8e5ebae3ba94df093f76e0"
+    },
+    {
+      "path": "native/windows/preview-ui/index.html",
+      "sha256": "0ee80a8d42be540ef23ad081658c4ff580aca37426b4c940d68c3914ba8d7853"
+    },
     {
       "path": "Cargo.lock",
       "sha256": "4319eceb2a78a39d3c25c3417ce6444997ceb186ccc1cd3fa113ff5c638800d1"
@@ -69,7 +87,7 @@
     },
     {
       "path": "native/windows/bridge.cpp",
-      "sha256": "0a4cb46afa0a00e1d1843950d44a5e48aceb45cbc577567601f2a6cca0b2d80e"
+      "sha256": "1576f107b32c2f0cc0accc30f282a70166e5afc1c986995bbec4ea132a4a2f79"
     },
     {
       "path": "native/windows/common.hpp",
@@ -217,7 +235,7 @@
     },
     {
       "path": "src-tauri/src/commands.rs",
-      "sha256": "1987bf8f1d860917faf2f9a86681ba8b85b69e317c18df59309fd7764b7183c5"
+      "sha256": "9c053d26857677c1fc8cefdedd32427cc40b7b3f5145a41b40624a1167550aa4"
     },
     {
       "path": "src-tauri/src/infrastructure/legacy_login.rs",
@@ -261,7 +279,7 @@
     },
     {
       "path": "src-tauri/src/infrastructure/windows.rs",
-      "sha256": "7e28f1e67c57d9cbe4d25b4b6e70972ce62e826fe63d7e02115e1760b68cd7b7"
+      "sha256": "6509a7be03cd9caa87c5082fc297296036a4b59d39df276fb4948262e5a405f2"
     },
     {
       "path": "src-tauri/src/infrastructure/windows_engine_tests.rs",

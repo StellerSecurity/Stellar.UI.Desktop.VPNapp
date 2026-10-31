@@ -143,8 +143,27 @@ extern "C" int stellar_windows_launch_installer(const wchar_t* path) noexcept {
         check(ShellExecuteExW(&execute)); if (execute.hProcess) CloseHandle(execute.hProcess); return 1;
     } catch (...) { return 0; }
 }
+// Read-only diagnosis. Detect the HOST, not the emulated application's architecture.
+// This build ships an x64 driver policy only; x64 emulation cannot load it on ARM.
+extern "C" int stellar_windows_setup_issue() noexcept {
+    try {
+        USHORT process = 0, native = 0;
+        check(IsWow64Process2(GetCurrentProcess(), &process, &native));
+        if (native != IMAGE_FILE_MACHINE_AMD64) return 2;
+        auto helper = install_root() / L"stellar-vpn-service.exe";
+        auto attributes = GetFileAttributesW(helper.c_str());
+        if (attributes == INVALID_FILE_ATTRIBUTES) {
+            auto error = GetLastError();
+            return error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND ? 1 : 3;
+        }
+        if (attributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)) return 3;
+        verify_signature(helper);
+        return 0;
+    } catch (...) { return 3; }
+}
 extern "C" int stellar_windows_repair() noexcept {
     try {
+        check(stellar_windows_setup_issue() == 0);
         auto helper = install_root() / L"stellar-vpn-service.exe"; verify_signature(helper);
         SHELLEXECUTEINFOW execute{}; execute.cbSize = sizeof(execute); execute.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI;
         execute.lpVerb = L"runas"; execute.lpFile = helper.c_str(); execute.lpParameters = L"--repair-install"; execute.nShow = SW_SHOWNORMAL;

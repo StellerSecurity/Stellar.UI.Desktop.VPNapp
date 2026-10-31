@@ -44,13 +44,18 @@ pub async fn bootstrap(app: AppHandle) -> Result<DesktopSnapshot, AppError> {
 }
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct InstallationStatus { platform: &'static str, helper: &'static str, firewall_verified: bool, language: String }
+pub struct InstallationStatus { platform: &'static str, helper: &'static str, firewall_verified: bool, language: String, setup_issue: Option<&'static str> }
 #[tauri::command]
 pub async fn installation_status(app: AppHandle) -> Result<InstallationStatus, AppError> {
     let (helper, firewall_verified) = tauri::async_runtime::spawn_blocking(crate::infrastructure::vpn::installation_check).await
         .map_err(|_| AppError::new("setup_unavailable", "Installation check unavailable"))?;
     let language = background(app, |service| Ok(service.snapshot().settings.language)).await?;
-    Ok(InstallationStatus { platform: if cfg!(target_os = "macos") { "macos" } else if cfg!(target_os = "windows") { "windows" } else { "unsupported" }, helper, firewall_verified, language })
+    #[cfg(target_os = "windows")]
+    let setup_issue = tauri::async_runtime::spawn_blocking(crate::infrastructure::windows::setup_issue).await
+        .map_err(|_| AppError::new("setup_unavailable", "Installation check unavailable"))?;
+    #[cfg(not(target_os = "windows"))]
+    let setup_issue = None;
+    Ok(InstallationStatus { platform: if cfg!(target_os = "macos") { "macos" } else if cfg!(target_os = "windows") { "windows" } else { "unsupported" }, helper, firewall_verified, language, setup_issue })
 }
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]

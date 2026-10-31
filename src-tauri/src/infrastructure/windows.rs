@@ -8,6 +8,7 @@ unsafe extern "C" {
     fn stellar_windows_https(url: *const u16, maximum: usize, consume: extern "C" fn(*const u8, usize, *mut std::ffi::c_void) -> i32, context: *mut std::ffi::c_void) -> i32;
     fn stellar_windows_launch_installer(path: *const u16) -> i32;
     fn stellar_windows_repair() -> i32;
+    fn stellar_windows_setup_issue() -> i32;
     fn stellar_windows_instance() -> isize;
     fn stellar_windows_close_instance(instance: isize);
     fn stellar_windows_legacy_read(path: *const u16, output: *mut u8, capacity: usize) -> i32;
@@ -41,7 +42,15 @@ pub fn launch_installer(path: &Path) -> Result<(), AppError> {
     let path = wide(path)?;
     if unsafe { stellar_windows_launch_installer(path.as_ptr()) } == 1 { Ok(()) } else { Err(failure()) }
 }
-pub fn repair() -> Result<(), AppError> { if unsafe { stellar_windows_repair() } == 1 { Ok(()) } else { Err(failure()) } }
+pub fn setup_issue() -> Option<&'static str> {
+    match unsafe { stellar_windows_setup_issue() } {
+        0 => None, 1 => Some("installer_required"), 2 => Some("unsupported_architecture"), _ => Some("helper_untrusted"),
+    }
+}
+pub fn repair() -> Result<(), AppError> {
+    if let Some(issue) = setup_issue() { return Err(AppError::new(issue, "A compatible, signed Stellar VPN installation is required.")); }
+    if unsafe { stellar_windows_repair() } == 1 { Ok(()) } else { Err(failure()) }
+}
 pub fn instance() -> Result<Option<isize>, AppError> {
     match unsafe { stellar_windows_instance() } { -1 => Err(failure()), 0 => Ok(None), handle => Ok(Some(handle)) }
 }

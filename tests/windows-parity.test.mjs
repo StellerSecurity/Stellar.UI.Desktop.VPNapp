@@ -76,3 +76,15 @@ test('Windows owns one fixed adapter and never borrows or deletes shared VPN dev
   assert(!/^\s*Reboot\s*$/m.test(installer));
   assert(installer.indexOf('MB_OKCANCEL') < installer.indexOf('--stop-for-update'));
 });
+test('Windows setup diagnoses missing helpers and ARM hosts before requesting elevation', () => {
+  const bridge = read('native/windows/bridge.cpp');
+  const diagnostic = bridge.slice(bridge.indexOf('extern "C" int stellar_windows_setup_issue()'), bridge.indexOf('extern "C" intptr_t stellar_windows_instance()'));
+  assert(diagnostic.includes('IsWow64Process2(GetCurrentProcess(), &process, &native)'));
+  assert(diagnostic.includes('native != IMAGE_FILE_MACHINE_AMD64'));
+  assert(diagnostic.includes('ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND ? 1 : 3'));
+  assert(diagnostic.includes('FILE_ATTRIBUTE_REPARSE_POINT'));
+  assert(diagnostic.includes('verify_signature(helper)'));
+  assert(diagnostic.indexOf('check(stellar_windows_setup_issue() == 0)') < diagnostic.indexOf('execute.lpVerb = L"runas"'));
+  assert(!diagnostic.includes('GetNativeSystemInfo'));
+  assert(read('src-tauri/src/commands.rs').includes('setup_issue: Option<&\'static str>'));
+});

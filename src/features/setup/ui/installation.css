@@ -1,0 +1,24 @@
+.installation-recovery { box-sizing:border-box; min-height:100dvh; display:grid; grid-template-rows:auto 1fr; padding:24px 32px; background:var(--stellar-neutral-50); color:var(--stellar-ink); overflow:auto; }
+.installation-recovery>header { display:flex; align-items:center; gap:10px; font-size:16px; font-weight:600; }
+.installation-recovery>header img { width:30px; height:30px; display:block; }
+.installation-recovery-card { box-sizing:border-box; width:min(100%,480px); margin:auto; padding:40px; background:#fff; border:1px solid var(--stellar-neutral-100); border-radius:24px; text-align:center; }
+.installation-recovery-icon { display:grid; place-items:center; width:64px; height:64px; background:var(--stellar-neutral-50); border-radius:20px; color:var(--stellar-blue); margin:0 auto 24px; }
+.installation-recovery-icon svg { width:32px; height:32px; fill:none; stroke:currentColor; stroke-width:1.5; }
+.installation-recovery h1 { font-size:28px; line-height:1.25; letter-spacing:-.8px; margin:0 0 14px; outline:none; }
+.installation-recovery p { font-size:14px; line-height:1.65; color:var(--stellar-body); margin:0 0 24px; }
+.installation-recovery .installation-recovery-status { text-align:left; padding:12px 14px; background:var(--stellar-neutral-50); border-radius:10px; margin-bottom:20px; }
+.installation-recovery [role=alert] { color:var(--stellar-error,#E10000); }
+.installation-recovery button { display:flex; align-items:center; justify-content:center; gap:12px; width:100%; min-height:48px; padding:12px 18px; border:0; border-radius:12px; background:var(--stellar-blue); color:#fff; font-size:14px; font-weight:600; }
+.installation-recovery button:hover:not(:disabled) { background:var(--stellar-blue-hover); }
+.installation-recovery button:disabled { opacity:.5; cursor:wait; }
+.installation-recovery button.installation-helper-reopen { margin-top:8px; background:transparent; color:var(--stellar-blue); font-weight:500; }
+.installation-recovery button:focus-visible { outline:2px solid var(--stellar-blue); outline-offset:3px; }
+.installation-recovery button svg { width:17px; height:17px; flex-shrink:0; fill:none; stroke:currentColor; stroke-width:1.7; transition:transform .18s ease; }
+.installation-recovery button:focus-visible:not(:disabled) svg { transform:translateX(3px); }
+.installation-recovery small { display:flex; gap:10px; margin-top:24px; padding-top:20px; border-top:1px solid var(--stellar-neutral-100); text-align:left; color:var(--stellar-body); font-size:12px; line-height:1.6; }
+.installation-recovery small svg { width:16px; height:16px; flex-shrink:0; margin-top:2px; fill:none; stroke:currentColor; stroke-width:1.5; }
+@media(hover:hover) { .installation-recovery button:hover:not(:disabled) svg { transform:translateX(3px); } }
+@media(max-width:540px) { .installation-recovery { padding:20px 16px; gap:28px; } .installation-recovery-card { padding:32px 24px; } .installation-recovery h1 { font-size:25px; } }
+@media(max-height:620px) { .installation-recovery { gap:24px; } .installation-recovery-card { padding:28px; } .installation-recovery-icon { width:48px; height:48px; margin-bottom:16px; } }
+@media(prefers-reduced-motion:no-preference) { .installation-recovery-card{animation:recovery-in .2s ease-out both}@keyframes recovery-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}} }
+@media(prefers-reduced-motion:reduce) { .installation-recovery button svg { transition:none; transform:none!important; } }
