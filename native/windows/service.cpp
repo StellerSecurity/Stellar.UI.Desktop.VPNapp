@@ -73,7 +73,7 @@ static std::vector<endpoint> validate_config(const std::string& config) {
     for (auto key : {"client", "dev", "proto", "remote-cert-tls", "auth-user-pass", "auth-nocache", "script-security", "allow-compression", "auth-retry"}) check(seen.count(key) == 1);
     for (auto block : {"ca", "cert", "key"}) check(blocks.count(block) == 1);
     check(!blocks.count("tls-auth") || (seen.count("key-direction") && !blocks.count("tls-crypt")));
-    for (auto& e : endpoints) e.protocol = protocol.rfind("udp", 0) == 0 ? IPPROTO_UDP : IPPROTO_TCP;
+    for (auto& e : endpoints) e.protocol = static_cast<uint8_t>(protocol.rfind("udp", 0) == 0 ? IPPROTO_UDP : IPPROTO_TCP);
     return endpoints;
 }
 static void verify_runtime() {
@@ -161,7 +161,7 @@ static void socket_send(SOCKET socket, std::string text) {
     secret_guard clear{text};
     size_t at = 0; while (at < text.size()) { int n = send(socket, text.data() + at, static_cast<int>(text.size() - at), 0); check(n > 0); at += n; }
 }
-static void monitor(uint64_t generation, std::string server, uint64_t expiry, std::string username, std::string password,
+static void monitor(uint64_t generation, uint64_t expiry, std::string username, std::string password,
     std::string config, uint64_t budget) noexcept {
     SOCKET socket = INVALID_SOCKET; std::string management_password;
     try {
@@ -277,7 +277,7 @@ static void request(HANDLE pipe) {
         std::lock_guard lock(state_mutex); stop_tunnel_locked(); protection->apply(protect != 0, endpoints, 0, true);
         tunnel.protected_mode = protect != 0; tunnel.endpoints = endpoints; tunnel.server = fields[1]; generation = tunnel.generation;
     }
-    std::thread(monitor, generation, fields[1], expiry, std::move(fields[2]), std::move(fields[3]), std::move(config), budget).detach();
+    std::thread(monitor, generation, expiry, std::move(fields[2]), std::move(fields[3]), std::move(config), budget).detach();
     wipe(header);
     std::unique_lock lock(state_mutex);
     bool ready = state_changed.wait_for(lock, std::chrono::milliseconds(budget), [&] { return tunnel.generation != generation || tunnel.connected || stopping.load(); });

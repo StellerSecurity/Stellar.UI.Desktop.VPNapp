@@ -76,7 +76,7 @@ $env:_LINK_ = ''
 $native = Join-Path $root 'native\windows'
 Push-Location $out
 try {
-    $flags = @('/nologo', '/c', '/std:c++20', '/EHsc', '/MT', '/W4', '/GS', '/sdl', '/guard:cf', '/utf-8', '/DUNICODE', '/D_UNICODE', '/D_WIN32_WINNT=0x0A00')
+    $flags = @('/nologo', '/c', '/std:c++20', '/EHsc', '/MT', '/W4', '/WX', '/GS', '/sdl', '/guard:cf', '/utf-8', '/DUNICODE', '/D_UNICODE', '/D_WIN32_WINNT=0x0A00')
     $compileFailures = @()
     foreach ($source in @('bridge', 'service', 'bridge-link-test')) {
         & $tools['cl.exe'] @flags (Join-Path $native ($source + '.cpp')) ('/Fo' + (Join-Path $out ($source + '.obj')))
