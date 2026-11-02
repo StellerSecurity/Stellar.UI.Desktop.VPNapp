@@ -9,6 +9,7 @@ import importlib.util
 import json
 import os
 import pathlib
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -39,7 +40,23 @@ def build(inputs):
             expected = item['name'] + '-' + item['version']
             if any(not m.name.startswith(expected + '/') and m.name.rstrip('/') != expected for m in members):
                 raise ValueError('Unexpected source root')
-            archive.extractall(work, members=members, filter='data')
+            # Python 3.9 lacks tarfile's data filter. These source inputs need
+            # only regular files/directories; reject every link/special member.
+            seen = set()
+            for member in members:
+                parts = pathlib.PurePosixPath(member.name).parts
+                if member.name.startswith('/') or '..' in parts or member.name in seen or not (member.isdir() or member.isfile()):
+                    raise ValueError('Unsafe or duplicate source member')
+                seen.add(member.name)
+            for member in members:
+                destination = work.joinpath(*pathlib.PurePosixPath(member.name).parts)
+                if member.isdir():
+                    destination.mkdir(parents=True, exist_ok=True)
+                else:
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    with archive.extractfile(member) as source, destination.open('xb') as output:
+                        shutil.copyfileobj(source, output)
+                    destination.chmod(0o755 if member.mode & 0o111 else 0o644)
         sources[item['name']] = work / expected
     spec = importlib.util.spec_from_file_location('backports', ROOT / 'scripts/review-intel-backports.py')
     patches = importlib.util.module_from_spec(spec)
@@ -77,7 +94,7 @@ def build(inputs):
     for name in ['lzo', 'lz4', 'pkcs11-helper']:
         directory = sources[name]
         if name == 'lz4':
-            run(directory / 'lib', '/usr/bin/make', '-j4', 'liblz4')
+            run(directory / 'lib', '/usr/bin/make', '-j4', 'liblz4', 'PREFIX=' + str(prefix))
             run(directory / 'lib', '/usr/bin/make', 'install', 'PREFIX=' + str(prefix))
         else:
             options = ['--prefix=' + str(prefix), '--enable-shared', '--disable-static']
@@ -90,7 +107,7 @@ def build(inputs):
                'LZ4_CFLAGS': f'-I{prefix}/include', 'LZ4_LIBS': f'-L{prefix}/lib -llz4',
                'PKCS11_HELPER_CFLAGS': f'-I{prefix}/include', 'PKCS11_HELPER_LIBS': f'-L{prefix}/lib -lpkcs11-helper'}
     run(sources['openvpn'], '/bin/sh', './configure', '--prefix=' + str(prefix),
-        '--disable-dco', '--disable-unit-tests', '--disable-plugin-auth-pam', '--disable-plugin-down-root', extra=options)
+        '--disable-dco', '--disable-debug', '--enable-pkcs11', '--disable-unit-tests', '--disable-plugin-auth-pam', '--disable-plugin-down-root', extra=options)
     run(sources['openvpn'], '/usr/bin/make', '-j4')
     runtime = work / 'openvpn-runtime'
     runtime.mkdir()

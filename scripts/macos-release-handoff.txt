@@ -17,6 +17,18 @@ It MUST NOT be used for the app's declared macOS 12 minimum. Do not change
 Mach-O version fields to pretend compatibility. A reviewed source rebuild is
 required. The runtime verifier now rejects binaries requiring macOS > 12.0.
 
+REPLACEMENT (2026-11-02): The reviewed source rebuild is available as draft
+release macos-0.5.0-runtime-macos12-handoff. Use ONLY the artifact named
+Stellar-VPN-0.5.0-OpenVPN-runtime-darwin-arm64-macos12.tar.gz, SHA-256
+20910b9caa4503f81f3fbecc117b3ed4de07de45729603514c79dad5d98aba54.
+All six actual Mach-O deployment targets are 12.0.0; each is documented in
+runtime-manifest.json. Hashes, bundled/system-only dependencies, ad hoc
+signatures and local library smoke tests passed. OpenVPN preserves PKCS11.
+The darwin27 host triple in --version is NOT the Mach-O deployment minimum.
+This has NOT been live-tested on macOS 12 and is NOT Developer ID signed or
+notarized. Rebuild the helper package and app, then sign/notarize again; do not
+reuse the previously signed app/package with its old embedded package hash.
+
 1. Verify the checked-out commit and version 0.5.0 in package.json,
    package-lock.json, src-tauri/Cargo.toml, Cargo.lock and tauri.conf.json.
    The desktop API defaults to the production V2 gateway.
