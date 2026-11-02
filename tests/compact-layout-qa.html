@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Compact desktop layout — isolated QA</title>
+<link rel="stylesheet" href="/stellar-tokens.css"><link rel="stylesheet" href="/vpn.css">
+<link rel="stylesheet" href="/src/shared/design-system/desktop.css"><link rel="stylesheet" href="/src/features/connection/ui/compact-connection.css">
+<body class="stellar-theme"><div id="root"></div>
+<script type="module">
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { CompactFixture } from './compact-fixture.jsx';
+createRoot(document.getElementById('root')).render(React.createElement(CompactFixture));
+</script></body></html>

@@ -1,0 +1,31 @@
+{
+  "name": "Stellar Desktop API v2",
+  "status": "fixture-staging-deployed-and-smoke-tested",
+  "frameworkTarget": "Laravel 12.69.0; approved exact 73-package runtime installed locally without scripts/plugins",
+  "namespace": "Stellar\\DesktopApi\\",
+  "autoloadRoot": "app/",
+  "layers": {
+    "Domain": "Framework-free models and validation",
+    "Application": "Use cases, gateway interfaces and application errors",
+    "Infrastructure": "Local fixtures now; approved Stellar service adapters later",
+    "Http": "Thin Laravel controllers and explicit response mapping",
+    "Providers": "Composition root; selects adapters, never business logic"
+  },
+  "rules": [
+    "No old API controllers, vendor packages, credentials or production settings copied into this project.",
+    "No production URL defaults. No outbound HTTP clients implemented yet.",
+    "Only fixture mode in staging/testing can boot this foundation.",
+    "Login/logout return 503 until a reviewed identity adapter is connected; never simulate a successful authenticated session.",
+    "Server catalog is test data, not live availability or working VPN configurations.",
+    "Models are DTOs, not a second users/subscriptions database. Existing Stellar services remain authoritative.",
+    "Domain and Application must not import Laravel or infrastructure adapters.",
+    "Local runtime/kernel tests and isolated Azure HTTPS smoke tests pass. No live identity, account creation, revocation or VPN integration is connected."
+  ],
+  "tests": {"domain": "npm run test:api:v2", "http": "npm run test:api:v2:http", "architecture": "npm run check:api:v2", "staging": "node scripts/smoke-api-v2-staging.mjs"},
+  "contract": "contracts/openapi.json",
+  "next": [
+    "Desktop server-catalog adapter now consumes staging v2 fixtures; keep live VPN/authentication disabled until reviewed adapters exist.",
+    "Implement reviewed identity/device/subscription/VPN adapters against isolated test services.",
+    "Add rate limiting, authenticated-route middleware, account/device authorization, secret storage and logout revocation semantics before enabling live authentication."
+  ]
+}

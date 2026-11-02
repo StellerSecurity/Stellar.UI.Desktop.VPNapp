@@ -1,0 +1,170 @@
+/* Reversible desktop experiment: the classic connection card and sidebar styles stay untouched. */
+.pending-dots { display: inline-flex; width: .9em; text-align: left; }
+.pending-dots i { font-style: normal; width: .3em; opacity: 0; animation: pending-dot-one 1200ms steps(1, end) infinite; }
+.pending-dots i:nth-child(2) { animation-name: pending-dot-two; }
+.pending-dots i:nth-child(3) { animation-name: pending-dot-three; }
+@keyframes pending-dot-one { 0%, 100% { opacity: 0; } 25%, 99.99% { opacity: 1; } }
+@keyframes pending-dot-two { 0%, 100% { opacity: 0; } 50%, 99.99% { opacity: 1; } }
+@keyframes pending-dot-three { 0%, 100% { opacity: 0; } 75%, 99.99% { opacity: 1; } }
+.compact-map-layout .topbar .panel-toggle { display: none !important; }
+.compact-map-layout .app { height: 100dvh; min-height: 0; overflow: hidden; }
+.compact-map-layout .workspace { display: block; flex: 1; min-height: 0; }
+.compact-map-layout .topbar { position: absolute; height: 64px; min-height: 64px; flex-wrap: nowrap; padding: 0 20px; background: transparent; pointer-events: none; }
+.compact-map-layout .topbar .logo-home, .compact-map-layout .primary-nav { pointer-events: auto; }
+.compact-map-layout .primary-nav { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); order: 0; width: auto; margin: 0; }
+.compact-map-layout .map-panel { position: absolute; inset: 0; min-height: 0; }
+.compact-map-layout .workspace .map-top { inset: 0 20px auto; height: 120px; display: block; z-index: 3; }
+.compact-map-layout .connection-statuses { position: absolute; top: 84px; left: 50%; transform: translateX(-50%); flex-direction: row; align-items: center; justify-content: center; flex-wrap: wrap; width: max-content; max-width: calc(100vw - 40px); gap: 8px; white-space: nowrap; }
+.compact-map-layout .relay-feature { min-height: 34px; }
+.compact-map-layout .relay-feature svg { color: #46e296; width: 16px; height: 16px; }
+.relay-feature { pointer-events: auto; }
+.relay-feature:hover { background: #0b478a99; }
+.relay-feature:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+.compact-map-layout .map-actions { position: absolute; top: 18px; right: 0; }
+.compact-map-layout .map-zoom { pointer-events: auto; }
+.subscription-shortcut { position: absolute; top: 84px; right: 20px; pointer-events: auto; display: flex; align-items: center; gap: 8px; max-width: 190px; min-height: 34px; padding: 8px 10px; border-radius: 12px; background: #0a347650; border: 1px solid #ffffff1c; box-shadow: inset 0 1px 0 #ffffff0d; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); color: #e8efff; font-size: 11px; line-height: 16px; text-align: left; }
+.subscription-shortcut span { min-width: 0; }
+.subscription-shortcut svg { width: 15px; height: 15px; flex: none; }
+.subscription-shortcut svg:last-child { width: 12px; transition: transform 180ms ease; }
+.subscription-shortcut:hover { background: #0b478a99; }
+.subscription-shortcut[data-warning="true"] { color: #c00000; background: #fff0f0; border-color: #ffb5b5; }
+.subscription-shortcut[data-warning="true"]:hover { background: #ffe1e1; }
+.subscription-shortcut:hover svg:last-child { transform: translateX(2px); }
+.subscription-shortcut:focus-visible { outline: 2px solid white; outline-offset: 3px; }
+@media(max-width: 850px) { .subscription-shortcut { top: 128px; max-width: 170px; } }
+@media(prefers-reduced-motion: reduce) { .subscription-shortcut svg:last-child { transition: none; transform: none; } }
+.compact-map-layout .map-panel { overflow: clip; }
+.compact-connection-dock {
+  position: absolute;
+  z-index: 5;
+  bottom: 24px;
+  left: 50%;
+  width: min(432px, calc(100% - 48px));
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  cursor: default;
+  touch-action: auto;
+}
+.dock-location-trigger {
+  display: flex; align-items: center; gap: 14px; width: 100%; min-height: 76px;
+  padding: 14px 22px; border-radius: 24px; text-align: left;
+  color: #fff; background: #0a347650; border: 1px solid #ffffff1c;
+  box-shadow: inset 0 1px 0 #ffffff0d;
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  transition: background 180ms ease, border-color 180ms ease;
+}
+.dock-location-trigger:hover, .dock-location-trigger[aria-expanded="true"] { background: #04286c66; border-color: #ffffff52; }
+.dock-country-flag { flex: none; width: 34px; height: 24px; object-fit: cover; border-radius: 6px; }
+.dock-country-flag, .picker-country-flag { display: block; overflow: hidden; }
+.dock-country-flag img, .picker-country-flag img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.dock-globe { display: grid; place-items: center; width: 34px; }
+.dock-globe svg { width: 25px; height: 25px; }
+.dock-location-copy { display: block; min-width: 0; flex: 1; }
+.dock-location-status { display: block; color: #c1d5f8; font-size: 11px; line-height: 18px; }
+.dock-location-name { display: flex; align-items: baseline; gap: 9px; min-width: 0; line-height: 24px; }
+.dock-location-name strong { font-size: 16px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dock-location-name > span { color: #c1d5f8; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dock-location-chevron { position: relative; display: grid; place-items: center; flex: none; width: 20px; height: 20px; color: #d9e6fc; }
+.dock-location-chevron svg { width: 20px; height: 20px; }
+.dock-location-glyph { position: absolute; inset: 0; display: grid; place-items: center; transition: opacity 180ms ease-out, transform 220ms cubic-bezier(.2,.8,.2,1); }
+.dock-location-glyph-close { opacity: 0; transform: rotate(-90deg) scale(.75); }
+.dock-location-chevron[data-open="true"] .dock-location-glyph-chevron { opacity: 0; transform: rotate(90deg) scale(.75); }
+.dock-location-chevron[data-open="true"] .dock-location-glyph-close { opacity: 1; transform: rotate(0) scale(1); }
+@media (prefers-reduced-motion: reduce) {
+  .dock-location-chevron .dock-location-glyph { transition: none; transform: none; }
+}
+.dock-connect-button {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  width: 100%; min-height: 54px; padding: 12px 24px; border-radius: 999px;
+  color: var(--stellar-blue); background: #fff; border: 1px solid #ccd9ff;
+  box-shadow: 0 6px 24px #06245a24; font-size: 15px; font-weight: 600;
+  transition: background 180ms ease, box-shadow 180ms ease;
+}
+.dock-connect-button svg { width: 20px; height: 20px; }
+.dock-connect-button:hover:not(:disabled) { background: #edf2ff; box-shadow: 0 8px 28px #06245a38; }
+.dock-connect-button[data-action="disconnect"]:not(:disabled) { color: var(--stellar-error, #e10000); }
+.dock-connect-button[data-action="disconnect"]:hover:not(:disabled) { background: #fff3f3; }
+.dock-connect-button:disabled { cursor: default; color: #627dcb; background: #e9efff; }
+.dock-location-trigger:focus-visible, .dock-connect-button:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
+.dock-connection-details { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 18px; color: #d3e2fc; font-size: 11px; font-variant-numeric: tabular-nums; }
+.dock-connection-details svg { width: 13px; height: 13px; }
+.dock-connection-details > span { text-align: center; }
+.dock-connection-error { padding: 12px 16px; border-radius: 16px; background: #fff; border: 1px solid #e1000033; color: #a60000; font-size: 12px; line-height: 18px; }
+.dock-error-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.dock-error-actions button { display: inline-flex; flex: 1 1 150px; align-items: center; justify-content: center; min-height: 38px; padding: 9px 14px; border: 1px solid transparent; border-radius: 10px; font-size: 12px; line-height: 18px; font-weight: 600; text-decoration: none; transition: background 180ms ease, border-color 180ms ease; }
+.dock-error-actions .dock-error-primary { color: #fff; background: var(--stellar-blue); border-color: var(--stellar-blue); }
+.dock-error-actions .dock-error-primary:hover { background: #2152d4; border-color: #2152d4; }
+.dock-error-actions .dock-error-secondary { color: #0b0c19; background: #f6f6fd; border-color: #d6d6e0; }
+.dock-error-actions .dock-error-secondary:hover { background: #eaeaf0; border-color: #b9b9c7; }
+.dock-error-actions button:focus-visible { outline: 2px solid var(--stellar-blue); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .dock-error-actions button { transition: none; } }
+.desktop-location-layer {
+  position: fixed; inset: 0; z-index: 80; visibility: hidden; pointer-events: none;
+  transition: visibility 0s 160ms;
+}
+.desktop-location-layer[data-open="true"] { visibility: visible; pointer-events: auto; transition-delay: 0s; }
+.desktop-location-popover {
+  position: absolute; display: flex; flex-direction: column; overflow: visible;
+  background: #fff; border: 1px solid var(--stellar-neutral-200, #d6d6e0); border-radius: 22px;
+  box-shadow: 0 20px 70px #001c5840, 0 4px 16px #001c581a;
+  opacity: 0; transform: translateY(8px) scale(.985); transform-origin: bottom center;
+  transition: opacity 160ms ease, transform 180ms cubic-bezier(.22,1,.36,1);
+}
+.desktop-location-popover::after { content: ""; position: absolute; bottom: -7px; left: calc(50% - 7px); width: 12px; height: 12px; transform: rotate(45deg); background: #fff; border-right: 1px solid #d6d6e0; border-bottom: 1px solid #d6d6e0; pointer-events: none; }
+.desktop-location-layer[data-open="true"] .desktop-location-popover { opacity: 1; transform: translateY(0) scale(1); }
+.desktop-location-popover .locations-picker {
+  position: static; inset: auto; width: 100%; height: 100%; min-height: 0; max-height: 100%;
+  padding: 18px 18px 10px; border: 0; border-radius: inherit; overflow: hidden; background: #fff; box-shadow: none;
+  opacity: 1; transform: none; pointer-events: auto; view-transition-name: none;
+}
+.locations-picker .locations-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 0; }
+.locations-picker .locations-heading h1 { font-size: 20px; line-height: 28px; }
+.locations-close { display: grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: 9px; color: #62626a; background: #f6f6fd; }
+.locations-close:hover { background: #eaeaf0; }
+.locations-close svg { width: 18px; height: 18px; }
+.locations-picker .search { margin-top: 14px; min-height: 40px; border-radius: 12px; background: #f6f6fd; border-color: #eaeaf0; }
+.locations-picker .search:focus-within { border-color: #8baaff; box-shadow: 0 0 0 3px #2761fc12; }
+.locations-picker .search input { cursor: text; }
+.locations-picker .location-tabs { margin-block: 12px 10px; min-height: 34px; }
+.locations-picker .server-heading { padding-top: 8px; padding-bottom: 6px; }
+.locations-picker .server-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; gap: 4px 10px; margin: 0 -8px; padding: 0 8px 8px; }
+.locations-picker .server-row { min-width: 0; min-height: 52px; border-radius: 12px; }
+.locations-picker .server-select { min-width: 0; min-height: 52px; padding: 8px 8px; gap: 8px; grid-template-columns: 30px minmax(0, 1fr) 16px; }
+.locations-picker .picker-country-flag { width: 30px; height: 21px; flex: none; border-radius: 5px; object-fit: cover; }
+.locations-picker .server-copy { display: block; min-width: 0; }
+.locations-picker .server-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.locations-picker .server-city { display: block; margin-top: 1px; font-size: 11px; line-height: 17px; }
+.locations-picker .server-row.selected .selected-check > span { display: none; }
+.locations-picker .server-row.selected .selected-check { width: 16px; height: 20px; padding: 0; border: 0; background: none; }
+.locations-picker .selected-check { margin-left: auto; width: 16px; min-width: 16px; }
+.locations-picker .server-star { width: 28px; min-width: 28px; padding: 6px; }
+.locations-picker .server-select:focus-visible { outline-offset: -2px; }
+.grouped-server-list { display: block; }
+.server-region + .server-region { margin-top: 16px; }
+.server-region-heading { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 8px; margin: 0; padding: 8px; background: #fff; color: #62626a; font-size: 12px; font-weight: 600; line-height: 18px; border-bottom: 1px solid #eaeaf0; }
+.server-region-heading > span { margin-left: auto; font-size: 11px; font-weight: 400; font-variant-numeric: tabular-nums; }
+.locations-picker .server-list.grouped-server-list { display: block; }
+.locations-picker .server-region-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 10px; padding-top: 4px; }
+.devices-page .account-devices { margin-top: 0; }
+.devices-page .account-device-copy strong { overflow-wrap: anywhere; }
+.selector-popover { width: min(240px, calc(100vw - 48px)); max-height: min(420px, 65dvh); overflow-y: auto; overscroll-behavior: contain; }
+@media (max-width: 640px) {
+  .compact-map-layout .topbar { height: auto; flex-wrap: wrap; padding: 10px 16px; }
+  .compact-map-layout .primary-nav { position: relative; left: auto; top: auto; transform: none; order: 3; width: 100%; margin: 0; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .compact-map-layout .workspace .map-top { inset: 0 16px auto; height: 200px; }
+  .compact-map-layout .connection-statuses { top: 170px; }
+  .compact-map-layout .map-actions { top: 120px; }
+  .compact-connection-dock { bottom: 18px; width: min(400px, calc(100% - 32px)); }
+  .dock-location-trigger { min-height: 68px; padding: 11px 18px; border-radius: 21px; }
+  .desktop-location-layer { background: #041b4c55; }
+  .locations-picker .server-list { grid-template-columns: minmax(0, 1fr); }
+  .locations-picker .server-region-list { grid-template-columns: minmax(0, 1fr); }
+  .desktop-location-popover .locations-picker { padding: 18px 16px 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pending-dots i { animation: none; opacity: 1; }
+  .desktop-location-layer, .desktop-location-popover, .dock-connect-button, .dock-location-trigger { transition: none; }
+  .desktop-location-popover { transform: none; }
+}

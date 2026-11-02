@@ -1,0 +1,26 @@
+{
+  "status": "LOCAL_SOURCE_ONLY_NOT_DEPLOYED",
+  "repositories": {
+    "activation-license": "StellerSecurity/Stellar.Activationlicense.Api",
+    "subscriptions": "StellerSecurity/Steller.Subscription.API"
+  },
+  "instructions": [
+    "Compare baseline.json upstream blob hashes before merging overlays. Preserve any newer unrelated changes. Do not overwrite a whole repository with this partial source tree.",
+    "No dependency installation, environment credentials, publication or migration execution is included or authorized by these overlays.",
+    "Back up production databases through the normal release process. Apply both additive migrations; retain these ledgers permanently. Rollback must disable the feature, never delete replay history.",
+    "Deploy activation-license controller, routes and redemption migration together. The legacy activate route must acquire the same license row lock to avoid racing new claims.",
+    "Deploy subscription credit controller, config, route and credit migration together. Configure the activation-service basic-auth credentials server-side through the existing secret-management process, never in the desktop app.",
+    "Redeem routes require service basicAuth and throttling; the user-facing desktop route requires a scoped user token and independently resolves ownership. Do not expose internal routes without middleware.",
+    "Exclude redemption bodies/headers from application, proxy and APM logs, including global telemetry. Verify global telemetry configuration in deployment; do not send activation codes or Basic credentials to APM.",
+    "Run concurrent MySQL tests with the deployed database engine and approved staging credentials, including simultaneous legacy/new claims, duplicate credit and failure/restart recovery. SQLite tests do not prove production row-lock behavior.",
+    "Deploy desktop API with STELLAR_ACTIVATION_ENABLED=false first. Enable it only after both backend endpoints are available, migrations and staging tests have passed. There is deliberately no fallback to the old consuming endpoint.",
+    "Upgrade other UI APIs separately if they should benefit from resumable redemption. Legacy callers retain their old two-step credit flow; this change only serializes their license consumption against the new path.",
+    "Do not test with real activation codes or deploy without separate explicit approval. Desktop itself can be rebuilt/restarted without enabling activation server-side."
+  ],
+  "known_constraints": [
+    "Existing VPN subscription required; no subscription is created by redemption.",
+    "A receipt permanently binds a code to one account and subscription. Ownership transfers or deleting that subscription require an operator recovery policy, not reusing the receipt elsewhere.",
+    "Receipt/credit is a recoverable two-service protocol, not a distributed atomic transaction. Interrupted progress resumes when the same code is submitted again.",
+    "Existing public license verify/activate routes are not expanded or newly exposed by this patch; assess their legacy authentication/rate-limiting separately."
+  ]
+}

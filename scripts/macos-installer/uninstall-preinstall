@@ -1,0 +1,30 @@
+#!/bin/sh
+set -eu
+[ "$(/usr/bin/id -u)" = 0 ] || exit 1
+if /usr/bin/pgrep -f '/Stellar VPN.app/Contents/MacOS/stellar-vpn-desktop' >/dev/null; then
+    echo 'Quit Stellar VPN before uninstalling. Account data will be kept.' >&2
+    exit 1
+fi
+app='/Applications/Stellar VPN.app'
+[ ! -L "$app" ] || { echo 'Unsafe app path. Removal stopped.' >&2; exit 1; }
+if [ -d "$app" ]; then
+    identifier=$(/usr/bin/plutil -extract CFBundleIdentifier raw "$app/Contents/Info.plist")
+    case "$identifier" in org.stellarsecurity.vpn.desktop|org.stellarvpn.desktop.preview|org.stellarvpn.desktop) ;; *) echo 'App identity does not match Stellar VPN. Removal stopped.' >&2; exit 1;; esac
+fi
+# The helper uninstaller fails closed if its firewall reference cannot be
+# released. In that case preserve both the recovery helper and application.
+helper='/Library/Application Support/Stellar VPN/uninstall-helper'
+if [ -f "$helper" ] && [ ! -L "$helper" ]; then
+    owner=$(/usr/bin/stat -f '%u' "$helper")
+    mode=$(/usr/bin/stat -f '%Lp' "$helper")
+    [ "$owner" = 0 ] && [ $((0$mode & 022)) -eq 0 ] || { echo 'Unsafe recovery helper. Removal stopped.' >&2; exit 1; }
+    "$helper"
+fi
+if [ -e /var/run/stellar-vpn/pf-token ] || [ -e /Library/LaunchDaemons/org.stellarvpn.desktop.helper.plist ]; then
+    echo 'System helper cleanup could not be verified. App kept for recovery.' >&2
+    exit 1
+fi
+# This exact validated bundle is the only recursive removal target.
+if [ -d "$app" ]; then /bin/rm -rf '/Applications/Stellar VPN.app'; fi
+/usr/sbin/pkgutil --forget org.stellarvpn.desktop.installer >/dev/null 2>&1 || true
+echo 'Stellar VPN removed. Local preferences and account data were kept.'

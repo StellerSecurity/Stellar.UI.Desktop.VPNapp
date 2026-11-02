@@ -1,0 +1,16 @@
+{
+  "mainBinaryName": "Stellar VPN",
+  "bundle": {
+    "targets": ["nsis"],
+    "resources": {
+      "resources/windows/stellar-vpn-service.exe": "stellar-vpn-service.exe",
+      "resources/windows/Runtime/": "Runtime/"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "perMachine",
+        "installerHooks": "../native/windows/installer.nsh"
+      }
+    }
+  }
+}

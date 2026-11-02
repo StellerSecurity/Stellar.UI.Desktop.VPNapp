@@ -1,0 +1,19 @@
+<!doctype html><html lang="en" class="stellar-theme"><meta charset="utf-8"><title>Stellar map status — isolated visual test</title>
+<link rel="stylesheet" href="/stellar-tokens.css"><link rel="stylesheet" href="/vpn.css"><link rel="stylesheet" href="/src/shared/design-system/desktop.css"><style>
+body{margin:0;padding:24px;background:#f6f6fd;color:#0b0c19;font-family:system-ui}h1{font-size:20px}article{min-width:0}h2{font-size:16px}.fixtures{display:grid;grid-template-columns:1fr 1fr;gap:20px}.map-panel{position:relative;inset:auto;height:420px;padding:0;border-radius:16px}.world-map{position:absolute;inset:0;width:100%;height:100%}.map-pin{position:absolute}.qa-label{position:absolute;bottom:12px;left:12px;color:white;background:#082a69;padding:8px 12px;border-radius:8px;z-index:5}@media(max-width:700px){.fixtures{grid-template-columns:1fr}}
+</style><h1>Isolated UI test — not a live VPN session</h1><div class="fixtures"></div>
+<script type="module">
+import {countryCode,geometryToPath,mapPoint} from '/src/features/map/domain/geometry.ts';
+import {mapStatus} from '/src/features/map/domain/MapStatus.ts';
+const map=await(await fetch('/assets/world-countries.geojson')).json();
+for(const status of ['disconnected','loading','connected']){
+ const state=mapStatus({status:status==='connected'?'connected':'disconnected',serverId:status==='connected'?'ru-1':null,connectedAt:null},status==='loading');
+ const article=document.createElement('article');const title=document.createElement('h2');title.textContent=status==='connected'?'Confirmed connection':status==='loading'?'Connecting / switching':'Disconnected / selected only';article.append(title);
+ const panel=document.createElement('section');panel.className='map-panel'+(state.connected?' connected':'')+(status==='loading'?' connecting':'');panel.dataset.testStatus=status;
+ const header=document.createElement('div');header.className='app';header.dataset.connection=status;header.style.cssText='position:absolute;inset:0;pointer-events:none';const top=document.createElement('header');top.className='topbar';top.textContent=status;header.append(top);panel.append(header);
+ const ns='http://www.w3.org/2000/svg';const svg=document.createElementNS(ns,'svg');svg.classList.add('world-map');svg.setAttribute('viewBox','500 80 450 300');svg.setAttribute('preserveAspectRatio','none');
+ for(const feature of map.features){const p=document.createElementNS(ns,'path');p.setAttribute('d',geometryToPath(feature.geometry));p.dataset.country=countryCode(feature);p.setAttribute('class','world-country'+(countryCode(feature)==='RU'?' active'+(state.connected?' secured':''):''));svg.append(p);}panel.append(svg);
+ const point=mapPoint({lon:37.62,lat:55.75});const pin=document.createElement('button');pin.className='map-pin selected'+(state.connected?' secured':'');pin.style.left=`${(point.x-500)/450*100}%`;pin.style.top=`${(point.y-80)/300*100}%`;pin.setAttribute('aria-label',status+' Moscow marker');panel.append(pin);
+ const label=document.createElement('span');label.className='qa-label';label.textContent=status==='connected'?'Connected · Moscow':status==='loading'?'Connecting · Moscow':'Disconnected · Moscow selected';panel.append(label);article.append(panel);document.querySelector('.fixtures').append(article);
+}
+</script></html>

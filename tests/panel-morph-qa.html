@@ -1,0 +1,14 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Stellar panel motion QA</title>
+<link rel="stylesheet" href="/stellar-tokens.css"><link rel="stylesheet" href="/vpn.css">
+<style>body{background:#123d94}header{position:relative;z-index:10;display:flex;gap:16px;padding:16px;color:white}header button{padding:8px;border:1px solid #ffffff50;border-radius:8px}.workspace{height:700px}.locations{bottom:18px}.preferences-wrap{height:530px}.preferences{inset:0;padding-top:74px}output{color:white;position:relative;z-index:10;margin:16px}.qa-content{padding:20px}</style>
+<body class="stellar-theme"><div id="root"></div><output id="result">Ready · no API or VPN commands</output>
+<script type="module">
+import React,{useState} from 'react';import{createRoot}from'react-dom/client';import{usePanelNavigation}from'/src/shared/ui/usePanelNavigation.ts';
+function Fixture(){const[view,setView]=useState('connection');const navigate=usePanelNavigation(view,setView);return React.createElement(React.Fragment,null,
+React.createElement('header',null,...['connection','general','account'].map(v=>React.createElement('button',{key:v,onClick:()=>navigate(v)},v))),
+React.createElement('div',{className:`workspace ${view==='connection'?'':'preferences-open'}`,'data-view':view},
+React.createElement('aside',{className:'locations'},React.createElement('div',{className:'qa-content'},'Server list')),
+view!=='connection'&&React.createElement('main',{className:'preferences'},React.createElement('div',{className:'preferences-wrap'},view==='account'?'Account':'Settings'))));}
+document.querySelector('#result').textContent=`Native shared transition: ${!!document.startViewTransition} · no API or VPN commands`;
+createRoot(document.querySelector('#root')).render(React.createElement(Fixture));
+</script></body></html>

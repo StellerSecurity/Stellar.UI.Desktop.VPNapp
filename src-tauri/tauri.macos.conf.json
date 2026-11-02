@@ -1,0 +1,8 @@
+{
+  "bundle": {
+    "resources": {
+      "resources/NetworkHelper.pkg": "NetworkHelper.pkg",
+      "resources/NetworkHelper.arch.json": "NetworkHelper.arch.json"
+    }
+  }
+}

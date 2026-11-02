@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#2761FC">
+  <title>Stellar VPN · Desktop</title>
+  <script>
+    (() => {
+      try {
+        const preview = new URLSearchParams(location.search);
+        const loggedOut = localStorage.getItem('stellar-vpn-authenticated') !== 'true';
+        if (preview.get('auth') === '1' || loggedOut || preview.get('onboarding') === '1') {
+          document.documentElement.classList.add('auth-pending');
+        }
+      } catch { /* local preview */ }
+    })();
+  </script>
+  <link rel="stylesheet" href="stellar-tokens.css">
+  <link rel="stylesheet" href="vpn.css?v=67">
+</head>
+<body class="stellar-theme">
+  <div class="app">
+    <header class="topbar">
+      <button id="home-logo" class="logo-home" aria-label="Go to connection map"><img class="logo" src="assets/stellar-vpn-logo.png" width="500" height="128" alt="Stellar VPN"></button>
+      <button id="locations-toggle" class="panel-toggle" aria-label="Hide locations" aria-expanded="true" aria-controls="locations-panel"></button>
+      <nav class="primary-nav" aria-label="Primary navigation">
+        <span class="nav-indicator" aria-hidden="true"></span>
+        <button class="active" id="connection-tab" aria-current="page">Connection</button>
+        <button id="settings-tab">Settings</button>
+        <button id="account-tab">Account</button>
+      </nav>
+      <div class="header-right">
+        <button id="about" class="header-icon" aria-label="Close settings and return to connection map" hidden></button>
+      </div>
+    </header>
+
+    <div class="workspace" id="workspace">
+      <aside class="locations" id="locations-panel" aria-label="VPN locations">
+        <div class="locations-heading">
+          <h1>Choose a server</h1>
+        </div>
+
+        <label class="search">
+          <span id="search-icon"></span>
+          <input id="search" type="search" placeholder="Search country or city" aria-label="Search country or city" autocomplete="off">
+        </label>
+
+        <div class="location-tabs" role="tablist" aria-label="Filter locations" data-active="all">
+          <span class="selection-indicator" aria-hidden="true"></span>
+          <button id="all" role="tab" class="active" aria-selected="true">All</button>
+          <button id="favorites" role="tab" aria-selected="false">Favorites</button>
+        </div>
+
+        <div class="server-heading">
+          <span><span id="location-count"></span> locations</span>
+        </div>
+        <div id="server-list" class="server-list" role="list" aria-label="Available locations"></div>
+        <div id="server-empty" class="server-empty" hidden>No locations match your search.</div>
+      </aside>
+
+      <main class="map-panel" id="map-panel" tabindex="0" aria-label="Interactive world map. Drag or use the arrow keys to move; pinch or double-click to zoom.">
+        <div class="map-glow" aria-hidden="true"></div>
+        <div class="map-art-frame">
+          <div class="map-art">
+            <svg id="world-map" class="world-map" viewBox="0 0 1100 760" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+              <g id="world-countries"></g>
+            </svg>
+            <svg id="route-layer" class="route-layer" viewBox="0 0 1100 760" preserveAspectRatio="none" aria-hidden="true">
+              <path id="route-glow" class="route-glow"></path>
+              <path id="route-path" class="route-path"></path>
+            </svg>
+            <div id="map-labels" aria-hidden="true"></div>
+            <div id="map-pins" role="group" aria-label="VPN locations"></div>
+            <svg class="route-arrow-layer" viewBox="0 0 1100 760" preserveAspectRatio="none" aria-hidden="true">
+              <g id="route-arrow" class="route-arrow" hidden>
+                <circle r="15"></circle>
+                <path d="M-5 -7 8 0-5 7-1 0Z"></path>
+              </g>
+            </svg>
+          </div>
+        </div>
+        <div id="map-tooltip" class="map-tooltip" role="tooltip" hidden></div>
+        <div class="map-top">
+          <div class="connection-statuses">
+            <div class="connection-pill" id="connection-pill" role="status" aria-live="polite"></div>
+            <div class="connection-features" id="connection-features" role="list" aria-label="Privacy features"></div>
+          </div>
+        </div>
+
+        <section class="connection-card" aria-labelledby="status-title">
+          <div class="connection-heading">
+            <span class="status-symbol" id="status-symbol"></span>
+            <div><h2 id="status-title"></h2></div>
+          </div>
+          <button class="selected-server" id="change-server" aria-label="Choose another location">
+            <span class="flag" id="selected-flag"></span>
+            <span class="selected-server-copy"><strong id="selected-country"></strong><span id="selected-city"></span></span>
+            <span class="selected-server-arrow" id="selected-server-arrow"></span>
+          </button>
+          <div class="connection-facts">
+            <div><span>Connection time</span><strong id="session-time">00:00:00</strong></div>
+            <div><span>Speed · Mbps</span><strong id="traffic-speed">↓18.4&nbsp;&nbsp;↑3.2</strong></div>
+          </div>
+          <button id="connect-button" class="connect-button"></button>
+        </section>
+
+        <div class="map-bottom">
+          <div class="map-actions">
+            <button id="reset-map" hidden>Reset map</button>
+            <div class="map-zoom" role="group" aria-label="Map zoom">
+              <button id="zoom-out" aria-label="Zoom out">−</button>
+              <button id="zoom-in" aria-label="Zoom in">+</button>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <main id="preferences" class="preferences" hidden>
+        <div class="preferences-wrap">
+          <div class="preferences-top">
+            <div><span class="eyebrow">STELLAR VPN</span><h1 id="preferences-title">Settings</h1><p id="preferences-description">Manage your connection and app experience.</p></div>
+          </div>
+
+          <nav class="preferences-tabs" role="tablist" aria-label="Settings" data-active="general">
+            <span class="preferences-indicator" aria-hidden="true"></span>
+            <button id="tab-general" role="tab" data-section="general" class="active" aria-selected="true" aria-controls="section-general" tabindex="0"><span class="preference-tab-icon" data-preference-icon="settings"></span><span><strong>General</strong><small>App defaults</small></span></button>
+            <button id="tab-relay" role="tab" data-section="relay" aria-selected="false" aria-controls="section-relay" tabindex="-1"><span class="preference-tab-icon" data-preference-icon="relay"></span><span><strong>Stellar Relay</strong><small>Multi-hop</small></span></button>
+          </nav>
+
+          <section id="section-general" class="preference-section" role="tabpanel" aria-labelledby="tab-general">
+            <div class="settings-stack">
+              <div class="settings-card">
+                <div class="section-intro"><span class="feature-icon" data-feature-icon="shield"></span><div><h2>Connection & privacy</h2><p>Protection that follows you automatically.</p></div></div>
+                <div class="setting-row">
+                  <div><strong>Auto-connect</strong><p>Connect to your last location when Stellar VPN opens.</p></div>
+                  <button class="toggle" data-setting="auto-connect" role="switch" aria-checked="false" aria-label="Auto-connect"></button>
+                </div>
+                <div class="setting-row">
+                  <div><strong>Kill switch</strong><p>Block internet access if the secure connection drops.</p></div>
+                  <button class="toggle" data-setting="kill-switch" role="switch" aria-checked="true" aria-label="Kill switch"></button>
+                </div>
+                <div class="setting-row setting-row-featured">
+                  <span class="row-icon" data-feature-icon="rotate" aria-hidden="true"></span>
+                  <div><span class="setting-title-line"><strong>Auto Rotate</strong><span class="feature-badge">Every 7 days</span></span><p>Move to the next location automatically for better privacy.</p><small id="rotation-status" class="setting-meta">Next rotation in 7 days</small></div>
+                  <div class="setting-controls"><button id="auto-rotate-info" class="info-button" aria-label="How Auto Rotate works" aria-haspopup="dialog" data-feature-icon="info"></button><button class="toggle" data-setting="auto-rotate" role="switch" aria-checked="false" aria-label="Auto Rotate"></button></div>
+                </div>
+              </div>
+
+              <div class="settings-card compact-card">
+                <div class="section-label">APP EXPERIENCE</div>
+                <div class="setting-row"><div><strong>Connection notifications</strong><p>Get notified when your protection changes.</p></div><button class="toggle" data-setting="notifications" role="switch" aria-checked="true" aria-label="Connection notifications"></button></div>
+                <div class="setting-row"><div><strong>Menu bar controls</strong><p>Keep quick Connect and Disconnect close at hand.</p></div><button class="toggle" data-setting="menu-bar" role="switch" aria-checked="true" aria-label="Menu bar controls"></button></div>
+                <div class="setting-row language-row">
+                  <div><strong>Language</strong><p>Language used throughout the app.</p></div>
+                  <div class="selector" id="language-selector">
+                    <button id="language-trigger" class="selector-trigger" type="button" aria-label="Language: English" aria-haspopup="listbox" aria-controls="language-options" aria-expanded="false"><span id="language-value">English</span><span id="language-flag" aria-hidden="true">🇬🇧</span><i data-feature-icon="chevron"></i></button>
+                    <div id="language-options" class="selector-popover" role="listbox" aria-label="Language" hidden>
+                      <button role="option" aria-selected="true" data-language="English"><span>English</span><small>🇬🇧</small></button>
+                      <button role="option" aria-selected="false" data-language="Dansk"><span>Dansk</span><small>🇩🇰</small></button>
+                      <button role="option" aria-selected="false" data-language="Deutsch"><span>Deutsch</span><small>🇩🇪</small></button>
+                      <button role="option" aria-selected="false" data-language="Français"><span>Français</span><small>🇫🇷</small></button>
+                      <button role="option" aria-selected="false" data-language="Español"><span>Español</span><small>🇪🇸</small></button>
+                      <button role="option" aria-selected="false" data-language="Svenska"><span>Svenska</span><small>🇸🇪</small></button>
+                    </div>
+                  </div>
+                </div>
+                <button id="replay-onboarding" class="setting-row setting-action onboarding-replay">
+                  <span class="row-icon" data-feature-icon="sparkles"></span>
+                  <span><strong>Welcome guide</strong><small>Get to know your privacy features.</small></span>
+                  <i class="action-arrow">›</i>
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <section id="section-relay" class="preference-section" role="tabpanel" aria-labelledby="tab-relay" hidden>
+            <div class="settings-card relay-card">
+              <div class="relay-header">
+                <span class="relay-mark" data-feature-icon="relay" aria-hidden="true"></span>
+                <div><span class="eyebrow">ADVANCED PRIVACY</span><h2>Stellar Relay</h2><p>Your traffic enters through a privacy-focused core before reaching your selected exit country.</p></div>
+                <div class="relay-control relay-locked"><span class="status-with-dot"><i></i>Always on</span><small>Required protection</small></div>
+              </div>
+
+              <div class="relay-route" aria-label="Relay route: your device, privacy core, exit country, internet">
+                <div class="relay-node"><span>1</span><strong>Your device</strong><small>Encrypted</small></div>
+                <i aria-hidden="true"></i>
+                <div class="relay-node relay-core"><span>2</span><strong>Privacy core</strong><small>🇮🇸 🇨🇭 🇸🇪</small></div>
+                <i aria-hidden="true"></i>
+                <div class="relay-node"><span>3</span><strong>Exit country</strong><small>Your choice</small></div>
+                <i aria-hidden="true"></i>
+                <div class="relay-node"><span>4</span><strong>Internet</strong><small>Origin hidden</small></div>
+              </div>
+
+              <div class="relay-explainer">
+                <div><strong>Two-hop privacy</strong><p>The exit sees the Relay edge instead of your device or original IP address.</p></div>
+                <div><strong>Hardened core</strong><p>Core routes use privacy-focused infrastructure in Iceland, Switzerland and Sweden.</p></div>
+                <div><strong>Smart routing</strong><p>Stellar selects a route that balances connection quality with the added privacy layer.</p></div>
+              </div>
+
+              <a class="relay-learn" href="https://stellarvpn.org/stellar-relay" target="_blank" rel="noopener noreferrer"><span>How Stellar Relay works</span><i>↗</i></a>
+            </div>
+          </section>
+
+          <section id="section-account" class="preference-section" aria-labelledby="account-tab" hidden>
+            <div class="settings-card">
+              <div class="subscription-summary" aria-label="Subscription: 24 days remaining">
+                <div class="subscription-days" aria-hidden="true"><strong>24</strong><span>days left</span></div>
+                <div class="subscription-copy">
+                  <span class="eyebrow">SUBSCRIPTION</span>
+                  <h3>24 days remaining</h3>
+                  <p>Your VPN access is active through 20 November 2026.</p>
+                  <div class="subscription-progress" role="progressbar" aria-label="Subscription period remaining" aria-valuemin="0" aria-valuemax="30" aria-valuenow="24"><i></i></div>
+                </div>
+                <div class="renewal-date"><span>Next renewal</span><strong>20 Nov 2026</strong></div>
+              </div>
+              <div class="account-actions">
+                <button id="manage-plan" class="secondary-action"><span data-feature-icon="calendar"></span><span><strong>Manage plan</strong><small>Renew or add more days</small></span><i>›</i></button>
+                <button id="use-activation-code" class="secondary-action"><span data-feature-icon="key"></span><span><strong>Use activation code</strong><small>Redeem access to Stellar VPN</small></span><i>›</i></button>
+              </div>
+              <div class="account-number">
+                <div class="number-heading"><strong>Account ID</strong><span>Available on 6 devices</span></div>
+                <div class="number-value"><code id="account-number">•••• •••• •••• 3065</code><button id="reveal-account" class="text-button" aria-pressed="false">Show</button><button id="copy-account" class="text-button">Copy</button></div>
+              </div>
+              <div class="account-device" aria-label="Current device: Winged Coral, desktop, active">
+                <span class="account-device-icon" id="device-icon"></span>
+                <div class="account-device-copy"><span class="eyebrow">CURRENT DEVICE</span><strong>Winged Coral</strong><small>Desktop · This device</small></div>
+                <span class="status-with-dot"><i></i>Active</span>
+              </div>
+              <div class="device-usage"><span><strong>1 of 6</strong> devices in use</span><div role="progressbar" aria-label="One of six devices in use" aria-valuemin="0" aria-valuemax="6" aria-valuenow="1"><i></i></div></div>
+              <button id="trust-and-privacy" class="setting-row setting-action account-link" aria-haspopup="dialog"><span class="row-icon" data-feature-icon="shield"></span><span><strong>Why trust Stellar VPN?</strong><small>Swiss jurisdiction, privacy and no activity logs.</small></span><i class="action-arrow">›</i></button>
+              <button id="logout" class="setting-row setting-action danger-action" aria-haspopup="dialog"><span class="row-icon" data-feature-icon="logout"></span><span><strong>Log out</strong><small>Disconnect and remove this account from the device.</small></span><i class="action-arrow">›</i></button>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <section id="auth-flow" class="auth-flow" aria-label="Sign in to Stellar VPN" hidden>
+    <div class="auth-shell">
+      <aside class="auth-brand" aria-hidden="true">
+        <img src="assets/stellar-vpn-logo.png" width="500" height="128" alt="">
+        <div class="auth-brand-copy"><span>SWISS PRIVACY</span><h2>Private by design.<br>Simple by default.</h2><p>Secure your connection with Stellar Relay, worldwide locations and quiet protection.</p></div>
+        <div class="auth-route-art"><i></i><i></i><i></i><span>✓</span></div>
+        <div class="auth-trust-row"><span>✓ No activity logs</span><span>✓ Encrypted connection</span></div>
+      </aside>
+      <main class="auth-card">
+        <div class="auth-card-top">
+          <button id="auth-back" class="auth-icon-button" aria-label="Go back" hidden>←</button>
+          <span id="auth-step-name">Welcome</span>
+          <button id="auth-close" class="auth-icon-button" aria-label="Return to Stellar VPN" hidden>×</button>
+        </div>
+        <div id="auth-stage" class="auth-stage" aria-live="polite"></div>
+        <p id="auth-legal" class="auth-legal">By continuing, you agree to our <a href="https://stellarvpn.org/terms-and-conditions" target="_blank" rel="noopener noreferrer">Terms</a> and <a href="https://stellarvpn.org/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.</p>
+      </main>
+    </div>
+  </section>
+
+  <section id="onboarding" class="onboarding" aria-label="Welcome to Stellar VPN" hidden>
+    <div class="onboarding-shell">
+      <header class="onboarding-header">
+        <img src="assets/stellar-vpn-logo.png" width="500" height="128" alt="Stellar VPN">
+        <div id="onboarding-progress" class="onboarding-progress" aria-label="Onboarding progress"></div>
+        <button id="onboarding-skip" class="onboarding-skip">Skip</button>
+      </header>
+
+      <div id="onboarding-stage" class="onboarding-stage" aria-live="polite"></div>
+
+      <footer class="onboarding-footer">
+        <span id="onboarding-step-label">1 of 3</span>
+        <div class="onboarding-actions">
+          <button id="onboarding-back" class="onboarding-back" hidden>Back</button>
+          <button id="onboarding-next" class="onboarding-next">Continue</button>
+        </div>
+      </footer>
+    </div>
+  </section>
+
+  <dialog id="auto-rotate-dialog" class="feature-dialog auto-rotate-dialog">
+    <div class="dialog-header"><div><span class="eyebrow">PRIVACY AUTOMATION</span><h2>How Auto Rotate works</h2></div><button class="close-dialog" aria-label="Close Auto Rotate information"></button></div>
+    <div class="rotate-hero">
+      <span class="rotate-hero-icon" data-feature-icon="rotate"></span>
+      <div><strong>A fresh VPN location every 7 days</strong><p>Auto Rotate periodically moves your connection to the next available Stellar VPN location.</p></div>
+    </div>
+    <div class="rotate-flow" aria-label="Auto Rotate process">
+      <div><span>1</span><strong>Prepare</strong><small>The next server is prepared before anything changes.</small></div>
+      <i aria-hidden="true">→</i>
+      <div><span>2</span><strong>Reconnect</strong><small>Your active VPN connection switches automatically.</small></div>
+      <i aria-hidden="true">→</i>
+      <div><span>3</span><strong>Confirm</strong><small>You are notified when the new location is secure.</small></div>
+    </div>
+    <div class="rotate-safety"><span data-feature-icon="shield"></span><div><strong>Your protection comes first</strong><p>If the new location cannot establish a secure connection, Stellar VPN returns to the previous working location.</p></div></div>
+    <div class="rotate-notes">
+      <div><span>7 days</span><small>Rotation interval</small></div>
+      <div><span>Automatic</span><small>Reconnect</small></div>
+      <div><span>Protected</span><small>Failure recovery</small></div>
+    </div>
+    <p class="rotate-footnote">Choosing a location yourself restarts the seven-day rotation period.</p>
+    <div class="dialog-footer"><button class="dialog-primary close-dialog-text">Got it</button></div>
+  </dialog>
+
+  <dialog id="plan-dialog" class="feature-dialog">
+    <div class="dialog-header"><div><span class="eyebrow">SUBSCRIPTION</span><h2>Your plan</h2></div><button class="close-dialog" aria-label="Close plan details"></button></div>
+    <div class="plan-status"><span data-feature-icon="calendar"></span><div><strong>24 days remaining</strong><p>Access until 20 November 2026</p></div><span class="status-with-dot"><i></i>Active</span></div>
+    <p>Your subscription includes access on up to 6 devices. Have an activation code? Use it to add access to your account.</p>
+    <div class="dialog-footer"><button class="dialog-cancel close-dialog-text">Close</button><button id="plan-activation" class="dialog-primary">Use activation code</button></div>
+  </dialog>
+
+  <dialog id="activation-dialog" class="feature-dialog">
+    <div class="dialog-header"><div><span class="eyebrow">ACCOUNT</span><h2>Use activation code</h2></div><button class="close-dialog" aria-label="Close activation code"></button></div>
+    <p>Enter the activation code associated with your Stellar VPN plan.</p>
+    <label class="field-label" for="activation-code">Activation code</label>
+    <input id="activation-code" class="dialog-input" type="text" inputmode="text" autocomplete="off" placeholder="XXXX-XXXX-XXXX">
+    <div class="dialog-footer"><button class="dialog-cancel close-dialog-text">Cancel</button><button id="activate-code" class="dialog-primary">Activate</button></div>
+  </dialog>
+
+  <dialog id="trust-dialog" class="feature-dialog trust-dialog">
+    <div class="dialog-header"><div><span class="eyebrow">SWISS PRIVACY</span><h2>Why trust Stellar VPN?</h2></div><button class="close-dialog" aria-label="Close privacy information"></button></div>
+    <div class="trust-point"><span data-feature-icon="building"></span><div><strong>Swiss ownership</strong><p>Stellar VPN is owned and operated by Stellar Security, a Swiss-based company.</p></div></div>
+    <div class="trust-point"><span data-feature-icon="shield"></span><div><strong>Privacy-first jurisdiction</strong><p>Swiss privacy laws help protect your data from third-party interference.</p></div></div>
+    <div class="trust-point"><span data-feature-icon="noLogs"></span><div><strong>No activity logs</strong><p>Stellar VPN does not track or log your online activity.</p></div></div>
+    <div class="dialog-footer"><a class="dialog-link" href="https://stellarvpn.org/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy policy ↗</a><button class="dialog-primary close-dialog-text">Got it</button></div>
+  </dialog>
+
+  <dialog id="logout-dialog" class="feature-dialog">
+    <div class="dialog-header"><div><span class="eyebrow">ACCOUNT</span><h2>Log out of Stellar VPN?</h2></div><button class="close-dialog" aria-label="Close logout confirmation"></button></div>
+    <p>Your VPN connection will be disconnected and this account will be removed from the device.</p>
+    <div class="dialog-footer"><button class="dialog-cancel close-dialog-text">Cancel</button><button id="confirm-logout" class="dialog-danger">Log out</button></div>
+  </dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <script src="vpn.js?v=61"></script>
+</body>
+</html>

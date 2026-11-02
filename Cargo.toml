@@ -1,0 +1,21 @@
+[workspace]
+members = ["src-tauri", "crates/stellar-core", "crates/stellar-vpn-helper"]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.85"
+license = "UNLICENSED"
+
+[workspace.dependencies]
+serde = { version = "=1.0.228", features = ["derive"] }
+
+# Compatible GTK3 backport of upstream gtk-rs-core PR #1343.
+# Provenance and integrity checks: vendor/glib-0.18.5/stellar-backport.json.
+[patch.crates-io]
+glib = { path = "vendor/glib-0.18.5" }
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

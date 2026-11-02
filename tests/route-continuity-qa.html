@@ -1,0 +1,12 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Route continuity QA</title>
+<style>body{background:#1045a8;color:white;font:16px system-ui;padding:24px}svg{width:100%;height:180px;border:1px solid #ffffff33;margin-bottom:12px}path{fill:none;stroke:#e9f6ff;stroke-width:2.5;vector-effect:non-scaling-stroke}circle{fill:white}h1{font-size:20px}</style>
+<h1>Continuous route at 25%, 50% and 75% — no VPN commands</h1><div id="frames"></div>
+<script type="module">
+import {routeFrame} from '/src/features/map/domain/RouteFrame.ts';
+for(const t of [.25,.5,.75]){
+ const frame=routeFrame('M20 130 Q500 -80 980 130',t);
+ const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 1000 180');
+ svg.innerHTML=`<path d="${frame.path}"/><circle cx="${frame.point.x}" cy="${frame.point.y}" r="4"/>`;
+ document.querySelector('#frames').append(svg);
+}
+</script></html>

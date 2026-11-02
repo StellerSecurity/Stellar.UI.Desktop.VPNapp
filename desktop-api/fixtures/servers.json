@@ -1,0 +1,408 @@
+[
+  {
+    "id": "de-1",
+    "name": "Germany – Frankfurt",
+    "country": "DE",
+    "lat": 50.1109,
+    "lon": 8.6821
+  },
+  {
+    "id": "ar-1",
+    "name": "Argentina – Buenos Aires",
+    "country": "AR",
+    "lat": -34.6037,
+    "lon": -58.3816
+  },
+  {
+    "id": "au-1",
+    "name": "Australia – Sydney",
+    "country": "AU",
+    "lat": -33.8688,
+    "lon": 151.2093
+  },
+  {
+    "id": "at-1",
+    "name": "Austria – Vienna",
+    "country": "AT",
+    "lat": 48.2082,
+    "lon": 16.3738
+  },
+  {
+    "id": "bh-1",
+    "name": "Bahrain – Manama",
+    "country": "BH",
+    "lat": 26.2235,
+    "lon": 50.5876
+  },
+  {
+    "id": "bd-1",
+    "name": "Bangladesh – Dhaka",
+    "country": "BD",
+    "lat": 23.8103,
+    "lon": 90.4125
+  },
+  {
+    "id": "be-1",
+    "name": "Belgium – Brussels",
+    "country": "BE",
+    "lat": 50.8503,
+    "lon": 4.3517
+  },
+  {
+    "id": "br-1",
+    "name": "Brazil – São Paulo",
+    "country": "BR",
+    "lat": -23.5558,
+    "lon": -46.6396
+  },
+  {
+    "id": "bg-1",
+    "name": "Bulgaria – Sofia",
+    "country": "BG",
+    "lat": 42.6977,
+    "lon": 23.3219
+  },
+  {
+    "id": "kh-1",
+    "name": "Cambodia – Phnom Penh",
+    "country": "KH",
+    "lat": 11.5564,
+    "lon": 104.9282
+  },
+  {
+    "id": "ca-1",
+    "name": "Canada – Toronto",
+    "country": "CA",
+    "lat": 43.6532,
+    "lon": -79.3832
+  },
+  {
+    "id": "cl-1",
+    "name": "Chile – Santiago",
+    "country": "CL",
+    "lat": -33.4489,
+    "lon": -70.6693
+  },
+  {
+    "id": "co-1",
+    "name": "Colombia – Bogotá",
+    "country": "CO",
+    "lat": 4.711,
+    "lon": -74.0721
+  },
+  {
+    "id": "cz-1",
+    "name": "Czech Republic – Prague",
+    "country": "CZ",
+    "lat": 50.0755,
+    "lon": 14.4378
+  },
+  {
+    "id": "dk-1",
+    "name": "Denmark – Copenhagen",
+    "country": "DK",
+    "lat": 55.6761,
+    "lon": 12.5683
+  },
+  {
+    "id": "eg-1",
+    "name": "Egypt – Cairo",
+    "country": "EG",
+    "lat": 30.0444,
+    "lon": 31.2357
+  },
+  {
+    "id": "ee-1",
+    "name": "Estonia – Tallinn",
+    "country": "EE",
+    "lat": 59.437,
+    "lon": 24.7536
+  },
+  {
+    "id": "fi-1",
+    "name": "Finland – Helsinki",
+    "country": "FI",
+    "lat": 60.1699,
+    "lon": 24.9384
+  },
+  {
+    "id": "fr-1",
+    "name": "France – Paris",
+    "country": "FR",
+    "lat": 48.8566,
+    "lon": 2.3522
+  },
+  {
+    "id": "gr-1",
+    "name": "Greece – Athens",
+    "country": "GR",
+    "lat": 37.9838,
+    "lon": 23.7275
+  },
+  {
+    "id": "hk-1",
+    "name": "Hong Kong – Hong Kong",
+    "country": "HK",
+    "lat": 22.3193,
+    "lon": 114.1694
+  },
+  {
+    "id": "hu-1",
+    "name": "Hungary – Budapest",
+    "country": "HU",
+    "lat": 47.4979,
+    "lon": 19.0402
+  },
+  {
+    "id": "in-1",
+    "name": "India – Bangalore",
+    "country": "IN",
+    "lat": 12.9716,
+    "lon": 77.5946
+  },
+  {
+    "id": "id-1",
+    "name": "Indonesia – Jakarta",
+    "country": "ID",
+    "lat": -6.2088,
+    "lon": 106.8456
+  },
+  {
+    "id": "iq-1",
+    "name": "Iraq – Baghdad",
+    "country": "IQ",
+    "lat": 33.3152,
+    "lon": 44.3661
+  },
+  {
+    "id": "it-1",
+    "name": "Italy – Milan",
+    "country": "IT",
+    "lat": 45.4642,
+    "lon": 9.19
+  },
+  {
+    "id": "jp-1",
+    "name": "Japan – Tokyo",
+    "country": "JP",
+    "lat": 35.6762,
+    "lon": 139.6503
+  },
+  {
+    "id": "kz-1",
+    "name": "Kazakhstan – Almaty",
+    "country": "KZ",
+    "lat": 43.222,
+    "lon": 76.8512
+  },
+  {
+    "id": "kw-1",
+    "name": "Kuwait – Kuwait City",
+    "country": "KW",
+    "lat": 29.3759,
+    "lon": 47.9774
+  },
+  {
+    "id": "my-1",
+    "name": "Malaysia – Kuala Lumpur",
+    "country": "MY",
+    "lat": 3.139,
+    "lon": 101.6869
+  },
+  {
+    "id": "mx-1",
+    "name": "Mexico – Mexico City",
+    "country": "MX",
+    "lat": 19.4326,
+    "lon": -99.1332
+  },
+  {
+    "id": "np-1",
+    "name": "Nepal – Kathmandu",
+    "country": "NP",
+    "lat": 27.7172,
+    "lon": 85.324
+  },
+  {
+    "id": "nl-1",
+    "name": "Netherlands – Amsterdam",
+    "country": "NL",
+    "lat": 52.3676,
+    "lon": 4.9041
+  },
+  {
+    "id": "ne-1",
+    "name": "North EU – Dublin",
+    "country": "IE",
+    "lat": 53.3498,
+    "lon": -6.2603
+  },
+  {
+    "id": "no-1",
+    "name": "Norway – Oslo",
+    "country": "NO",
+    "lat": 59.9139,
+    "lon": 10.7522
+  },
+  {
+    "id": "om-1",
+    "name": "Oman – Muscat",
+    "country": "OM",
+    "lat": 23.588,
+    "lon": 58.3829
+  },
+  {
+    "id": "pe-1",
+    "name": "Peru – Lima",
+    "country": "PE",
+    "lat": -12.0464,
+    "lon": -77.0428
+  },
+  {
+    "id": "ph-1",
+    "name": "Philippines – Manila",
+    "country": "PH",
+    "lat": 14.5995,
+    "lon": 120.9842
+  },
+  {
+    "id": "pl-1",
+    "name": "Poland – Warsaw",
+    "country": "PL",
+    "lat": 52.2297,
+    "lon": 21.0122
+  },
+  {
+    "id": "qa-1",
+    "name": "Qatar – Doha",
+    "country": "QA",
+    "lat": 25.2854,
+    "lon": 51.531
+  },
+  {
+    "id": "ro-1",
+    "name": "Romania – Bucharest",
+    "country": "RO",
+    "lat": 44.4268,
+    "lon": 26.1025
+  },
+  {
+    "id": "ru-1",
+    "name": "Russia – Moscow",
+    "country": "RU",
+    "lat": 55.7558,
+    "lon": 37.6173
+  },
+  {
+    "id": "sa-1",
+    "name": "Saudi Arabia – Riyadh",
+    "country": "SA",
+    "lat": 24.7136,
+    "lon": 46.6753
+  },
+  {
+    "id": "rs-1",
+    "name": "Serbia – Belgrade",
+    "country": "RS",
+    "lat": 44.7866,
+    "lon": 20.4489
+  },
+  {
+    "id": "sg-1",
+    "name": "Singapore – Singapore",
+    "country": "SG",
+    "lat": 1.3521,
+    "lon": 103.8198
+  },
+  {
+    "id": "za-1",
+    "name": "South Africa – Johannesburg",
+    "country": "ZA",
+    "lat": -26.2041,
+    "lon": 28.0473
+  },
+  {
+    "id": "kr-1",
+    "name": "South Korea – Seoul",
+    "country": "KR",
+    "lat": 37.5665,
+    "lon": 126.978
+  },
+  {
+    "id": "es-1",
+    "name": "Spain – Madrid",
+    "country": "ES",
+    "lat": 40.4168,
+    "lon": -3.7038
+  },
+  {
+    "id": "se-1",
+    "name": "Sweden – Stockholm",
+    "country": "SE",
+    "lat": 59.3293,
+    "lon": 18.0686
+  },
+  {
+    "id": "ch-1",
+    "name": "Switzerland – Zurich",
+    "country": "CH",
+    "lat": 47.3769,
+    "lon": 8.5417
+  },
+  {
+    "id": "tw-1",
+    "name": "Taiwan – Taipei",
+    "country": "TW",
+    "lat": 25.033,
+    "lon": 121.5654
+  },
+  {
+    "id": "th-1",
+    "name": "Thailand – Bangkok",
+    "country": "TH",
+    "lat": 13.7563,
+    "lon": 100.5018
+  },
+  {
+    "id": "tr-1",
+    "name": "Turkey – Istanbul",
+    "country": "TR",
+    "lat": 41.0082,
+    "lon": 28.9784
+  },
+  {
+    "id": "ae-1",
+    "name": "United Arab Emirates – Dubai",
+    "country": "AE",
+    "lat": 25.2048,
+    "lon": 55.2708
+  },
+  {
+    "id": "gb-1",
+    "name": "United Kingdom – London",
+    "country": "GB",
+    "lat": 51.5074,
+    "lon": -0.1278
+  },
+  {
+    "id": "us-1",
+    "name": "United States – New York City",
+    "country": "US",
+    "lat": 40.7128,
+    "lon": -74.006
+  },
+  {
+    "id": "us-sf-1",
+    "name": "United States – San Francisco",
+    "country": "US",
+    "lat": 37.7749,
+    "lon": -122.4194
+  },
+  {
+    "id": "vn-1",
+    "name": "Vietnam – Ho Chi Minh City",
+    "country": "VN",
+    "lat": 10.8231,
+    "lon": 106.6297
+  }
+]

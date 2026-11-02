@@ -1,0 +1,5 @@
+name: Upload Stellar Windows interface test
+description: First-party single-file artifact upload using Node standard libraries only
+runs:
+  using: node24
+  main: index.mjs

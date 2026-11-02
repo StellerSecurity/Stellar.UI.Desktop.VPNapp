@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "releaseReady": false,
+  "runtimeApproved": false,
+  "driverApproved": false,
+  "servicePersistenceApproved": true,
+  "architectures": ["x86_64"],
+  "requiredAcceptance": [
+    "msvc-build", "install-upgrade-uninstall", "credential-vault", "legacy-migration",
+    "vpn-connect-cancel-expiry", "live-kill-switch", "crash-fail-closed",
+    "ipv4-ipv6-dns-leaks", "sleep-network-change", "signed-update-rollback"
+  ],
+  "reason": "Installer-managed service approved by the user. Native Windows acceptance and exact runtime/driver security review remain pending. Do not distribute this source draft."
+}

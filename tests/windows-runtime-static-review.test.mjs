@@ -1,0 +1,36 @@
+import fs from 'node:fs';
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+test('Windows runtime review pins approved bytes and never installs or executes the MSI', () => {
+  const source = fs.readFileSync(new URL('../.github/workflows/windows-runtime-static-review.yml', import.meta.url), 'utf8');
+  assert(source.includes('permissions: {}'));
+  assert(source.includes('33104dd02c48cba172612882b1af6276422b1b4340d4c9c84dd2afb4b356fe9f'));
+  assert(source.includes('$installer.OpenDatabase([string]$file, [int]0)'));
+  assert(source.includes('Get-AuthenticodeSignature'));
+  assert(source.includes('$request.AllowAutoRedirect = $false'));
+  assert(!/uses:|Start-Process|msiexec\.exe|Expand-Archive|Invoke-Expression|InstallProduct\s*\(/i.test(source));
+  const extraction = fs.readFileSync(new URL('../scripts/windows-runtime-extract-review.ps1', import.meta.url), 'utf8');
+  assert(source.includes(createHash('sha256').update(extraction).digest('hex')));
+  assert(extraction.includes('packageExecuted = $false'));
+  assert(extraction.includes('driverInstalled = $false'));
+});
+test('static extraction validates every cabinet entry before system decoding and never runs package code', () => {
+  const source = fs.readFileSync(new URL('../scripts/windows-runtime-extract-review.ps1', import.meta.url), 'utf8');
+  assert(source.includes('$installer.OpenDatabase([string]$Package, [int]0)'));
+  assert(source.includes('$record.ReadStream(1, 65536, 1)'));
+  assert(source.includes('[Environment]::SystemDirectory'));
+  assert(source.includes('$flags -ne 0'));
+  assert(source.includes('$size -ne $files[$id].size'));
+  assert(source.includes('$expandedSize -gt 134217728'));
+  assert(source.indexOf('Cabinet file does not match') < source.indexOf('& $expand'));
+  assert(source.includes('Get-AuthenticodeSignature -LiteralPath $reviewPath'));
+  assert(source.includes("Join-Path $catalogDirectory 'ovpn-dco.cat'"));
+  assert(source.includes('Catalog bytes changed during static naming.'));
+  assert(source.includes('catalogMembershipVerified = $true'));
+  assert(source.includes('CryptCATAdminCalcHashFromFileHandle2'));
+  assert(source.includes('CryptCATGetMemberInfo(catalog, tag)'));
+  assert(source.includes('Catalog negative control failed.'));
+  assert(!/msiexec|InstallProduct\s*\(|Start-Process|Invoke-Expression|rundll32|regsvr32|CryptCATAdminAddCatalog/i.test(source));
+  assert(!/^\s*&\s+(?!\$expand)/m.test(source));
+});

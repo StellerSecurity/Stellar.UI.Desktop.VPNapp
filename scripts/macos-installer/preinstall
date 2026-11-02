@@ -1,0 +1,12 @@
+#!/bin/sh
+set -eu
+# Installer is the only elevation boundary. Never terminate the user's app.
+if /usr/bin/pgrep -f '/Stellar VPN.app/Contents/MacOS/stellar-vpn-desktop' >/dev/null; then
+    echo 'Quit Stellar VPN before installing or updating. Your VPN has not been disconnected by this installer.' >&2
+    exit 1
+fi
+for directory in '/Library/Application Support/Stellar VPN' '/Applications/Stellar VPN.app'; do
+    [ ! -L "$directory" ] || { echo 'Unsafe installation path. Installation stopped.' >&2; exit 1; }
+done
+script_directory=$(/usr/bin/dirname "$0")
+"$script_directory/helper-preinstall"

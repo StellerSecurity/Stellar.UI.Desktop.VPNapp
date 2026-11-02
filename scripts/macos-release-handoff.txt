@@ -1,0 +1,71 @@
+Stellar VPN 0.5.0 — signing-machine handoff
+
+Source branch: stellar/macos-0.5.0-release-source
+Repository: https://github.com/StellerSecurity/Stellar.UI.Desktop.VPNapp.git
+Application identifier: org.stellarsecurity.vpn.desktop
+Apple signing team: 7VYLUCU756
+Initial test target: Apple Silicon / aarch64-apple-darwin.
+
+This is release source, not an approved public release. Do not publish an
+artifact or replace either update feed merely by checking out this branch.
+Do not move private signing keys, OTA keys, passwords or account data into Git.
+
+COMPATIBILITY BLOCKER (2026-11-02): The first runtime handoff archive, SHA-256
+970d5c82c82901ddc5eb121bd77f99a6c502b1007dcf1a4948cd631274c554c8,
+requires macOS 27.0 (OpenVPN and four libraries) / 26.0 (LZ4).
+It MUST NOT be used for the app's declared macOS 12 minimum. Do not change
+Mach-O version fields to pretend compatibility. A reviewed source rebuild is
+required. The runtime verifier now rejects binaries requiring macOS > 12.0.
+
+REPLACEMENT (2026-11-02): The reviewed source rebuild is available as draft
+release macos-0.5.0-runtime-macos12-handoff. Use ONLY the artifact named
+Stellar-VPN-0.5.0-OpenVPN-runtime-darwin-arm64-macos12.tar.gz, SHA-256
+20910b9caa4503f81f3fbecc117b3ed4de07de45729603514c79dad5d98aba54.
+All six actual Mach-O deployment targets are 12.0.0; each is documented in
+runtime-manifest.json. Hashes, bundled/system-only dependencies, ad hoc
+signatures and local library smoke tests passed. OpenVPN preserves PKCS11.
+The darwin27 host triple in --version is NOT the Mach-O deployment minimum.
+This has NOT been live-tested on macOS 12 and is NOT Developer ID signed or
+notarized. Rebuild the helper package and app, then sign/notarize again; do not
+reuse the previously signed app/package with its old embedded package hash.
+
+1. Verify the checked-out commit and version 0.5.0 in package.json,
+   package-lock.json, src-tauri/Cargo.toml, Cargo.lock and tauri.conf.json.
+   The desktop API defaults to the production V2 gateway.
+2. Follow the user's dependency security review and explicit approval policy
+   before downloading or installing missing Node/Rust tools or dependencies.
+   Lockfiles are included. Never substitute newer versions silently.
+3. Downloaded OpenVPN runtime binaries and generated helper packages are
+   deliberately not tracked. Obtain the separately reviewed ARM64 runtime
+   through an authorized transfer; verify its manifest, hashes and architecture
+   with scripts/macos-architecture.mjs before use. Do not invent replacement
+   runtime hashes or download an unreviewed binary to bypass this check.
+4. scripts/build-macos-test.mjs builds an UNSIGNED test candidate offline.
+   It deliberately clears Apple signing environment variables. It is not a
+   production signing/notarization pipeline.
+5. For the final release, sign the runtime libraries, OpenVPN and native helper
+   with the valid Developer ID Application identity. Keep a provenance record
+   of the reviewed inputs and signed outputs, including the runtime manifest.
+   Build and sign the helper installer with Developer ID Installer; notarize
+   and staple it as required. Regenerate NetworkHelper.sha256 and the matching
+   NetworkHelper.arch.json AFTER finalizing the package and BEFORE compiling
+   the final app: its package hash is compiled into the application.
+6. Build, Developer ID sign, notarize and staple the final app/distribution.
+   Verify nested code signatures, team ID, bundle ID, version, architecture,
+   helper package signature/hash and Gatekeeper assessment. Do not disable
+   security checks or replace the existing certificate/key setup.
+7. Native legacy login migration is currently disabled in
+   src-tauri/legacy-migration.json. Backend availability and synthetic tests do
+   not prove a real old-to-new native upgrade. Review and validate migration
+   before enabling it in a public release; retain the old login on failure.
+8. Keep the existing IronKey OTA private key local. Verify the archive's OTA
+   signature against the public key pinned in src-tauri/src/updates/trust.rs.
+   The signed trusted comment must contain the correct version:0.5.0.
+   scripts/prepare-ota-manifest.mjs verifies this without reading private keys.
+9. The old feed /vpn/latest.json serves legacy clients. The new updater uses
+   /vpn/desktop-v2/latest.json and restricts artifact paths to desktop-v2.
+   Preserve both contracts. First perform the controlled old-app OTA upgrade
+   test; changing a shared feed can affect all existing users.
+
+Deliver verified artifacts, hashes and test evidence for review before public
+publication. A successful local build alone is not an OTA or migration test.

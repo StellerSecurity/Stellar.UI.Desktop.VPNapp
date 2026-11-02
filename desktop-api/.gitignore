@@ -1,0 +1,8 @@
+*.[mM][dD]
+.env
+.env.*
+!.env.example
+vendor/
+bootstrap/cache/*.php
+storage/
+composer.phar

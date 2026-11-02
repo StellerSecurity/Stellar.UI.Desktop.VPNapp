@@ -1,0 +1,8 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Stellar marker interaction test</title><link rel="stylesheet" href="/stellar-tokens.css"><link rel="stylesheet" href="/vpn.css"><style>
+body{padding:20px;background:#f6f6fd;font-family:system-ui}h1{font-size:18px}.fixture{position:relative;height:450px;margin-top:20px}.map-panel{position:absolute;inset:0;border-radius:16px}output{display:block;color:#0b0c19;background:white;padding:10px;border-radius:8px;position:relative;z-index:10}
+</style><body class="stellar-theme"><h1>Isolated marker interaction test — no VPN/network commands</h1><output role="status">No connection requested</output><div class="fixture"><main class="map-panel" tabindex="0"><div class="map-art-frame"><div class="map-art"><button class="map-pin selected" data-map="ru-1" style="left:50%;top:50%" aria-label="Connect Moscow"></button></div></div></main></div><script type="module">
+import{MapViewport}from'/src/features/map/application/MapViewport.ts';import{markerAction}from'/src/features/map/domain/MarkerAction.ts';
+let count=0;const activate=id=>{if(markerAction(id,['ru-1'],{status:'disconnected',serverId:null,connectedAt:null},false)==='connect')document.querySelector('output').textContent=`Connect requested: ${id} (${++count})`;};
+new MapViewport(document.querySelector('main'),()=>{},activate,()=>true);
+document.querySelector('button').addEventListener('click',event=>{if(event.detail===0)activate('ru-1');});
+</script></body></html>

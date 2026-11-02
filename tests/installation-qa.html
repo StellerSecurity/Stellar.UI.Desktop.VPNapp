@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="da"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Stellar VPN — installationsflow (preview)</title>
+<link rel="stylesheet" href="/stellar-tokens.css"><link rel="stylesheet" href="/vpn.css">
+<link rel="stylesheet" href="/src/shared/design-system/desktop.css">
+<style>.setup-preview-controls{position:fixed;z-index:100;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:12px;padding:8px 14px;background:#fff;border:1px solid #e5e5ee;border-radius:12px;font:11px system-ui;white-space:nowrap}.setup-preview-controls a{color:#2761fc}.installation-screen{padding-bottom:64px}iframe{position:fixed;inset:0;width:100%;height:100%;border:0}</style>
+<body class="stellar-theme"><div id="root"></div>
+<nav class="setup-preview-controls" aria-label="Preview-scenarier"><span>Kun preview</span><a href="?scenario=ready&lang=Dansk">Klar</a><a href="?scenario=repair&lang=Dansk">Hjælper mangler → Prøv igen</a><a href="?scenario=unverified&lang=Dansk">Firewall mangler</a><a href="?scenario=error&lang=Dansk">Fejl</a></nav>
+<script type="module">
+// First-party isolated fixture: no native commands, installation, credentials or production API.
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { InstallationGate } from '/src/features/setup/ui/InstallationGate.tsx';
+import { InstallationService } from '/src/features/setup/application/InstallationService.ts';
+import { CompactFixture } from './compact-fixture.jsx';
+const params = new URLSearchParams(location.search), scenario = params.get('scenario') || 'ready';
+let language = params.get('lang') || 'Dansk', checks = 0;
+const port = {
+  openHelper: async () => { if (scenario === 'windows-open-error') throw new Error('Simulated repair failure'); },
+  check: async () => {
+    const attempt = ++checks;
+    if (scenario === 'error') throw new Error('Simulated unavailable helper');
+    if (scenario.startsWith('windows-')) return { platform: 'windows', helper: 'unavailable', firewallVerified: false, language,
+      setupIssue: ({ 'windows-arm': 'unsupported_architecture', 'windows-missing': 'installer_required', 'windows-untrusted': 'helper_untrusted' })[scenario] };
+    return { platform: 'macos', helper: scenario === 'repair' && attempt === 1 ? 'missing' : 'ready',
+      firewallVerified: scenario !== 'unverified' && !(scenario === 'repair' && attempt === 1), language };
+  },
+};
+function LoginPreview() {
+  return React.createElement(CompactFixture, { search: '?auth=1&lang=' + encodeURIComponent(language) });
+}
+createRoot(document.getElementById('root')).render(React.createElement(InstallationGate, {service: new InstallationService(port)}, React.createElement(LoginPreview)));
+</script></body></html>

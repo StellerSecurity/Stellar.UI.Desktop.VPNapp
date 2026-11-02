@@ -1,0 +1,24 @@
+.feature-dialog.auto-rotate-dialog { max-width: 480px; }
+.rotation-scene { padding: 20px 20px 22px; border: 1px solid #2761fc30; border-radius: 15px; background: radial-gradient(ellipse at 50% 10%, #2761fc65, transparent 75%), #0b245b; color: #fff; overflow: hidden; }
+.rotation-brand { display: block; color: #a6b8ec; font-size: 9px; letter-spacing: 2px; font-weight: 600; }
+.rotation-orbit { display: grid; grid-template-columns: 48px 1fr 64px 1fr 48px; align-items: center; gap: 12px; margin: 25px 12px 13px; }
+.rotation-orbit > span, .rotation-orbit > strong { display: grid; place-items: center; height: 48px; border: 1px solid #a6b8ec55; border-radius: 15px; background: #ffffff0a; }
+.rotation-orbit > strong { height: 64px; border-color: #8aafff; background: #2761fc; box-shadow: 0 0 28px #2761fc40; border-radius: 20px; }
+.rotation-orbit svg { width: 24px; height: 24px; }
+.rotation-orbit > strong svg { width: 30px; height: 30px; }
+.rotation-orbit > i { height: 1px; background: linear-gradient(90deg, #a6b8ec30, #a6b8ec); position: relative; }
+.rotation-orbit > i::after { content: ''; position: absolute; right: 0; top: -2px; width: 5px; height: 5px; border-radius: 50%; background: #a6b8ec; }
+.rotation-labels { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; align-items: start; text-align: center; font-size: 10px; line-height: 1.5; color: #a6b8ec; }
+.rotation-labels strong { color: #fff; font-size: 11px; }
+.rotation-intro { margin: 16px 1px !important; font-size: 13px !important; color: var(--stellar-ink) !important; line-height: 1.6 !important; }
+.rotation-details { display: grid; gap: 13px; padding-top: 3px; }
+.rotation-details > div { display: flex; align-items: flex-start; gap: 10px; }
+.rotation-details svg { flex: none; width: 17px; height: 17px; color: var(--stellar-blue); margin-top: 2px; }
+.rotation-details span { display: grid; gap: 3px; }
+.rotation-details strong { font-size: 12px; font-weight: 600; }
+.rotation-details small { color: var(--stellar-body); font-size: 11px; line-height: 1.5; }
+@media (prefers-reduced-motion: no-preference) {
+  .rotation-orbit > strong svg { animation: rotation-intro .65s cubic-bezier(.2,.7,.2,1) both; }
+  @keyframes rotation-intro { from { transform: rotate(-100deg); opacity: .3; } to { transform: rotate(0); opacity: 1; } }
+}
+@media (max-width: 500px) { .rotation-scene { padding: 16px 12px; } .rotation-orbit { gap: 7px; margin-inline: 4px; grid-template-columns: 40px 1fr 56px 1fr 40px; } .rotation-orbit > span { height: 40px; } .rotation-orbit > strong { height: 56px; } }

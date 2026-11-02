@@ -1,0 +1,63 @@
+name: Windows Rust build and tests
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['stellar/windows-hosted-inventory']
+    paths:
+      - '.github/workflows/windows-rust-build.yml'
+
+permissions: {}
+
+concurrency:
+  group: windows-rust-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    if: github.repository == 'StellerSecurity/Stellar.UI.Desktop.VPNapp'
+    runs-on: windows-2022
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: Fetch exact first-party build harness only
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:SOURCE_COMMIT -notmatch '^[a-f0-9]{40}$') { throw 'Exact source commit required.' }
+          $files = @(
+            @{ path = 'scripts/windows-rust-build.ps1'; sha256 = 'd2a65ca39e3d9aec61e359224aa3601d268f2b1d824b010a94b8819d3fde51f4' },
+            @{ path = 'scripts/windows-rust-inputs.json'; sha256 = '8a95a198367e91e4c9d2c75d46dde1588453758839e47d8cea850e5e780d6c91' },
+            @{ path = '.github/actions/upload-windows-interface-test/action.yml'; sha256 = 'aa643c5298b83c09698d7f7a55e9eea1f4455f3dc778c78aba9a6d63bac3c617' },
+            @{ path = '.github/actions/upload-windows-interface-test/index.mjs'; sha256 = '7e2b0caf7ef9dd91bcfeae88e7228b6c18aaa1de425ae416e0eff17ac3cf4153' }
+          )
+          $root = Join-Path $env:RUNNER_TEMP 'stellar-rust-harness'
+          [IO.Directory]::CreateDirectory($root) | Out-Null
+          foreach ($entry in $files) {
+              $destination = Join-Path $root $entry.path
+              if ($entry.path.StartsWith('.github/actions/')) {
+                  $destination = Join-Path $env:GITHUB_WORKSPACE $entry.path
+                  if (Test-Path -LiteralPath $destination) { throw 'Fresh first-party action source required.' }
+              }
+              [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($destination)) | Out-Null
+              $request = [Net.HttpWebRequest]::Create('https://raw.githubusercontent.com/StellerSecurity/Stellar.UI.Desktop.VPNapp/' + $env:SOURCE_COMMIT + '/' + $entry.path)
+              $request.AllowAutoRedirect = $false
+              $request.Timeout = 30000
+              $response = $request.GetResponse()
+              try {
+                  $output = [IO.File]::Create($destination)
+                  try { $response.GetResponseStream().CopyTo($output) } finally { $output.Dispose() }
+              } finally { $response.Dispose() }
+              if ((Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant() -ne $entry.sha256) { throw 'Build harness hash mismatch.' }
+          }
+          "STELLAR_RUST_HARNESS=$root" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Verify tools; fetch locked sources; build and test offline
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          & (Join-Path $env:STELLAR_RUST_HARNESS 'scripts/windows-rust-build.ps1') -SourceCommit $env:SOURCE_COMMIT -ExportInterfaceTest
+      - name: Save only the first-party interface test and its build manifest
+        uses: ./.github/actions/upload-windows-interface-test
