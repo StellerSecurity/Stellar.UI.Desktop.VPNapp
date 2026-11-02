@@ -11,7 +11,7 @@ static SHUTDOWN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::
 extern "C" fn shutdown_signal(_: i32) { SHUTDOWN.store(true, std::sync::atomic::Ordering::Relaxed); }
 unsafe extern "C" { fn geteuid() -> u32; fn getpeereid(fd: i32, euid: *mut u32, egid: *mut u32) -> i32; fn chown(path: *const i8, uid: u32, gid: u32) -> i32; fn signal(sig: i32, handler: usize) -> usize; }
 #[derive(Default)]
-struct Tunnel { child: Option<Child>, management: Option<UnixStream>, generation: u64, connected: bool, server: String, connected_at: u64, received: u64, sent: u64, directory: Option<PathBuf>, protected: bool, endpoints: Vec<crate::firewall::Endpoint> }
+struct Tunnel { child: Option<Child>, management: Option<UnixStream>, generation: u64, connected: bool, server: String, connected_at: u64, received: u64, sent: u64, directory: Option<PathBuf>, protected: bool, endpoints: Vec<crate::firewall::Endpoint>, interface: Option<String> }
 type Shared = Arc<Mutex<Tunnel>>;
 fn locked(state: &Shared) -> io::Result<std::sync::MutexGuard<'_, Tunnel>> { state.lock().map_err(|_| io::Error::other("State unavailable")) }
 fn scutil(input: &str) -> io::Result<()> {
@@ -51,7 +51,7 @@ fn verify_tunnel(line: &str) -> io::Result<String> {
 }
 fn stop_inner(tunnel: &mut Tunnel) -> io::Result<()> {
     if tunnel.protected { crate::macos_firewall::arm(&tunnel.endpoints, None)?; }
-    tunnel.generation = tunnel.generation.wrapping_add(1); tunnel.connected = false;
+    tunnel.generation = tunnel.generation.wrapping_add(1); tunnel.connected = false; tunnel.interface = None;
     if let Some(mut management) = tunnel.management.take() { let _ = management.write_all(b"signal SIGTERM\n"); }
     if let Some(mut child) = tunnel.child.take() {
         let deadline = Instant::now() + Duration::from_secs(3);
@@ -72,6 +72,24 @@ fn status(state: &Shared, stream: &mut UnixStream) -> io::Result<()> {
     if tunnel.connected { writeln!(stream, "CONNECTED {} {} {} {}", tunnel.server, tunnel.connected_at, tunnel.received, tunnel.sent) }
     else if tunnel.protected { stream.write_all(b"BLOCKED\n") }
     else { stream.write_all(b"DISCONNECTED\n") }
+}
+fn update_protection(
+    tunnel: &mut Tunnel, enabled: bool,
+    arm: impl FnOnce(&[crate::firewall::Endpoint], Option<&str>) -> io::Result<()>,
+    disarm: impl FnOnce() -> io::Result<()>,
+) -> io::Result<()> {
+    if enabled == tunnel.protected { return Ok(()); }
+    if enabled {
+        if tunnel.connected && tunnel.interface.is_none() { return Err(io::Error::other("Verified tunnel interface unavailable")); }
+        // Validate before touching PF, including unprotected sessions whose
+        // configs use hostnames rather than literal, allowlisted endpoints.
+        crate::firewall::rules(&tunnel.endpoints, tunnel.interface.as_deref())?;
+        arm(&tunnel.endpoints, tunnel.interface.as_deref())?;
+    } else { disarm()?; }
+    // Never stop/restart OpenVPN, change DNS, generation, telemetry or routes.
+    // A failed PF operation cannot acknowledge or commit a new setting.
+    tunnel.protected = enabled;
+    Ok(())
 }
 fn pushed_dns(line: &str, dns: &mut Vec<std::net::IpAddr>) {
     if !line.starts_with(">LOG:") || !line.contains("PUSH_REPLY,") { return; }
@@ -125,6 +143,7 @@ fn connect(state: &Shared, generation: u64, id: &str, expires_at: u64, credentia
                 if tunnel.generation != generation { return Err(io::Error::other("Connection cancelled")); }
                 apply_dns(&dns)?;
                 if tunnel.protected { crate::macos_firewall::arm(&tunnel.endpoints, Some(&interface))?; }
+                tunnel.interface = Some(interface);
                 if Instant::now() >= deadline { return Err(io::Error::new(io::ErrorKind::TimedOut, "OpenVPN timeout")); }
                 tunnel.connected = true; tunnel.connected_at = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64;
                 break;
@@ -170,7 +189,16 @@ fn handle(mut stream: UnixStream, state: &Shared, uid: u32) -> io::Result<()> {
     stream.set_read_timeout(Some(Duration::from_secs(3)))?; stream.set_write_timeout(Some(Duration::from_secs(3)))?;
     let mut reader = BufReader::new(stream.try_clone()?);
     let header = read_line(&mut reader, 256)?;
-    if header == "CAPABILITIES" { return stream.write_all(if crate::macos_firewall::verified() { b"CAPABILITIES 2 kill-switch\n" } else { b"CAPABILITIES 2\n" }); }
+    if header == "CAPABILITIES" { return stream.write_all(if crate::macos_firewall::verified() { b"CAPABILITIES 3 kill-switch live-kill-switch\n" } else { b"CAPABILITIES 3\n" }); }
+    if matches!(header.as_str(), "PROTECT 0" | "PROTECT 1") {
+        let enabled = header == "PROTECT 1";
+        // Never race a CONNECT operation or queue a stale setting behind one.
+        let _operation = CONNECT_LOCK.try_lock().map_err(|_| io::Error::other("Connection in progress"))?;
+        if enabled && !crate::macos_firewall::verified() { return Err(io::Error::other("Firewall has not passed system verification")); }
+        let mut tunnel = locked(state)?;
+        update_protection(&mut tunnel, enabled, crate::macos_firewall::arm, crate::macos_firewall::disarm)?;
+        return writeln!(stream, "PROTECTED {}", u8::from(enabled));
+    }
     if header == "STATUS" { return status(state, &mut stream); }
     if header == "EXPIRE" { stop(state)?; return status(state, &mut stream); }
     #[cfg(debug_assertions)]
@@ -183,8 +211,10 @@ fn handle(mut stream: UnixStream, state: &Shared, uid: u32) -> io::Result<()> {
         return stream.write_all(b"TEST_STARTED\n");
     }
     if header == "DISCONNECT" {
-        stop(state)?; crate::macos_firewall::disarm()?;
-        locked(state)?.protected = false;
+        // Keep stop + disarm atomic relative to a concurrent PROTECT request.
+        let mut tunnel = locked(state)?;
+        stop_inner(&mut tunnel)?; crate::macos_firewall::disarm()?;
+        tunnel.protected = false;
         return stream.write_all(b"DISCONNECTED\n");
     }
     let fields: Vec<_> = header.split(' ').collect();
@@ -213,7 +243,7 @@ fn handle(mut stream: UnixStream, state: &Shared, uid: u32) -> io::Result<()> {
     let _operation = CONNECT_LOCK.lock().map_err(|_| io::Error::other("State unavailable"))?;
     // Protected connections require literal endpoints: no DNS exception can
     // accidentally permit unrelated lookups outside the tunnel.
-    let endpoints = if protect { firewall_endpoints(&config)? } else { Vec::new() };
+    let endpoints = if protect { firewall_endpoints(&config)? } else { firewall_endpoints(&config).unwrap_or_default() };
     let generation = {
         let mut tunnel = locked(state)?; stop_inner(&mut tunnel)?;
         if protect { crate::macos_firewall::arm(&endpoints, None)?; }
@@ -299,6 +329,37 @@ fn firewall_endpoints(config: &ValidatedConfig) -> io::Result<Vec<crate::firewal
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn live_tunnel() -> Tunnel {
+        Tunnel { connected: true, generation: 42, server: "dk-1".into(), connected_at: 123, received: 456, sent: 789,
+            interface: Some("utun12".into()), endpoints: vec![crate::firewall::Endpoint { ip: "203.0.113.10".parse().unwrap(), port: 1197, tcp: false }], ..Tunnel::default() }
+    }
+    #[test]
+    fn live_protection_changes_only_firewall_state_not_the_active_tunnel() {
+        let mut tunnel = live_tunnel();
+        update_protection(&mut tunnel, true, |endpoints, interface| { assert_eq!(endpoints.len(), 1); assert_eq!(interface, Some("utun12")); Ok(()) }, || panic!("must not disarm")).unwrap();
+        assert!(tunnel.protected && tunnel.connected);
+        update_protection(&mut tunnel, false, |_, _| panic!("must not arm"), || Ok(())).unwrap();
+        assert!(!tunnel.protected && tunnel.connected);
+        assert_eq!((tunnel.generation, tunnel.connected_at, tunnel.received, tunnel.sent), (42, 123, 456, 789));
+        assert_eq!(tunnel.server, "dk-1"); assert_eq!(tunnel.interface.as_deref(), Some("utun12"));
+    }
+    #[test]
+    fn failed_firewall_changes_never_acknowledge_a_new_mode() {
+        let mut tunnel = live_tunnel();
+        assert!(update_protection(&mut tunnel, true, |_, _| Err(io::Error::other("PF failed")), || Ok(())).is_err());
+        assert!(!tunnel.protected && tunnel.connected);
+        tunnel.protected = true;
+        assert!(update_protection(&mut tunnel, false, |_, _| Ok(()), || Err(io::Error::other("PF failed"))).is_err());
+        assert!(tunnel.protected && tunnel.connected);
+    }
+    #[test]
+    fn enabling_requires_verified_interface_and_literal_endpoints_before_pf_is_called() {
+        let mut tunnel = live_tunnel(); tunnel.interface = None;
+        assert!(update_protection(&mut tunnel, true, |_, _| panic!("unsafe interface"), || Ok(())).is_err());
+        tunnel.interface = Some("utun12".into()); tunnel.endpoints.clear();
+        assert!(update_protection(&mut tunnel, true, |_, _| panic!("unsafe endpoint"), || Ok(())).is_err());
+        assert!(!tunnel.protected && tunnel.connected);
+    }
     #[test]
     fn dns_accepts_only_bounded_ip_addresses_from_push_reply() {
         let mut dns = Vec::new();

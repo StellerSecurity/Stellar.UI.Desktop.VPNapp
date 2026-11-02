@@ -1,8 +1,9 @@
-import { STAGING_API_BASE } from '../config/Staging.ts';
+import { PRODUCTION_API_BASE } from '../config/Production.ts';
+import { ANONYMOUS_SIGNUP_URL } from '../config/Signup.ts';
 import { accountCacheData, decodeAccount, mergeAccount, type Account } from '../../features/account/domain/Account.ts';
 import { apiRequest } from '../http/ApiRetry.ts';
 import { vpnAccess, SubscriptionRequired, type VpnAccess } from '../../features/account/domain/VpnAccess.ts';
-const BASE = `${STAGING_API_BASE}/auth/`;
+const BASE = `${PRODUCTION_API_BASE}/auth/`;
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 export type VpnLoginAuth = { username: string; password: string };
 export type RememberedIdentity = { accessToken: string; accountId: string; expiresAt: number };
@@ -27,6 +28,7 @@ export class HttpIdentityClient {
   #accountRequest: { token: string; promise: Promise<Account> } | null = null;
   #accountRevision = 0;
   #activationRequest = false;
+  #anonymousCreation: Promise<string> | null = null;
   #configurations = new Map<string, { config: string; expiresAt: number }>();
   #verifiedAccess: VpnAccess | null = null;
   #vpnAuthRequest: { token: string; promise: Promise<void> } | null = null;
@@ -36,6 +38,7 @@ export class HttpIdentityClient {
   constructor(request: typeof fetch = globalThis.fetch.bind(globalThis), rememberAccount?: (data: string, token: string) => Promise<void>, acceptAccess?: (access: VpnAccess, token: string) => Promise<void>) { this.request = request; this.rememberAccount = rememberAccount; this.acceptAccess = acceptAccess; }
 
   async authenticate(operation: 'login' | 'register' | 'account', email: string, password: string, accept?: (expiresAt: number, vpnAuth: VpnLoginAuth | null, identity: RememberedIdentity) => Promise<void>): Promise<number> {
+    this.#accountRevision++;
     if (operation === 'account' && !/^[0-9]{16}$/.test(email)) throw new Error('Enter all 16 digits.');
     const data = operation === 'account' ? await this.send('account-login', { account_number: email }) : await this.send(operation, { username: email, password });
     const expiry = typeof data.expires_at === 'string' ? Date.parse(data.expires_at) : NaN;
@@ -59,6 +62,44 @@ export class HttpIdentityClient {
   }
 
   get active(): boolean { return this.#token !== null && this.#expiresAt > Date.now(); }
+
+  createAnonymousAccount(): Promise<string> {
+    // A creation is never retried automatically or turned into a login. Deduplicate double clicks.
+    if (this.#anonymousCreation) return this.#anonymousCreation;
+    const promise = this.send('account-create', {}).then(data => {
+      if (typeof data.account_number !== 'string' || !/^[0-9]{16}$/.test(data.account_number)) {
+        throw new Error('Stellar returned an invalid response.');
+      }
+      return data.account_number;
+    });
+    this.#anonymousCreation = promise;
+    void promise.finally(() => { if (this.#anonymousCreation === promise) this.#anonymousCreation = null; }).catch(() => {});
+    return promise;
+  }
+
+  async migrateLegacy(token: string, accept: (identity: RememberedIdentity) => Promise<void>): Promise<void> {
+    if (this.#token !== null || !/^[1-9][0-9]{0,31}\|[A-Za-z0-9]{40}$/.test(token)) throw new SessionRejected(messages.invalid_session);
+    const revision = ++this.#accountRevision;
+    const data = await this.send('migrate-legacy', {}, token);
+    if (revision !== this.#accountRevision || this.#token !== null) throw new SessionRejected(messages.invalid_session);
+    const expiry = typeof data.expires_at === 'string' ? Date.parse(data.expires_at) : NaN;
+    if (data.token_type !== 'Bearer' || data.access_token === token || !Number.isFinite(expiry)
+      || expiry > Date.now() + 86400_000 + 30_000) throw new Error('Stellar returned an invalid migration session.');
+    const identity = { accessToken: data.access_token, accountId: data.account_id, expiresAt: expiry };
+    this.restore(identity);
+    try {
+      // Verify the issued session before making native login durable. No VPN password is imported.
+      await this.verifyRestoredSession();
+      if (revision !== this.#accountRevision || this.#token !== identity.accessToken) throw new SessionRejected(messages.invalid_session);
+      await accept(identity as RememberedIdentity);
+    } catch (error) {
+      if (revision === this.#accountRevision && this.#token === identity.accessToken) {
+        this.#token = null; this.#expiresAt = 0; this.#accountId = null;
+      }
+      // Do not revoke the replacement: a lost response or locked vault must be retryable.
+      throw error;
+    }
+  }
 
   restore(value: unknown): void {
     if (!object(value) || typeof value.accessToken !== 'string' || !/^[1-9][0-9]*\|[A-Za-z0-9]{40}$/.test(value.accessToken)
@@ -181,6 +222,7 @@ export class HttpIdentityClient {
   }
 
   async logout(): Promise<void> {
+    this.#accountRevision++;
     const token = this.#token;
     // Always clear local access, including when offline revocation fails.
     this.#token = null; this.#expiresAt = 0; this.#accountId = null;
@@ -188,9 +230,10 @@ export class HttpIdentityClient {
     if (token) await this.send('logout', {}, token);
   }
 
-  private async send(operation: 'login' | 'register' | 'account-login' | 'logout' | 'account' | 'configuration' | 'session' | 'activation' | 'vpn-auth', body: Record<string, string>, token?: string): Promise<Record<string, unknown>> {
-    const bucket = ['login', 'register', 'account-login'].includes(operation) ? 'credentials' : 'session';
-    const limitMessage = operation === 'configuration' ? 'Location requests are temporarily limited. Wait a moment before switching again.'
+  private async send(operation: 'login' | 'register' | 'account-login' | 'account-create' | 'migrate-legacy' | 'logout' | 'account' | 'configuration' | 'session' | 'activation' | 'vpn-auth', body: Record<string, string>, token?: string): Promise<Record<string, unknown>> {
+    const bucket = operation === 'account-create' ? 'creation' : ['login', 'register', 'account-login', 'migrate-legacy'].includes(operation) ? 'credentials' : 'session';
+    const limitMessage = operation === 'account-create' ? 'Too many attempts. Please try again later.'
+      : operation === 'configuration' ? 'Location requests are temporarily limited. Wait a moment before switching again.'
       : bucket === 'credentials' ? 'Sign-in requests are temporarily limited. Please wait before trying again.'
       : 'Account updates are temporarily limited. Please wait before refreshing.';
     if ((this.#rateLimits.get(bucket) ?? 0) > Date.now()) throw new Error(limitMessage);
@@ -198,11 +241,11 @@ export class HttpIdentityClient {
     const timer = setTimeout(() => controller.abort(), 30_000);
     let data: unknown, status = 0;
     try {
-      const response = await apiRequest(this.request, operation === 'vpn-auth' ? `${STAGING_API_BASE}/vpn/auth` : operation === 'activation' ? `${STAGING_API_BASE}/account/activation` : operation === 'account' ? `${STAGING_API_BASE}/account` : operation === 'configuration' ? `${STAGING_API_BASE}/vpn/configuration` : BASE + operation, {
+      const response = await apiRequest(this.request, operation === 'account-create' ? ANONYMOUS_SIGNUP_URL : operation === 'vpn-auth' ? `${PRODUCTION_API_BASE}/vpn/auth` : operation === 'activation' ? `${PRODUCTION_API_BASE}/account/activation` : operation === 'account' ? `${PRODUCTION_API_BASE}/account` : operation === 'configuration' ? `${PRODUCTION_API_BASE}/vpn/configuration` : BASE + operation, {
         method: 'POST', credentials: 'omit', redirect: 'error', cache: 'no-store', signal: controller.signal,
         headers: { Accept: 'application/json', 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify(body),
-      }, ['account', 'configuration', 'session'].includes(operation), undefined, () => operation === 'logout' || !token || this.#token === token);
+      }, ['account', 'configuration', 'session'].includes(operation), undefined, () => operation === 'migrate-legacy' || operation === 'logout' || !token || this.#token === token);
       status = response.status;
       if (status === 429) {
         const header = response.headers.get('Retry-After');
@@ -224,11 +267,13 @@ export class HttpIdentityClient {
         data = JSON.parse(text + decoder.decode());
       } finally { await reader.cancel(); reader.releaseLock(); }
     } catch {
+      if (operation === 'account-create') throw new Error('Account creation could not be confirmed. Check your connection before trying again.');
       throw new Error('Could not reach Stellar. Check your connection and try again.');
     } finally { clearTimeout(timer); }
     if (!object(data) || !object(data.meta) || data.meta.api_version !== 'v2') throw new Error('Stellar returned an invalid response.');
     if (status !== 200) {
       if (status === 429) throw new Error(limitMessage);
+      if (operation === 'account-create') throw new Error('Account creation is temporarily unavailable. Please try again later.');
       const code = object(data.error) && typeof data.error.code === 'string' ? data.error.code : '';
       if (operation === 'account-login' && code === 'invalid_credentials') throw new Error('This anonymous account number was not found. Check the number and try again.');
       if (operation === 'account-login' && ['invalid_input', 'validation_failed'].includes(code)) throw new Error('Enter all 16 digits.');

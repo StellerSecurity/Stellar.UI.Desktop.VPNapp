@@ -1,4 +1,5 @@
 import { mapPoint, type Coordinate } from '../domain/geometry';
+import { ProjectionZoom } from '../domain/ProjectionZoom';
 export const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
@@ -22,7 +23,7 @@ export class MapViewport {
   private globe = false;
   private focused?: Coordinate;
   private globeCentre?: Coordinate;
-  private lastFlatZoom = 2.1;
+  private projectionZoom = new ProjectionZoom();
   rememberGlobeCentre(centre: Coordinate) { this.globeCentre = centre; }
   constructor(root: HTMLElement, onChange: () => void, onSelect: (id: string) => void, collapsed: () => boolean, private onGlobeChange: (globe: boolean, centre?: Coordinate) => void = () => {}) {
     this.root = root; this.frame = root.querySelector('.map-art-frame')!; this.art = root.querySelector('.map-art')!;
@@ -64,7 +65,6 @@ export class MapViewport {
     if (globe !== this.globe) {
       if (globe) {
         const bounds = this.root.getBoundingClientRect(), plane = this.art.getBoundingClientRect();
-        this.lastFlatZoom = Number(this.art.style.getPropertyValue('--map-zoom')) || 2.1;
         this.globeCentre = { lon: clamp((bounds.left + bounds.width / 2 - plane.left) / plane.width * 360 - 180, -180, 180),
           lat: clamp(90 - (((bounds.top + bounds.height * .4 - plane.top) / plane.height * 760 - 85) / 590 * 180), -80, 80) };
       }
@@ -106,9 +106,19 @@ export class MapViewport {
     else { this.x = targetX; this.y = targetY; this.zoom = zoom; this.paint(); }
   }
   zoomBy(factor: number) {
-    if (this.globe && factor > 1 && (this.globeCentre || this.focused)) { this.focusAt((this.globeCentre || this.focused)!, this.lastFlatZoom); return; }
+    if (this.globe && factor > 1) { this.zoomFromGlobe(); return; }
     const rect = this.root.getBoundingClientRect();
     this.zoomAt(rect.left + this.root.clientWidth * (this.collapsed() ? .5 : .66), rect.top + this.root.clientHeight * .4, (this.animation ? this.targetZoom : this.zoom) * factor, true);
+  }
+  zoomFromGlobe = () => {
+    // The outgoing Globe stays mounted during the morph. Ignore its remaining
+    // wheel/pinch callbacks instead of multiplying flat-map zoom every frame.
+    if (!this.globe || !(this.globeCentre || this.focused)) return;
+    this.projectionZoom.begin(performance.now());
+    this.focusAt((this.globeCentre || this.focused)!, this.projectionZoom.overviewZoom);
+  };
+  private consumeProjectionGesture() {
+    return this.projectionZoom.consume(performance.now(), ['out', 'in'].includes(this.root.dataset.projectionPhase || ''));
   }
   private down = (event: PointerEvent) => {
     if (event.button !== 0 || this.blocked(event.target)) return;
@@ -159,6 +169,7 @@ export class MapViewport {
   };
   private cancel = () => { this.pointers.clear(); this.drag = null; this.root.classList.remove('is-dragging'); };
   private wheel = (event: WheelEvent) => {
+    if (this.consumeProjectionGesture()) { event.preventDefault(); return; }
     if (this.blocked(event.target)) return;
     event.preventDefault(); this.stop();
     const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? this.root.clientHeight : 1;
@@ -166,8 +177,9 @@ export class MapViewport {
     else { this.x -= event.deltaX * unit; this.y -= event.deltaY * unit; this.paint(); }
   };
   private doubleClick = (event: MouseEvent) => { if (!this.blocked(event.target)) { event.preventDefault(); this.zoomAt(event.clientX, event.clientY, Math.max(this.zoom + 1.1, this.zoom * 1.8), true); } };
-  private gestureStart = (event: Event) => { if (!this.blocked(event.target)) { event.preventDefault(); this.stop(); this.gestureZoom = this.zoom; } };
+  private gestureStart = (event: Event) => { if (this.consumeProjectionGesture()) { event.preventDefault(); return; } if (!this.blocked(event.target)) { event.preventDefault(); this.stop(); this.gestureZoom = this.zoom; } };
   private gestureChange = (event: Event) => {
+    if (this.consumeProjectionGesture()) { event.preventDefault(); return; }
     if (this.blocked(event.target)) return;
     const gesture = event as Event & { scale: number; clientX: number; clientY: number };
     if (!Number.isFinite(gesture.scale)) return;

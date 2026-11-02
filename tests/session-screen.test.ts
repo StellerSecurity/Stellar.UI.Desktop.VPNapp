@@ -6,7 +6,7 @@ test('telemetry updates never dismiss an explicitly opened welcome guide', () =>
   assert.equal(screenAfterSessionUpdate('onboarding', session), 'onboarding');
   assert.equal(screenAfterSessionUpdate('app', session), 'app');
 });
-test('expired sessions still return to authentication and first-time onboarding is required', () => {
+test('expired sessions require authentication but the product tour is optional', () => {
   assert.equal(screenAfterSessionUpdate('onboarding', { authenticated: false, onboardingComplete: true }), 'auth');
-  assert.equal(screenAfterSessionUpdate('app', { authenticated: true, onboardingComplete: false }), 'onboarding');
+  assert.equal(screenAfterSessionUpdate('app', { authenticated: true, onboardingComplete: false }), 'app');
 });

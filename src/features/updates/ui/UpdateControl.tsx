@@ -15,7 +15,10 @@ export function UpdateControl() {
   return <>
     <div className="settings-card compact-card update-settings">
       <div className="section-label">{t("SOFTWARE UPDATES")}</div>
-      <div className="setting-row"><div><strong>{t(label)}</strong><p>{t(state.message || `Version ${state.currentVersion} · Signed updates only`)}</p></div>
+      <div className="setting-row"><div><strong>{t(label)}</strong>
+        {state.currentVersion && <p>{t(`Version ${state.currentVersion} · Signed updates only`)}</p>}
+        {state.message && <p role="status">{t(state.message)}</p>}
+      </div>
         <button className="update-action" disabled={busy || state.phase === 'unsupported'} onClick={() => { if (state.version) setOpen(true); else void app.checkUpdate(); }}>{t(state.version ? 'View update' : 'Check for updates')}</button>
       </div>
     </div>

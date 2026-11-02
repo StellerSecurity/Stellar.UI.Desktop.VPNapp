@@ -1,0 +1,7 @@
+#!/bin/sh
+set -eu
+script_directory=$(/usr/bin/dirname "$0")
+"$script_directory/helper-postinstall"
+# Do not open GUI apps as root, disable Gatekeeper, clear quarantine or fabricate
+# firewall verification. The user opens /Applications/Stellar VPN.app normally.
+echo 'Stellar VPN installed. Open Stellar VPN in Applications to finish setup.'

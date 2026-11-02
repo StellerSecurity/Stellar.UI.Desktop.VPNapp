@@ -29,6 +29,8 @@ test('Stellar ID sign-up copy stays distinct from account-number sign-in', () =>
   assert.equal(translate('da-DK', 'Create an anonymous account number'), 'Opret anonymt kontonummer');
   assert.equal(translate('da-DK', 'or'), 'eller');
   assert.equal(translate('da-DK', 'Account number'), 'Kontonummer');
+  assert.equal(translate('da-DK', 'Save your account number'), 'Gem dit kontonummer');
+  assert.equal(translate('da-DK', 'I have saved my account number.'), 'Jeg har gemt mit kontonummer.');
   for (const language of languages) {
     assert.ok(translate(language.locale, 'Create a Stellar ID').includes('Stellar ID'));
   }

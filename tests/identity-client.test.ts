@@ -42,13 +42,13 @@ test('rate limits pause shared session requests without revoking the active tunn
   assert.equal(calls, 1);
   assert.equal(client.active, true);
 });
-test('real credentials go only to the pinned staging route and bearer is never returned to UI', async () => {
+test('real credentials go only to the pinned production route and bearer is never returned to UI', async () => {
   let calls = 0;
   const client = new HttpIdentityClient(async (url, options) => {
     assert.equal(options?.credentials, 'omit'); assert.equal(options?.redirect, 'error'); assert.equal(options?.cache, 'no-store');
     assert.equal(options?.method, 'POST');
     if (calls++ === 0) {
-      assert.equal(url, 'https://stellar-desktop-vpn-staging-premium-dtfhc6g5hfhch2gs.westeurope-01.azurewebsites.net/api/v2/auth/login');
+      assert.equal(url, 'https://stellaruidesktopvpnapiprod.azurewebsites.net/api/v2/auth/login');
       assert.deepEqual(JSON.parse(String(options?.body)), { username: 'test@example.test', password: 'synthetic-password' });
       return reply(session);
     }

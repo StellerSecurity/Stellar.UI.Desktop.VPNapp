@@ -93,7 +93,7 @@ test('account requests send only a bearer to the pinned route, never a user-sele
   let calls = 0;
   const client = new HttpIdentityClient(async (url, options) => {
     if (++calls === 1) return reply({ access_token: token, token_type: 'Bearer', account_id: '42', expires_at: '2099-01-01T00:00:00Z' });
-    assert.equal(url, 'https://stellar-desktop-vpn-staging-premium-dtfhc6g5hfhch2gs.westeurope-01.azurewebsites.net/api/v2/account');
+    assert.equal(url, 'https://stellaruidesktopvpnapiprod.azurewebsites.net/api/v2/account');
     assert.equal((options?.headers as Record<string, string>).Authorization, `Bearer ${token}`);
     assert.equal(options?.body, '{}');
     return reply(dto);

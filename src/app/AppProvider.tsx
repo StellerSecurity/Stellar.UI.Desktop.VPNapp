@@ -43,6 +43,8 @@ function useAppState(container: Container, surface: 'main' | 'tray') {
   const [connectionError, setConnectionError] = useState('');
   const [connectionErrorKind, setConnectionErrorKind] = useState<'subscription' | null>(null);
   const [pendingAction, setPendingAction] = useState<'connect' | 'disconnect'>('connect');
+  const [settingsPending, setSettingsPending] = useState(false);
+  const settingsSaving = useRef(false);
   const [collapsed, setCollapsed] = useState(compactConnectionLayout);
   const [favoriteIds, setFavoriteIds] = useState<string[]>(() => container.favorites.load());
   const [dialog, setDialog] = useState<DialogId | null>(null);
@@ -154,9 +156,11 @@ function useAppState(container: Container, surface: 'main' | 'tray') {
   useEffect(() => {
     let live = true;
     bootReady.current = false;
+    const watchdog = setTimeout(() => { if (live) setBootError('Startup is taking longer than expected. Check macOS permission prompts, then try again.'); }, 15000);
     // Account sign-in does not depend on the public location catalog.
     container.desktop.bootstrap().then(state => {
       if (!live) return;
+      clearTimeout(watchdog); setBootError('');
       if (state.contractVersion !== 1) throw new Error('Unsupported desktop protocol. Update the app.');
       setSnapshot(state);
       setSelectedId(state.selectedServerId || state.connection.serverId || 'cz-1');
@@ -164,9 +168,9 @@ function useAppState(container: Container, surface: 'main' | 'tray') {
       const params = new URLSearchParams(location.search);
       setScreen(params.get('auth') === '1' ? 'auth'
         : params.get('onboarding') === '1' ? 'onboarding'
-        : !state.session.authenticated ? 'auth' : !state.session.onboardingComplete ? 'onboarding' : 'app');
-    }).catch(error => { if (live) setBootError(errorMessage(error)); });
-    return () => { live = false; bootReady.current = false; };
+        : !state.session.authenticated ? 'auth' : 'app');
+    }).catch(error => { clearTimeout(watchdog); if (live) setBootError(errorMessage(error)); });
+    return () => { clearTimeout(watchdog); live = false; bootReady.current = false; };
   }, [container]);
   useEffect(() => {
     if (!snapshot?.session.authenticated) {
@@ -282,11 +286,16 @@ function useAppState(container: Container, surface: 'main' | 'tray') {
     if (action === 'connect') void connect(id);
   }
   function saveSettings(settings: Settings) {
-    setSnapshot(state => state && { ...state, settings });
-    void container.settings.save(settings).catch(async error => {
+    if (settingsSaving.current) return;
+    settingsSaving.current = true; setSettingsPending(true);
+    // Especially for firewall changes, intent is not confirmation. Keep the
+    // last acknowledged settings until the native operation succeeds.
+    void container.settings.save(settings).then(result => {
+      if (result.current) setSnapshot(state => state && { ...state, settings: result.value });
+    }).catch(async error => {
         try { const current = await container.desktop.bootstrap(); setSnapshot(state => state && { ...state, settings: current.settings }); } catch { /* Keep the last visible values; retry remains possible. */ }
         notify(errorMessage(error));
-    });
+    }).finally(() => { settingsSaving.current = false; setSettingsPending(false); });
   }
   function toggleSetting(key: BooleanSetting) { if (snapshot) saveSettings({ ...snapshot.settings, [key]: !snapshot.settings[key] }); }
   async function authenticate(operation: 'login' | 'register' | 'account', email: string, password: string) {
@@ -296,7 +305,16 @@ function useAppState(container: Container, surface: 'main' | 'tray') {
     setSnapshot(state => state && { ...state, session });
     setAccountAttempt(attempt => attempt + 1);
     if (!servers.length) setCatalogAttempt(attempt => attempt + 1);
-    setScreen('onboarding');
+    // A successful sign-in goes straight to the map. The product tour is optional.
+    // Manual sign-in is not a startup reconnect request.
+    autoConnected.current = true;
+    setView('connection'); setScreen('app');
+    if (!session.onboardingComplete) {
+      try {
+        const completed = await container.session.completeOnboarding();
+        setSnapshot(state => state && state.session === session ? { ...state, session: completed } : state);
+      } catch { notify('The action could not be completed. Please try again.'); }
+    }
     if (session.remembered === false) notify('Signed in, but this login could not be remembered securely.');
   }
   async function finishOnboarding() {
@@ -321,10 +339,10 @@ function useAppState(container: Container, surface: 'main' | 'tray') {
   }
   return { snapshot, account, accountStatus, accountError, update, checkUpdate, downloadUpdate, installUpdate, cancelUpdate: () => container.updates.cancel(), refreshAccount: () => setAccountAttempt(attempt => attempt + 1), screen, setScreen, view, setView: navigateView, servers, selectedId,
     catalogStatus, catalogError, retryCatalog: () => setCatalogAttempt(attempt => attempt + 1),
-    selected: servers.find(server => server.id === selectedId), pending, pendingAction, pendingSince, cancelling, connectionError, connectionErrorKind, cancelConnect, collapsed, setCollapsed,
+    selected: servers.find(server => server.id === selectedId), pending, pendingAction, pendingSince, cancelling, connectionError, connectionErrorKind, cancelConnect, collapsed, setCollapsed, settingsPending,
     favoriteIds, toggleFavorite: (id: string) => setFavoriteIds(ids => ids.includes(id) ? ids.filter(item => item !== id) : [...ids, id]),
     dialog, setDialog, toast, notify, bootError, connect, disconnect, selectServer, activateMarker, saveSettings, toggleSetting,
-    authenticate, finishOnboarding, logout, activateCode, loadWorldMap: container.loadWorldMap,
+    authenticate, createAnonymousAccount: () => container.session.createAnonymousAccount(), finishOnboarding, logout, activateCode, loadWorldMap: container.loadWorldMap,
     showMain: () => container.desktop.showMain?.(), showLocations: () => container.desktop.showLocations?.(), hideTray: () => container.desktop.hideTray?.(), quit: () => container.desktop.quit?.(),
     openExternal: (url: string) => { void container.desktop.openExternal(url).catch(error => notify(errorMessage(error))); } };
 }

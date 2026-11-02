@@ -22,6 +22,12 @@
 .auth-wholesale .auth-form-row { font-size: 12px; margin: -2px 0 2px; }
 .auth-wholesale .auth-switch { margin: 22px 0 0; text-align: left; font-size: 12px; line-height: 1.7; }
 .auth-wholesale .auth-switch button { padding: 0; }
+.auth-wholesale .auth-created-number { font-variant-numeric: tabular-nums; letter-spacing: .07em; text-align: center; font-size: clamp(15px, 2vw, 19px); }
+.auth-save-confirmation { display: flex; align-items: flex-start; gap: 10px; color: #62626a; font-size: 13px; line-height: 1.6; cursor: pointer; }
+.auth-save-confirmation input { flex: none; width: 18px; height: 18px; margin: 2px 0 0; accent-color: #2761fc; }
+.auth-save-confirmation input:focus-visible { outline: 2px solid #2761fc; outline-offset: 3px; }
+.auth-copy-status { margin: -6px 0 0; color: #62626a; font-size: 12px; }
+.auth-wholesale .auth-primary:disabled { opacity: .55; cursor: not-allowed; }
 .auth-wholesale .auth-switch a { color: #2761fc; font-weight: 600; text-decoration: none; }
 .auth-wholesale .auth-switch a:hover { text-decoration: underline; }
 .auth-wholesale .preview-note { flex: none; margin: 0 0 10px; font-size: 10px; line-height: 1.6; color: #62626a; }
@@ -38,6 +44,15 @@
 .auth-world-backdrop { position: absolute; z-index: 0; width: 180%; height: 100%; left: -40%; top: 26%; pointer-events: none; fill: none; stroke: #ffffff16; stroke-width: .8; mask-image: linear-gradient(180deg, transparent, #000 34%, #000 85%, transparent); }
 .auth-wholesale .auth-brand-copy > .auth-swiss-badge { display: inline-flex; align-items: center; gap: 8px; }
 .auth-swiss-flag, .auth-swiss-flag img { display: block; width: 17px; height: 17px; object-fit: cover; border-radius: 3px; }
+/* One composed welcome group; no decoration or additional status claims. */
+.auth-wholesale .auth-card[data-auth-view="intro"] .auth-card-top { display: none; }
+.auth-wholesale .auth-card[data-auth-view="intro"] .auth-stage { align-items: center; padding-block: clamp(24px, 4vh, 44px); }
+.auth-wholesale .auth-card[data-auth-view="intro"] .auth-product { margin-bottom: 36px; font-size: 16px; gap: 9px; }
+.auth-wholesale .auth-card[data-auth-view="intro"] .auth-view-header { margin-bottom: 26px; }
+.auth-wholesale .auth-card[data-auth-view="intro"] .auth-view-header h1 { max-width: 360px; font-size: clamp(28px, 3vw, 34px); line-height: 1.18; letter-spacing: -1.1px; text-wrap: balance; }
+.auth-wholesale .auth-card[data-auth-view="intro"] .auth-view-header p { margin-top: 14px; max-width: 350px; }
+.auth-wholesale .auth-card[data-auth-view="intro"] .preview-note,
+.auth-wholesale .auth-card[data-auth-view="intro"] .auth-legal { width: min(380px, 100%); align-self: center; }
 @media (max-height: 700px) {
   .auth-wholesale .auth-brand { padding: 22px; }
   .auth-wholesale .auth-brand-copy { transform: translateY(-8px); }
@@ -51,6 +66,8 @@
   .auth-wholesale .auth-card { min-height: 100%; padding: 24px clamp(24px, 7vw, 60px); }
   .auth-wholesale .auth-brand { display: none; }
   .auth-wholesale .auth-stage { width: min(400px, 100%); padding-block: 24px; }
+  .auth-wholesale .auth-card[data-auth-view="intro"] .preview-note,
+  .auth-wholesale .auth-card[data-auth-view="intro"] .auth-legal { width: min(400px, 100%); }
 }
 @media (max-height: 650px) {
   .auth-wholesale .auth-card { padding-top: 6px; }
@@ -58,4 +75,6 @@
   .auth-wholesale .auth-stage { padding-block: 12px 20px; }
   .auth-wholesale .auth-view-header { margin-bottom: 18px; }
   .auth-wholesale .auth-form { gap: 12px; }
+  .auth-wholesale .auth-card[data-auth-view="intro"] .auth-stage { padding-block: 20px; }
+  .auth-wholesale .auth-card[data-auth-view="intro"] .auth-product { margin-bottom: 24px; }
 }

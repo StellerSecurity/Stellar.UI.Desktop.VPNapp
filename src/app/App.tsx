@@ -27,7 +27,9 @@ export function App() {
     const keydown = (event: KeyboardEvent) => { if (event.key === 'Escape' && !app.dialog && app.view !== 'connection') { app.setView('connection'); document.getElementById(app.view === 'account' ? 'account-tab' : 'settings-tab')?.focus(); } };
     document.addEventListener('keydown', keydown); return () => document.removeEventListener('keydown', keydown);
   }, [app.dialog, app.view]);
-  if (app.screen === 'booting' || app.bootError) return <main className="boot-screen" aria-live="polite"><img src={logoUrl} alt="Stellar VPN" /><p>{t(app.bootError || <Loading label={t("Opening Stellar VPN")} />)}</p>{t(app.bootError && <button onClick={() => location.reload()}>{t("Try again")}</button>)}</main>;
+  if (app.screen === 'booting' || app.bootError) {
+    return <main className="boot-screen" aria-live="polite"><img src={logoUrl} alt="Stellar VPN" /><p>{t(app.bootError || <Loading label={t("Opening Stellar VPN")} />)}</p>{t(app.bootError && <button onClick={() => location.reload()}>{t("Try again")}</button>)}</main>;
+  }
   if (app.screen === 'auth' && app.snapshot?.connection.trafficBlocked) return <main className="boot-screen" aria-live="polite"><img src={logoUrl} alt="Stellar VPN" /><h1>{t("Internet blocked")}</h1><p>{t("Your session expired. Kill switch is keeping traffic blocked.")}</p><button disabled={app.pending} onClick={() => void app.disconnect()}>{t("Unblock internet")}</button></main>;
   const primary = app.view === 'connection' ? 'connection' : app.view === 'account' ? 'account' : 'settings';
   return <>

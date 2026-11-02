@@ -12,7 +12,7 @@ test('activation sends only a code in a POST body to pinned desktop API, without
   let calls = 0;
   const c = client(async (url, options) => {
     calls++;
-    assert.equal(url, 'https://stellar-desktop-vpn-staging-premium-dtfhc6g5hfhch2gs.westeurope-01.azurewebsites.net/api/v2/account/activation');
+    assert.equal(url, 'https://stellaruidesktopvpnapiprod.azurewebsites.net/api/v2/account/activation');
     assert.equal(options?.method, 'POST'); assert.equal(options?.redirect, 'error'); assert.equal(options?.cache, 'no-store');
     assert.deepEqual(JSON.parse(String(options?.body)), { activation_code: 'TEST-CODE' });
     assert.equal((options?.headers as Record<string, string>).Authorization, `Bearer ${token}`);

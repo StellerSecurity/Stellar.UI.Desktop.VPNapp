@@ -14,8 +14,8 @@ export function GeneralSettings() {
                   <Toggle name="auto-connect" label={t("Auto-connect")} />
                 </div>
                 <div className="setting-row">
-                  <div><strong>{t("Kill switch")}</strong><p>{t(app.snapshot?.capabilities?.killSwitch ? 'Block traffic if the tunnel drops. Disconnect before changing this.' : 'System verification required.')}</p></div>
-                  <Toggle name="kill-switch" label={t("Kill switch")} disabled={!app.snapshot?.capabilities?.killSwitch} />
+                  <div><strong>{t("Kill switch")} (killswitch)</strong><p>{t(app.snapshot?.capabilities?.killSwitch ? 'Block traffic if the tunnel drops.' : 'System verification required.')}</p></div>
+                  <Toggle name="kill-switch" label={`${t("Kill switch")} (killswitch)`} disabled={!app.snapshot?.capabilities?.killSwitch} />
                 </div>
                 <div className="setting-row">
                   <div><strong>{t("Auto Rotate")}</strong><p>{t("Change location every 7 days while connected.")}</p></div>

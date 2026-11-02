@@ -773,8 +773,8 @@ body.auth-open .app { visibility: hidden; }
   border-color: transparent;
   box-shadow: none;
 }
-.map-panel.connecting .map-pin.selected .map-pin-flag { outline-color: #91b3ff; }
-.map-panel.connecting .map-pin.selected .map-pin-flag::after {
+.map-panel.connecting :is(.map-pin, .globe-pin).selected .map-pin-flag { outline: 2px solid #91b3ff; outline-offset: 3px; }
+.map-panel.connecting :is(.map-pin, .globe-pin).selected .map-pin-flag::after {
   content: ""; position: absolute; inset: -5px; border-radius: 7px;
   border: 1px solid #91b3ff; pointer-events: none;
 }
@@ -1303,6 +1303,14 @@ body.auth-open .app { visibility: hidden; }
 #language-value { margin-right: auto; }
 #language-flag { font-size: 15px; }
 .selector-popover small { font-size: 14px; }
+.language-popover { width: 228px; display: flex; flex-direction: column; max-height: min(460px, 65dvh); }
+.language-search { display: flex; align-items: center; gap: 8px; flex: none; margin: 3px 3px 7px; padding: 0 10px; height: 36px; border: 1px solid var(--stellar-neutral-200); border-radius: 9px; background: var(--stellar-neutral-50); color: #62626a; }
+.language-search:focus-within { border-color: var(--stellar-blue); box-shadow: 0 0 0 2px #2761fc18; }
+.language-search svg { width: 16px; height: 16px; flex: none; }
+.language-search input { width: 100%; min-width: 0; height: 100%; padding: 0; border: 0; border-radius: 0; outline: none; box-shadow: none; background: transparent; color: var(--stellar-ink); font: inherit; font-size: 12px; }
+.language-search input:focus { outline: none; box-shadow: none; }
+.language-options { overflow-y: auto; min-height: 0; }
+.language-empty { margin: 0; padding: 14px 10px; color: #62626a; font-size: 12px; }
 
 .panel-note { margin: 14px 2px !important; font-size: 11px !important; line-height: 1.7; }
 .relay-card { padding: 20px; }
@@ -2075,13 +2083,13 @@ body.onboarding-open .app {
     0%, 100% { fill: #2152d4; stroke: #91b3ff; }
     50% { fill: #8bc4ff; stroke: #e9f6ff; }
   }
-  .map-panel.connecting .map-pin.selected .map-pin-flag::after { animation: flag-connecting 1.25s ease-in-out infinite; }
-  .map-panel.connecting .map-pin.selected .map-pin-flag img { animation: flag-connecting-light 1.25s ease-in-out infinite; }
+  .map-panel.connecting :is(.map-pin, .globe-pin).selected .map-pin-flag::after { animation: flag-connecting .95s ease-in-out infinite; }
+  .map-panel.connecting :is(.map-pin, .globe-pin).selected .map-pin-flag img { animation: flag-connecting-light .95s ease-in-out infinite; }
   @keyframes flag-connecting {
-    0%, 100% { opacity: .4; box-shadow: 0 0 0 0 #2761fc00; }
-    50% { opacity: 1; box-shadow: 0 0 0 3px #2761fc24, 0 0 10px #91b3ff50; }
+    0%, 100% { opacity: .3; box-shadow: 0 0 0 0 #2761fc00; }
+    50% { opacity: 1; box-shadow: 0 0 0 5px #2761fc40, 0 0 18px #91b3ffb0; }
   }
-  @keyframes flag-connecting-light { 0%, 100% { opacity: .72; } 50% { opacity: 1; } }
+  @keyframes flag-connecting-light { 0%, 100% { opacity: .3; } 50% { opacity: 1; } }
   .nav-indicator,
   .selection-indicator,
   .preferences-indicator { transition: transform 0.2s ease-out; }

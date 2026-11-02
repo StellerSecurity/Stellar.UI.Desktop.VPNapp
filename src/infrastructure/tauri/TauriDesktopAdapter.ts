@@ -26,12 +26,42 @@ export class TauriDesktopAdapter implements DesktopPort {
           this.identity.restore(saved);
           // The unexpired local session opens immediately. Verify revocation in
           // the background; a network outage must not erase a valid saved login.
-          void this.identity.verifyRestoredSession().catch(error => {
+          void this.identity.verifyRestoredSession().then(async () => {
+            if ((saved as { migrationPending?: boolean }).migrationPending === true) {
+              await this.finishLegacy((saved as RememberedIdentity).accessToken).catch(() => {});
+            }
+          }).catch(error => {
             if (error instanceof SessionRejected) void invoke('logout', { expectedToken: (saved as RememberedIdentity).accessToken }).catch(() => {});
+          });
+        } else {
+          const candidate = await invoke<{ storeToken: string | null } | null>('legacy_login_candidate');
+          if (!candidate) return;
+          // Only these known old-app keys; never scan a browser profile or read stored passwords.
+          const token = candidate.storeToken ?? this.legacyBrowserToken();
+          if (!token) return;
+          await this.identity.migrateLegacy(token, async identity => {
+            const accepted = await invoke<{ remembered: boolean }>('accept_account_session', {
+              expiresAt: Math.floor(identity.expiresAt / 1000), vpnAuth: null,
+              accessToken: identity.accessToken, accountId: identity.accountId, legacyToken: token,
+            });
+            if (!accepted.remembered) throw new Error('Migration storage unavailable.');
+            // Cleanup failures do not log out a successfully migrated account. The vault retains a retry receipt.
+            await this.finishLegacy(identity.accessToken).catch(() => {});
           });
         }
       } catch { /* A denied/locked OS vault leaves the ordinary login available. */ }
     })();
+  }
+  private legacyBrowserToken(): string | null {
+    try { return localStorage.getItem('stellar_vpn_bearer_token'); } catch { return null; }
+  }
+  private async finishLegacy(expectedToken: string): Promise<void> {
+    const old = await invoke<string | null>('finish_legacy_login', { expectedToken });
+    if (!old) return;
+    try {
+      if (localStorage.getItem('stellar_vpn_bearer_token') !== old) return;
+      for (const key of ['stellar_vpn_bearer_token', 'stellar_vpn_username', 'stellar_vpn_password', 'stellar_vpn_account_number', 'stellar_vpn_device_name']) localStorage.removeItem(key);
+    } catch { /* A blocked legacy WebStorage never invalidates the protected replacement session. */ }
   }
   private async authenticate(operation: 'login' | 'register' | 'account', email: string, password: string) {
     let session: Session | undefined;
@@ -55,6 +85,7 @@ export class TauriDesktopAdapter implements DesktopPort {
   login(email: string, password: string) { return this.authenticate('login', email, password); }
   register(email: string, password: string) { return this.authenticate('register', email, password); }
   loginAccount(accountNumber: string) { return this.authenticate('account', accountNumber, ''); }
+  createAnonymousAccount() { return this.identity.createAnonymousAccount(); }
   async current() {
     const account = await this.identity.currentAccount().catch(error => this.rejected(error));
     if (vpnAccess(account)?.active) {

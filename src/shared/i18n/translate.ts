@@ -6,7 +6,8 @@ import { accessibilityRows } from './accessibility.ts';
 import { errorRows } from './errors.ts';
 import { noticeRows } from './notices.ts';
 import { connectionRows } from './connection.ts';
-export const messages = new Map([...messageRows, ...detailRows, ...onboardingRows, ...accessibilityRows, ...errorRows, ...noticeRows, ...connectionRows].map(row => {
+import { setupRows } from './setup.ts';
+export const messages = new Map([...messageRows, ...detailRows, ...onboardingRows, ...accessibilityRows, ...errorRows, ...noticeRows, ...connectionRows, ...setupRows].map(row => {
   const cells = row.split('|');
   if (cells.length !== languages.length) throw new Error(`Invalid translation row: ${cells[0]}`);
   return [cells[0], cells] as const;

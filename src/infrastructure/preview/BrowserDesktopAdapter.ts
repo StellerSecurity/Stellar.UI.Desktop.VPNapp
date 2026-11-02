@@ -27,6 +27,7 @@ export class BrowserDesktopAdapter implements DesktopPort {
   login(email: string, password: string) { return this.authenticate('login', email, password); }
   register(email: string, password: string) { return this.authenticate('register', email, password); }
   loginAccount(accountNumber: string) { return this.authenticate('account', accountNumber, ''); }
+  createAnonymousAccount() { return this.identity.createAnonymousAccount(); }
   current() { return this.identity.currentAccount(); }
   async cached() { return this.identity.cachedAccount(); } // Private display data never enters localStorage.
   async bootstrap() {

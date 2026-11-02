@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { verifyLinuxGlib } from './check-linux-glib.mjs';
+import { verifyWindowsRelease } from './check-windows-release.mjs';
 const args = process.argv.slice(2);
 // Local test builds keep one certificate-backed identity across rebuilds.
 // Only a public fingerprint is stored here; keys stay in the macOS Keychain.
@@ -15,6 +16,7 @@ if (process.platform === 'darwin' && args[0] === 'build' && args.includes('--deb
   console.log('Local development signing enabled after bundling; --no-sign applies only to the Tauri bundling step.');
 }
 verifyLinuxGlib();
+if (process.platform === 'win32' && args[0] === 'build') verifyWindowsRelease();
 if (process.platform === 'linux' && args[0] === 'build') {
   console.error('Linux release remains blocked until the local glib security backport passes native Linux debug/release regression tests and the desktop build. See vendor/glib-0.18.5/stellar-backport.json.');
   process.exit(1);
@@ -30,7 +32,7 @@ child.on('exit', code => {
   if (code !== 0 || !localIdentity) { process.exitCode = code ?? 1; return; }
   const bundle = path.resolve('target/debug/bundle/macos/Stellar VPN.app');
   for (const options of [
-    ['--force', '--sign', localIdentity, '--identifier', 'org.stellarvpn.desktop.preview', '--timestamp=none', bundle],
+    ['--force', '--sign', localIdentity, '--identifier', 'org.stellarsecurity.vpn.desktop', '--timestamp=none', bundle],
     ['--verify', '--strict', '--verbose=2', bundle],
   ]) {
     const result = spawnSync('/usr/bin/codesign', options, { stdio: 'inherit' });

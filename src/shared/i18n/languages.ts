@@ -13,6 +13,11 @@ export const languages = [
   { name: 'Português (Brasil)', locale: 'pt-BR', flag: '🇧🇷' },
 ] as const;
 export type Locale = typeof languages[number]['locale'];
+export function searchLanguages(query: string, label: (name: string) => string = name => name) {
+  const normalize = (text: string) => text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
+  const needle = normalize(query);
+  return languages.filter(language => normalize(`${language.name} ${label(language.name)} ${language.locale}`).includes(needle));
+}
 export function resolveLanguage(value: string) {
   return languages.find(language => language.name === value || language.locale === value) || languages[0];
 }

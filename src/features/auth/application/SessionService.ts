@@ -6,6 +6,7 @@ export class SessionService {
   login(email: string, password: string) { return this.port.login(email, password); }
   register(email: string, password: string) { return this.port.register(email, password); }
   loginAccount(accountNumber: string) { return this.port.loginAccount(accountNumber); }
+  createAnonymousAccount() { return this.port.createAnonymousAccount(); }
   logout() { return this.port.logout(); }
   completeOnboarding() { return this.port.completeOnboarding(); }
 }

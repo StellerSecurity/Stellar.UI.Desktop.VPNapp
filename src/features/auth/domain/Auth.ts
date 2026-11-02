@@ -1,9 +1,10 @@
 import type { Session } from '../../../contracts/desktop';
-export type AuthView = 'intro' | 'login' | 'register' | 'account';
+export type AuthView = 'intro' | 'login' | 'register' | 'account' | 'anonymous';
 export interface SessionPort {
   login(email: string, password: string): Promise<Session>;
   register(email: string, password: string): Promise<Session>;
   loginAccount(accountNumber: string): Promise<Session>;
+  createAnonymousAccount(): Promise<string>;
   logout(): Promise<Session>;
   completeOnboarding(): Promise<Session>;
 }
