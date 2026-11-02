@@ -1,245 +1,315 @@
 # Stellar VPN Desktop
 
 Stellar VPN is a desktop VPN application built with React, TypeScript, Tauri and
-Rust. The interface provides a server map, connection controls, account access,
-settings and signed software updates. Platform-specific network helpers perform
-the privileged VPN and firewall work outside the interface process.
+Rust. It provides a server map, connection controls, account access, settings
+and signed software updates. Native helpers perform privileged VPN and firewall
+operations separately from the interface.
 
-This document describes the current 0.5.0 source and its release requirements.
-Build success, notarization and a passing unit-test suite do not by themselves
-establish that a platform is ready for public distribution.
+This is the release guide for **future updates**. Use the version, source commit,
+runtime inputs, certificates and test evidence for the release you are preparing.
+Previously published artifacts are immutable; never overwrite them with a rebuild.
 
-## Repository and architecture
+## Project structure
 
-- Repository: <https://github.com/StellerSecurity/Stellar.UI.Desktop.VPNapp>
-- Default branch: `main`.
-- Application identifier: `org.stellarsecurity.vpn.desktop`.
-- Application version: `0.5.0`.
-- `src/`: React interface, application services, domain types and adapters.
+- Default branch: `main` in [Stellar.UI.Desktop.VPNapp](https://github.com/StellerSecurity/Stellar.UI.Desktop.VPNapp).
+- Application identifier: `org.stellarsecurity.vpn.desktop`. Keep it stable for upgrades.
+- `src/`: interface, domain types, application services and infrastructure adapters.
 - `src-tauri/`: native commands, protected session storage and signed updater.
 - `crates/stellar-core/`: shared Rust application logic.
 - `crates/stellar-vpn-helper/`: native VPN/helper implementation.
 - `native/windows/`: Windows service, bridge, firewall and installer integration.
-- `scripts/`: checks, local builds, packaging and release preparation.
-- `tests/`: synthetic application, integration and release-tooling tests.
-- `vendor/glib-0.18.5/`: hash-checked Linux security backport.
-- `desktop-api/` and `api-upgrades/`: API integration/support sources. Deploying
-  the desktop app does not deploy these backend services.
+- `scripts/`: validation, build, packaging and release preparation tools.
+- `tests/`: application, native integration and release-tooling tests.
+- `vendor/`: reviewed source backports and their integrity records.
+- `desktop-api/` and `api-upgrades/`: backend integration/support sources.
 
-The frontend keeps domain logic separate from UI and infrastructure. Native
-commands and platform helpers enforce privileged-operation boundaries. The
-production desktop gateway is configured in
-`src/infrastructure/config/Production.ts`; anonymous account creation happens
-inside the app through that gateway.
+Production API configuration is in `src/infrastructure/config/Production.ts`.
+Desktop releases and backend deployment are separate operations. Confirm required
+backend capabilities before offering an app update.
 
-Runtime binaries, generated helper packages, signing keys, credentials, build
-outputs and local security-acceptance evidence are deliberately absent from Git.
-Cloning this repository alone is insufficient to produce a distributable app.
+Runtime binaries, generated packages, signing keys, credentials, build outputs
+and local acceptance evidence are not stored in this repository. The root README
+is approved for publication; other Markdown documents remain local and untracked.
 
-## Current platform status
+## 1. Prepare the release
 
-| Platform | Release status and remaining work |
-| --- | --- |
-| macOS Apple Silicon | Source-build runtime targets macOS 12.0. Its six Mach-O targets, hashes, local linkage, ad hoc signatures and library smoke tests passed. Final app/helper signing, notarization, installation and upgrade acceptance must use that replacement runtime. Live macOS 12 compatibility remains unverified. |
-| macOS Intel | Separate reviewed x86_64 runtime, helper, build and native acceptance are required. ARM64 artifacts cannot substitute for Intel artifacts. |
-| Windows x64 | Distribution is blocked by the checked-in release policy until exact runtime/driver approval and native acceptance are complete. |
-| Linux | Release builds are intentionally blocked pending native debug/release validation of the glib backport and the desktop build. In-app OTA updates are not implemented for Linux. |
+Use an isolated checkout of `main` and create a `stellar/` working branch. Select
+an exact reviewed source commit for the build. Do not discard work on a signing
+machine to update it.
 
-Recheck the files and evidence on the exact release commit; this table is not
-permission to bypass a gate or mark an unavailable test as passed.
+Choose a new application version higher than the versions you intend to update.
+Synchronize it in:
 
-## Development and dependency policy
+- `package.json` and both root version fields in `package-lock.json`.
+- `src-tauri/Cargo.toml` and the app package entry in `Cargo.lock`.
+- `src-tauri/tauri.conf.json`.
 
-Use the project's pinned dependencies and lockfiles. Node requires at least
-22.12.0; React, Vite and Tauri versions are pinned in `package.json`.
-`Cargo.lock` pins Rust dependencies, and `Cargo.toml` declares the Rust minimum.
-Use an explicitly reviewed installed toolchain rather than assuming the minimum
-compiler can build every current locked dependency.
+Helper crate versions are independent. Do not bump unrelated dependencies just
+to change the app version. After editing and reviewing the version files:
 
-Before any new third-party download, installation, update or execution, complete
-the user's dependency security review and obtain explicit approval for the exact
-versions and commands. Approval on one machine does not prove another machine's
-environment has been reviewed. Never silently upgrade a dependency or enable
-package lifecycle scripts.
+```sh
+VERSION=$(node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).version")
+SOURCE_COMMIT=$(git rev-parse HEAD)
+printf 'Release %s from %s\n' "$VERSION" "$SOURCE_COMMIT"
+```
 
-After that review and approval, a fresh Node installation normally uses:
+Record the target platforms, architectures, minimum operating systems, runtime
+hashes, toolchains and expected output names in the release plan. Confirm that
+manifest version values match the actual packaged app.
+
+### Dependencies and tools
+
+Use the exact lockfiles and a reviewed installed Node/Rust/native toolchain.
+Check `package.json` and `Cargo.toml` for the declared minimum versions; those
+minimums alone do not prove every locked dependency builds with that compiler.
+
+Before downloading, installing, updating or executing a new third-party input,
+complete the user's dependency security review and obtain explicit approval for
+its exact version and command. This includes missing Rust targets, SDKs, driver
+packages, runtime archives, signing tools and package lifecycle scripts.
+
+After review and approval, a fresh Node setup normally uses:
 
 ```sh
 npm ci --ignore-scripts
 ```
 
-Do not run that command merely because it appears here. Missing Rust targets,
-native SDKs, installers and VPN runtimes require the same review process.
-Offline build commands below assume those inputs are already approved and present.
+That example is not standing installation approval. Keep Rust builds locked and
+offline once reviewed inputs are prepared. If an input is missing, stop and
+review it; do not remove the flags or replace it with an unreviewed download.
 
-With reviewed dependencies installed:
+### Shared checks
+
+With reviewed dependencies already installed:
 
 ```sh
-npm run dev
 npm run typecheck
 npm test
 npm run check:architecture
-node --test tests/macos-architecture.test.mjs tests/app-identity.test.mjs tests/ota-release.test.mjs
+npm run test:ota
+node --test tests/macos-architecture.test.mjs tests/app-identity.test.mjs
 ```
 
-`npm run dev` is a browser interface preview, not proof that the privileged VPN
-helper or operating-system session storage works. Use `npm run desktop:dev` for
-the native application after preparing its platform prerequisites. Do not run
-tests that manipulate networking on a machine without authorization.
+Use `npm run dev` for a browser preview and `npm run desktop:dev` for native
+work after preparing platform inputs. A browser preview cannot validate the
+privileged helper, OS credential vault or actual VPN connection.
 
-## Common release checklist
+## 2. Release macOS
 
-1. Start from an exact reviewed commit on `main` or a `stellar/` working branch.
-   Preserve local work; do not force-reset a signing machine to update it.
-2. Synchronize the application version in `package.json`, `package-lock.json`,
-   `src-tauri/Cargo.toml`, the app entry in `Cargo.lock` and
-   `src-tauri/tauri.conf.json`. Helper crate versions are independent.
-3. Run the relevant source, dependency, application and native checks. Preserve
-   the exact source commit, runtime hashes, toolchain identity and test results.
-4. Verify production API configuration, application identity, supported OS and
-   architecture. Preserve the existing update public key and platform signing
-   identity needed for upgrade compatibility.
-5. Test fresh installation, an upgrade from the actual old app, and uninstall.
-   Test login retention separately from VPN connection success.
-6. Test connection, cancellation, expiry, kill switch, crash behavior, IPv4,
-   IPv6 and DNS leaks, sleep/resume and network changes on the target platform.
-   A hosted VM inventory is not a physical sleep/Wi-Fi acceptance test.
-7. Sign and verify all required nested components and installers. Recompute
-   any hashes embedded in the app only after finalizing their inputs.
-8. Generate the signed update artifacts and manifest, test a controlled upgrade
-   and failure/rollback paths, then obtain release publication approval.
+### Prepare the runtime and helper
 
-Do not commit keys, tokens, `.env` files, downloaded third-party binaries,
-`node_modules`, local acceptance receipts or generated application bundles.
-The root `README.md` is explicitly approved for publication. Other Markdown
-documents remain local and untracked under the user's repository policy.
+Select one architecture per build and use matching runtime inputs:
 
-## macOS release
+| Architecture | Rust target | Packaging architecture | OTA target |
+| --- | --- | --- | --- |
+| Apple Silicon | `aarch64-apple-darwin` | `arm64` | `darwin-aarch64` |
+| Intel | `x86_64-apple-darwin` | `x86_64` | `darwin-x86_64` |
 
-### Runtime and architecture
-
-Apple Silicon uses `aarch64-apple-darwin`; Intel uses `x86_64-apple-darwin`.
-The configured minimum macOS version is **12.0**. Check the actual Mach-O load
-commands of the VPN engine and every library, not just compiler flags or the
-outer app's Info.plist.
-
-The original runtime archive with SHA-256
-`970d5c82c82901ddc5eb121bd77f99a6c502b1007dcf1a4948cd631274c554c8`
-is blocked: its binaries require macOS 26/27. Do not reuse it or patch version
-fields to pretend compatibility.
-
-The replacement is attached to the GitHub draft release
-`macos-0.5.0-runtime-macos12-handoff`:
-
-```text
-Stellar-VPN-0.5.0-OpenVPN-runtime-darwin-arm64-macos12.tar.gz
-SHA-256: 20910b9caa4503f81f3fbecc117b3ed4de07de45729603514c79dad5d98aba54
-```
-
-For an authorized transfer of this already reviewed artifact, authenticated
-repository members can use:
+For example, select Apple Silicon in the signing shell:
 
 ```sh
-gh release download macos-0.5.0-runtime-macos12-handoff \
-  --repo StellerSecurity/Stellar.UI.Desktop.VPNapp \
-  --dir runtime-handoff
+ARCH=arm64
+TARGET=aarch64-apple-darwin
+OTA_TARGET=darwin-aarch64
+RUNTIME="$PWD/src-tauri/resources/openvpn-runtime"
 ```
 
-Verify its checksum before extraction. Place its `openvpn-runtime` directory at
-`src-tauri/resources/openvpn-runtime/`. It contains six files plus
-`runtime-manifest.json`: OpenVPN, OpenSSL crypto/SSL, LZO, PKCS11 helper and LZ4.
-The manifest records per-file hashes and actual minimum versions. Do not run an
-unreviewed replacement download when a runtime input is missing.
+Intel uses its own reviewed runtime directory, normally
+`src-tauri/resources/openvpn-runtime-x86_64`. Never reuse ARM64 files for Intel.
+
+Obtain the approved runtime for this release through an authorized transfer.
+Verify the archive hash and safe archive paths before extraction. Verify every
+file against `runtime-manifest.json`, including actual Mach-O architecture and
+minimum macOS version, and ensure dependencies resolve only to bundled libraries
+or macOS system libraries. A newer SDK or host name in `openvpn --version` is not
+the binary's minimum operating system.
+
+The app minimum is declared in `src-tauri/tauri.conf.json`. The runtime verifier
+in `scripts/macos-architecture.mjs` currently enforces macOS 12.0. Keep the two
+consistent through a reviewed change if the supported minimum ever changes.
+Do not edit Mach-O version fields to pretend a binary supports an older OS.
 
 ```sh
-node scripts/build-macos-test.mjs --arch arm64 --profile release --check
+node scripts/build-macos-test.mjs --arch "$ARCH" --profile release \
+  --runtime "$RUNTIME" --check
 ```
 
-If rebuilding the runtime from source, use `scripts/build-arm64-runtime.py` only
-after explicit approval of its pinned archives, backports and build execution.
-It builds in a fresh local prefix with network access blocked during its build
-commands. It does not install a system VPN service or publish a release.
+A source-runtime rebuild requires separate approval of its pinned archives,
+patches and execution. Review `scripts/build-arm64-runtime.py` and its input
+lock before use; it is an ARM64 build recipe, not an Intel recipe or a universal
+approval for future dependency versions.
 
-### Local test build
+For an unsigned local test candidate only:
 
 ```sh
-node scripts/build-macos-test.mjs --arch arm64 --profile release
+node scripts/build-macos-test.mjs --arch "$ARCH" --profile release --runtime "$RUNTIME"
 ```
 
-This builds the helper and app offline, generates an unsigned helper package and
-stages drag-to-Applications DMG inputs. It deliberately clears Apple signing
-environment variables. **It is not the final signing/notarization pipeline.**
+This script clears Apple signing variables, generates an unsigned helper
+package and stages DMG inputs. It is not the production signing workflow.
+The other `package-macos-installer.mjs`/`package-macos-dmg.mjs` scripts prepare
+local ARM64 debug test packages; do not mistake them for a final release.
 
-Expected app output:
+### Sign in the correct order
 
-```text
-target/aarch64-apple-darwin/release/bundle/macos/Stellar VPN.app
+Use the approved signing machine with valid Developer ID Application and
+Developer ID Installer identities, the existing notarization Keychain profile,
+and the established OTA key. Verify the intended Apple team and certificate
+validity for each release. Do not hardcode an expired certificate fingerprint.
+
+Set `APP_IDENTITY`, `INSTALLER_IDENTITY` and `NOTARY_PROFILE` locally to the
+intended existing identities/profile. Keep private keys and passwords out of
+Git, logs and chat. Never use shell tracing, password arguments or shell-history
+lookup. New certificate issuance or Keychain access grants require their own
+authorization.
+
+1. Build the native helper using the reviewed locked toolchain.
+2. Verify the original runtime hashes; retain the original manifest separately.
+3. Sign each nested runtime binary and the helper with Developer ID Application,
+   timestamp and hardened-runtime settings; verify each signature.
+4. Record the signed runtime hashes in its manifest. Signing changes bytes.
+5. Package, Installer-sign, notarize and staple the helper package.
+6. Finalize its package hash and architecture metadata **before compiling the app**.
+7. Build, sign, notarize and staple the app, then create the final containers.
+
+```sh
+export CARGO_NET_OFFLINE=true
+export MACOSX_DEPLOYMENT_TARGET=$(node -p "JSON.parse(require('fs').readFileSync('src-tauri/tauri.conf.json','utf8')).bundle.macOS.minimumSystemVersion")
+cargo build --locked --offline -p stellar-vpn-helper --target "$TARGET" --release
+
+codesign --force --sign "$APP_IDENTITY" \
+  --identifier org.stellarvpn.desktop.helper --timestamp --options runtime \
+  "target/$TARGET/release/stellar-vpn-helper"
+codesign --verify --strict "target/$TARGET/release/stellar-vpn-helper"
+
+# Complete runtime signing and update its manifest before this packaging step.
+node scripts/package-network-helper.mjs --arch "$ARCH" --profile release \
+  --helper "target/$TARGET/release/stellar-vpn-helper" --runtime "$RUNTIME"
+
+mv src-tauri/resources/NetworkHelper.pkg NetworkHelper-unsigned.pkg
+productsign --sign "$INSTALLER_IDENTITY" --timestamp \
+  NetworkHelper-unsigned.pkg src-tauri/resources/NetworkHelper.pkg
+pkgutil --check-signature src-tauri/resources/NetworkHelper.pkg
+xcrun notarytool submit src-tauri/resources/NetworkHelper.pkg \
+  --keychain-profile "$NOTARY_PROFILE" --wait
+xcrun stapler staple src-tauri/resources/NetworkHelper.pkg
+xcrun stapler validate src-tauri/resources/NetworkHelper.pkg
+spctl --assess --type install --verbose=2 src-tauri/resources/NetworkHelper.pkg
 ```
 
-The script prints the staging/output paths. Staging is not proof a final DMG
-has been created. The separate `package-macos-installer.mjs` and
-`package-macos-dmg.mjs` scripts target local ARM64 debug test packages, not a
-ready-made production signing workflow.
+Stop unless Apple returns **Accepted** and the package has the expected signing
+team. Write the final package SHA-256 to `NetworkHelper.sha256` and
+`packageSha256` in `NetworkHelper.arch.json`; verify the helper hash and
+architecture fields too. The app compiles in the package checksum, so replacing
+the package after app compilation requires another app build.
 
-### Production signing order
+```sh
+node node_modules/@tauri-apps/cli/tauri.js build --ci \
+  --target "$TARGET" --bundles app --no-sign -- --locked --offline
 
-Use the approved signing machine and existing keys. The configured team is
-`7VYLUCU756`; the identities are Developer ID Application and Developer ID
-Installer for North Star Swiss SA. Confirm their current validity locally.
-Keep private keys, IronKey material and notarization passwords off Git and chat.
+APP="$PWD/target/$TARGET/release/bundle/macos/Stellar VPN.app"
+codesign --force --sign "$APP_IDENTITY" --timestamp --options runtime "$APP"
+codesign --verify --strict --deep "$APP"
+codesign -d --verbose=4 "$APP"
+ditto -c -k --keepParent "$APP" app-for-notarization.zip
+xcrun notarytool submit app-for-notarization.zip \
+  --keychain-profile "$NOTARY_PROFILE" --wait
+xcrun stapler staple "$APP"
+xcrun stapler validate "$APP"
+spctl --assess --type execute --verbose=2 "$APP"
+```
 
-1. Verify the reviewed runtime, then Developer ID sign its nested dylibs,
-   OpenVPN and the native helper with the appropriate hardened-runtime settings.
-   Signing changes hashes; retain provenance for the reviewed inputs and record
-   the final signed-file hashes in the runtime manifest.
-2. Generate the helper package with `scripts/package-network-helper.mjs`, using
-   the correct architecture, runtime directory and signed helper input.
-3. Sign the final helper installer with Developer ID Installer. Notarize and
-   staple it as required before treating its bytes as final.
-4. Update `src-tauri/resources/NetworkHelper.sha256` and the package hash in
-   `NetworkHelper.arch.json` to match the final package. The helper hash and
-   architecture metadata must match too. The package checksum is compiled into
-   the app; replacing the package afterward invalidates that relationship.
-5. Compile the final app against those finalized resources. Do not rerun the
-   unsigned test-build script over a finalized signed helper package.
-6. Sign, notarize and staple the app and its distribution container as required.
-   Verify nested signatures, team identity, bundle identifier, versions,
-   architecture, helper package hashes and Gatekeeper assessment.
-7. Test a clean install and a real old-app upgrade. Generate the OTA archive
-   from the finalized app only after all byte-changing operations are complete.
+This direct CLI call is the macOS final-build step after helper finalization;
+it does not authorize evading Windows or Linux gates. Do not rerun the unsigned
+test-build script over the finalized helper package. Confirm the bundle ID,
+version, architecture, OS minimum, team, timestamp and embedded package hash.
 
-Use the signing machine's approved notarization keychain profile. Do not invent
-a new credential workflow or disable Gatekeeper/quarantine to pass validation.
-For the detailed handoff, see `scripts/macos-release-handoff.txt`.
+Create a drag-to-Applications DMG from the finalized app in a new staging
+folder. Sign and notarize it, staple/validate its ticket, run `hdiutil verify`,
+and assess it with Gatekeeper. Verify the nested app and helper independently;
+an outer DMG signature is insufficient.
 
-### Login migration
+### Create the OTA archive
 
-`src-tauri/legacy-migration.json` currently disables automatic native migration.
-Backend support and synthetic tests are not sufficient to enable a public
-rollout. Validate the real legacy-store read, exchange, durable replacement
-session and cleanup behavior on an upgrade fixture first. A failed migration
-must retain the old login rather than deleting it prematurely.
+Use USTAR inside gzip and reject AppleDouble (`._*`), PAX metadata and links.
+Some older clients reject archives made by macOS tools that add extra metadata.
+Package the finalized, signed and stapled app; compare every archived file with
+its source bytes before signing the archive.
 
-## Windows release
+```sh
+export STELLAR_APP="$APP"
+export OTA_ARCHIVE="$PWD/Stellar VPN.app.tar.gz"
+python3 - <<'PYCODE'
+import gzip, os, tarfile
+from pathlib import Path
 
-The current implementation targets **Windows x64**. Windows ARM in a Mac VM is
-not equivalent to native x64 driver/service acceptance.
+app = Path(os.environ['STELLAR_APP'])
+output = Path(os.environ['OTA_ARCHIVE'])
+if app.is_symlink() or not app.is_dir() or app.name != 'Stellar VPN.app':
+    raise RuntimeError('Expected a regular Stellar VPN app directory')
 
-Required inputs include a reviewed MSVC/Windows SDK toolchain, exact approved
-OpenVPN runtime and driver inputs, and a valid production code-signing setup.
-The per-machine NSIS installer installs the privileged service with administrator
-consent. Its adapter and cleanup operations must remain scoped to Stellar.
+def allowed(member):
+    parts = Path(member.name).parts
+    if (not (member.isfile() or member.isdir())
+            or any(p.startswith('._') or p in ('.', '..') for p in parts)):
+        raise RuntimeError('Disallowed archive member')
+    return member
 
-Read these files before preparing a release:
+with output.open('xb') as raw:
+    with gzip.GzipFile(filename='', mode='wb', fileobj=raw, mtime=0) as gz:
+        with tarfile.open(fileobj=gz, mode='w', format=tarfile.USTAR_FORMAT) as tar:
+            tar.add(app, arcname=app.name, filter=allowed)
+
+with tarfile.open(output) as tar:
+    members = tar.getmembers()
+    names = [m.name for m in members]
+    assert members and len(names) == len(set(names))
+    assert all((m.isfile() or m.isdir())
+               and m.name.split('/')[0] == app.name
+               and not m.pax_headers for m in members)
+    actual = {m.name: tar.extractfile(m).read() for m in members if m.isfile()}
+    expected = {str(p.relative_to(app.parent)): p.read_bytes()
+                for p in app.rglob('*') if p.is_file()}
+    assert actual == expected
+PYCODE
+```
+
+Set `OTA_KEY_PATH` locally to the existing approved private key. The signer must
+provide a secure local password prompt; otherwise stop and review a safe local
+wrapper. Do not replace the established OTA key casually: old clients trust its
+public counterpart.
+
+```sh
+node node_modules/@tauri-apps/cli/tauri.js signer sign \
+  --private-key-path "$OTA_KEY_PATH" --app-version "$VERSION" "$OTA_ARCHIVE"
+node scripts/prepare-ota-manifest.mjs "$OTA_ARCHIVE" "$OTA_ARCHIVE.sig" \
+  "$VERSION" "$OTA_TARGET" > candidate-platform-manifest.json
+```
+
+The signed trusted comment must contain `version:<release-version>`. Extract
+into an empty test folder, compare all app-file hashes, and recheck signatures,
+stapling and Gatekeeper on the extracted app. A regenerated or repacked archive
+needs a new detached signature even if its application files did not change.
+
+## 3. Release Windows
+
+The current implementation targets Windows x64. Use the reviewed native MSVC/
+Windows SDK toolchain, approved runtime and driver inputs, valid production
+signing, and a prepared Windows test environment. Windows ARM emulation in a
+Mac VM does not establish native x64 driver or service compatibility.
+
+The per-machine NSIS installer requires administrator consent for the persistent
+privileged service. Adapter creation, selection and cleanup must remain scoped
+to Stellar and leave other VPN products alone.
+
+Review these files on the exact release commit:
 
 - `native/windows/release-policy.json`
 - `scripts/check-windows-release.mjs`
-- `scripts/windows-native-compile.ps1`
-- `scripts/build-windows-helper.mjs`
-- `src-tauri/tauri.windows.conf.json`
-- `native/windows/installer.nsh`
+- `scripts/windows-native-compile.ps1` and `scripts/build-windows-helper.mjs`
+- `src-tauri/tauri.windows.conf.json` and `native/windows/installer.nsh`
 
-With the approved native Windows toolchain already available:
+With approved toolchain inputs already present:
 
 ```powershell
 node scripts/build-windows-helper.mjs
@@ -247,43 +317,49 @@ powershell -NoProfile -File scripts/windows-live-preflight.ps1
 node scripts/check-windows-release.mjs
 ```
 
-Helper compilation is not installation or release approval. Preflight is a
-read-only capability inventory, not a live VPN/leak test. Follow the compile
-script's explicit source/toolchain approval requirements; do not bypass them.
+Compilation is not release acceptance. Preflight is a read-only capability
+inventory, not a VPN/leak test. Fulfil the native compile script's approval
+requirements and every acceptance item in the release policy, including install/
+upgrade/uninstall, credential vault, migration, VPN lifecycle, live kill switch,
+crash fail-closed, IPv4/IPv6/DNS leaks, sleep/network changes and update rollback.
 
-The current release policy has `releaseReady`, `runtimeApproved` and
-`driverApproved` set to false. Required native acceptance covers MSVC builds,
-install/upgrade/uninstall, credential vault, legacy migration, VPN lifecycle,
-live kill switch, fail-closed crashes, IPv4/IPv6/DNS leaks, sleep/network changes
-and signed-update rollback.
+The gate binds evidence to the source hash, architecture and runtime manifest.
+If policy flags are false, evidence is absent/stale or a required test has not
+passed, stop. Do not fabricate an acceptance receipt or change flags merely to
+allow packaging. Hosted synthetic checks cannot certify physical sleep or Wi-Fi.
 
-Acceptance evidence must match the exact source hash, architecture and runtime
-manifest. Do not fabricate `.security-review/windows-acceptance.json` or flip
-policy fields just to make the gate pass. Hosted compile/synthetic workflows do
-not establish desktop hardware acceptance.
-
-Only after the approved acceptance process makes the gate pass:
+After the reviewed acceptance process makes the gate pass:
 
 ```powershell
 npm run desktop:build -- --target x86_64-pc-windows-msvc --bundles nsis
 ```
 
-Finalize signing through the approved Windows signing service for all components
-required by the runtime's signature checks, including the privileged helper and
-installer. Verify signatures and installer behavior; do not introduce test trust
-roots or disable signature verification. Then prepare the Windows OTA artifact
-and test update/rollback before publication.
+Use the approved signing service and verify every component required by the
+runtime's signature checks, including the privileged helper and installer.
+Follow the native packaging requirements for when those signatures are applied.
+Never disable signature checks or add a test trust root as a release workaround.
 
-## Linux release
+Verify fresh installation, upgrade and uninstall with the signed installer.
+Sign the final OTA installer with the established OTA key, and prepare its entry:
 
-Linux depends on native GTK/WebKit/system packages as well as the reviewed Rust
-and Node inputs. Determine exact distribution versions and review missing
-packages before installation. Do not copy macOS/Windows runtimes into Linux.
+```powershell
+$Version = node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).version"
+node scripts/prepare-ota-manifest.mjs Stellar-VPN-setup.exe Stellar-VPN-setup.exe.sig $Version windows-x86_64
+```
 
-The workspace selects a local glib 0.18.5 backport for RUSTSEC-2024-0429.
-`vendor/glib-0.18.5/stellar-backport.json` records its provenance and inventory.
+The tool enforces Windows acceptance as well as the artifact signature. Test the
+actual native update, failure and rollback paths before activation.
 
-On a prepared Linux machine:
+## 4. Release Linux
+
+Prepare a native Linux environment with reviewed distribution-specific GTK,
+WebKit and other system dependencies plus the reviewed Rust/Node inputs. Select
+and validate a Linux runtime/helper and firewall integration; binaries from
+macOS or Windows cannot substitute.
+
+The current workspace uses a local glib security backport. Read its provenance
+manifest under `vendor/`, verify the exact source inventory and lockfile
+selection, and run both tooling checks and native regressions:
 
 ```sh
 npm run check:linux-security
@@ -292,60 +368,102 @@ cargo test --locked --offline -p stellar-vpn-desktop --test linux_glib_backport
 cargo test --locked --offline --release -p stellar-vpn-desktop --test linux_glib_backport
 ```
 
-The first two commands verify source/inventory tooling; they do not replace the
-native debug/release regression tests. Complete the native desktop build and
-platform VPN/helper/firewall/installation acceptance as well.
+Complete native debug/release desktop builds and VPN/helper/firewall acceptance
+on the supported distributions. Source-hash tests cannot replace native tests.
 
-`scripts/desktop.mjs` currently blocks Linux release builds unconditionally.
-A separately reviewed source change backed by native acceptance evidence is
-needed before a Linux release can proceed. Do not call the underlying Tauri CLI
-directly to evade the block. AppImage and DEB are configured prospective bundle
-targets, not proof of working release artifacts.
+At the time this guide was written, `scripts/desktop.mjs` intentionally blocks
+Linux release builds. Removing that blocker requires a reviewed source change
+supported by the missing native evidence. Do not invoke Tauri directly to evade
+it. AppImage/DEB targets in configuration are not proof of finished packages.
 
-Linux in-app OTA is currently unsupported by both native updater handling and
-the manifest-generation tool. Distribute only through an approved packaging and
-update channel after defining and testing that channel; do not point Linux at a
-macOS or Windows artifact.
+Linux in-app OTA is not currently implemented in the native updater or manifest
+tool. Define and test an approved package/update channel before distribution;
+do not point Linux at a macOS or Windows artifact.
 
-## Signed OTA manifests and publication
+## 5. Test an actual update
 
-The new updater uses:
+For each target platform, use the intended old production app and the exact new
+signed artifact. Record the machine/OS/architecture, old and new versions,
+source commit, artifact hashes and observed results.
 
-```text
-https://desktopreleasesassetsprod.stellarsecurity.com/vpn/desktop-v2/latest.json
-```
+- Fresh install, update, relaunch and uninstall.
+- Existing login/settings retention and new-user registration.
+- Native helper installation/upgrade and final installed-file hashes.
+- VPN connect, cancellation, disconnect and subscription expiry.
+- Kill switch while connected, after tunnel failure and after process crashes.
+- IPv4, IPv6 and DNS leaks; sleep/resume and network changes.
+- Invalid signatures, interrupted updates, failed installation and recovery.
 
-Legacy clients use `/vpn/latest.json`. Changing the legacy feed can affect all
-existing users. Preserve the old/new feed contracts and existing platform entries;
-a controlled one-machine test must not accidentally update the entire user base.
+Check `src-tauri/legacy-migration.json` for the actual rollout state. Enable
+native login migration only after validating the legacy-store read, backend
+exchange, durable replacement session and safe cleanup. A failed migration must
+retain the old login. Preserved credential fields alone do not prove automatic
+migration succeeded.
 
-Sign the finalized artifact with the existing approved OTA key. The signature
-must verify against the public key pinned in `src-tauri/src/updates/trust.rs`.
-Its signed trusted comment must contain the exact release `version:0.5.0`.
-Keep the private key on the signing machine/IronKey; this repository's manifest
-tool reads only artifact bytes and the detached public signature.
+Test the minimum supported OS and each supported architecture separately. A
+current Mac cannot certify an older macOS, and a hosted server VM cannot certify
+physical sleep/Wi-Fi. Record unavailable tests as missing, never as passed.
 
-After signing and final validation, examples of manifest generation are:
+## 6. Stage and publish the release
+
+Release assets are hosted by
+[Stellar.Desktop.Releases](https://github.com/StellerSecurity/Stellar.Desktop.Releases).
+Download routing is maintained separately in
+[Stellar.UI.Download.API](https://github.com/StellerSecurity/Stellar.UI.Download.API).
+
+Prepare immutable versioned artifacts and their new SHA-256 digests. For a Mac
+release the publisher may require the OTA archive, its detached signature, DMG,
+helper PKG and manifest. Inspect the current publisher's required asset schema;
+do not reuse a previous version's names, bytes or pinned hashes by assumption.
+
+In the reviewed release-hosting checkout, validate the exact prepared assets:
 
 ```sh
-node scripts/prepare-ota-manifest.mjs \
-  'Stellar VPN.app.tar.gz' 'Stellar VPN.app.tar.gz.sig' \
-  0.5.0 darwin-aarch64 > macos-platform-manifest.json
-
-node scripts/prepare-ota-manifest.mjs \
-  Stellar-VPN-setup.exe Stellar-VPN-setup.exe.sig \
-  0.5.0 windows-x86_64 > windows-platform-manifest.json
+node scripts/vpn-release.cjs verify /path/to/exact-release-assets
 ```
 
-Each invocation emits one platform entry, not a safely merged multi-platform
-feed. The Windows invocation additionally enforces native acceptance. Intel macOS
-uses `darwin-x86_64` only with its independently validated Intel artifact.
+This command belongs to the release-hosting repository, not the desktop app
+checkout. Its current pipeline/input pins can be version-specific. Update them
+through review for the new version before using the publisher. Do not replace
+checks with the new hashes merely because a mismatch occurred; first establish
+why the bytes changed and obtain approval for the exact inputs.
 
-Upload approved immutable versioned artifacts first, independently verify their
-download hashes/signatures, then update the appropriate feed after publication
-approval. The tool restricts artifacts to `/vpn/desktop-v2/<version>/<target>/`.
-It does not upload files, merge platform entries or publish an update.
+Use the approved Azure pipeline and existing scoped service connection:
 
-A GitHub draft containing runtime inputs is a signing handoff, not an app release
-or an OTA publication. Preserve older working artifacts and a tested recovery
-plan; do not edit manifests to force an unsupported downgrade.
+1. Stage the reviewed artifacts using `mode=stage` on the selected source.
+2. Verify staged downloads, hashes, signatures and platform manifests.
+3. Perform the real controlled OTA test and record concrete evidence.
+4. Obtain approval to activate that exact release.
+5. Run `mode=activate` with a truthful `controlledOtaTest` result identifying the
+   tested machine, versions and outcome.
+6. Verify public feeds, download aliases and final downloaded bytes afterward.
+
+Keep the publisher's compare-and-swap feed check and recovery journal. Stop on
+unexpected feed changes. Do not copy Azure tokens into chat or install a local
+cloud CLI just to bypass the existing deployment process.
+
+### Feed and download compatibility
+
+- Legacy clients: `https://desktopreleasesassetsprod.stellarsecurity.com/vpn/latest.json`
+- New clients: `https://desktopreleasesassetsprod.stellarsecurity.com/vpn/desktop-v2/latest.json`
+
+Determine which clients the release should reach before activation. Changing the
+legacy feed can offer the update to all compatible existing clients, so it is
+not a private one-machine test channel. Preserve the established OTA public key,
+app identity and platform signing requirements.
+
+The manifest tool generates one platform entry per invocation. Merge reviewed
+entries deliberately; do not accidentally delete another supported platform or
+restore a paused platform. The updater restricts artifact paths to
+`/vpn/desktop-v2/<version>/<target>/`. If a corrected artifact needs a new path,
+use an immutable revision under that directory and update JSON deliberately
+without changing or substituting its verified signature.
+
+Verify the download service's expected DMG/installer alias separately from OTA
+URLs. An alias must serve the same verified signed bytes as the approved release.
+A GitHub draft used for runtime handoff is not an activated app release.
+
+Keep the previous approved artifacts and a tested recovery plan. Do not force a
+downgrade by editing a manifest to bypass updater rules. Record the final source,
+artifact hashes, approvals, native tests and activation result for each release
+outside this reusable guide.
