@@ -5,6 +5,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import os from 'node:os';
+import { minimumMacOS, verifyRuntime } from './macos-architecture.mjs';
 if (process.platform !== 'darwin' || process.arch !== 'arm64') throw Error('Only the reviewed macOS arm64 runtime is prepared by this script.');
 const packages = [
   { name: 'openvpn', version: '2.7.8_1', registry: 'openvpn', sha256: 'e64da55e9cb2b051ed1b7b57bf9069c66b7b112a52d5689adcac9010b25f4e65' },
@@ -87,8 +88,9 @@ for (const file of files) {
   execFileSync('/usr/bin/codesign', ['--force', '--sign', '-', full], { stdio: 'pipe' });
 }
 const manifest = [];
-for (const file of files) manifest.push({ file: file.name, sha256: crypto.createHash('sha256').update(await fs.readFile(path.join(destination, file.name))).digest('hex') });
+for (const file of files) manifest.push({ file: file.name, sha256: crypto.createHash('sha256').update(await fs.readFile(path.join(destination, file.name))).digest('hex'), minimumMacOS: minimumMacOS(path.join(destination, file.name)) });
 await fs.writeFile(path.join(destination, 'runtime-manifest.json'), JSON.stringify({ platform: 'darwin-arm64', packages, files: manifest }, null, 2) + '\n');
+verifyRuntime(destination, 'arm64');
 // Only now execute the reviewed runtime, after all source and output checks.
 console.log(execFileSync(path.join(destination, 'openvpn'), ['--version'], { encoding: 'utf8' }).split('\n').slice(0, 2).join('\n'));
 console.log('Prepared app-local runtime; no Homebrew installation, system service or privileged helper was installed.');

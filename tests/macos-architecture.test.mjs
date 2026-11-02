@@ -3,14 +3,16 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { macArchitecture, rustTarget, binaryArchitectures, assertArchitecture, verifyRuntime, sha256, packageOptions } from '../scripts/macos-architecture.mjs';
+import { macArchitecture, rustTarget, binaryArchitectures, assertArchitecture, minimumMacOS, verifyRuntime, sha256, packageOptions } from '../scripts/macos-architecture.mjs';
 function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'stellar-architecture-test-'));
   t.after(() => fs.rmSync(root, { recursive: true }));
   return root;
 }
-function binary(file, arch) {
-  const header = Buffer.alloc(32); header.writeUInt32LE(0xfeedfacf); header.writeUInt32LE(arch === 'arm64' ? 0x0100000c : 0x01000007, 4);
+function binary(file, arch, minimum = 12) {
+  const header = Buffer.alloc(56); header.writeUInt32LE(0xfeedfacf); header.writeUInt32LE(arch === 'arm64' ? 0x0100000c : 0x01000007, 4);
+  header.writeUInt32LE(1,16); header.writeUInt32LE(24,20);
+  header.writeUInt32LE(0x32,32); header.writeUInt32LE(24,36); header.writeUInt32LE(1,40); header.writeUInt32LE(minimum << 16,44);
   fs.writeFileSync(file, header);
 }
 function runtime(t, arch) {
@@ -28,6 +30,17 @@ test('Node and Rust architecture names map explicitly; unknown targets fail clos
   assert.throws(() => packageOptions(['--arch', 'intel'])); assert.throws(() => packageOptions(['--profile', 'custom']));
   assert.throws(() => packageOptions(['--runtime'])); assert.throws(() => packageOptions(['--arch','arm64','--arch','x64']));
   assert.match(packageOptions(['--arch','x86_64']).runtime, /openvpn-runtime-x86_64$/);
+});
+test('deployment targets are read from bytes and newer runtimes fail even with matching hashes', t => {
+  const { directory, manifest } = runtime(t, 'arm64');
+  const file = path.join(directory, 'openvpn');
+  assert.equal(minimumMacOS(file), '12.0.0');
+  binary(file, 'arm64', 27);
+  manifest.files[0].sha256 = sha256(file);
+  fs.writeFileSync(path.join(directory, 'runtime-manifest.json'), JSON.stringify(manifest));
+  assert.throws(() => verifyRuntime(directory, 'arm64'), /exceeding app minimum/);
+  fs.writeFileSync(file, fs.readFileSync(file).subarray(0,32));
+  assert.throws(() => minimumMacOS(file), /Invalid/);
 });
 test('Mach-O headers distinguish Intel from ARM without executing code', t => {
   const directory = fixture(t), file = path.join(directory, 'binary');

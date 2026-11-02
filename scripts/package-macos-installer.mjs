@@ -4,12 +4,13 @@ import os from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
+import { verifyRuntime } from './macos-architecture.mjs';
 if (process.platform !== 'darwin' || process.arch !== 'arm64') throw new Error('This local installer supports macOS ARM64 only.');
 const app = path.resolve('target/debug/bundle/macos/Stellar VPN.app');
 const helper = path.resolve('target/debug/stellar-vpn-helper');
 const runtime = path.resolve('src-tauri/resources/openvpn-runtime');
 const version = JSON.parse(fs.readFileSync('package.json', 'utf8')).version;
-const manifest = JSON.parse(fs.readFileSync(path.join(runtime, 'runtime-manifest.json'), 'utf8'));
+const manifest = verifyRuntime(runtime, 'arm64');
 const binaries = ['openvpn', 'libcrypto.4.dylib', 'libssl.4.dylib', 'liblzo2.2.dylib', 'libpkcs11-helper.1.dylib', 'liblz4.1.dylib'];
 const hash = file => createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 function regular(file) { if (!fs.lstatSync(file).isFile()) throw new Error(`Unsafe input file: ${file}`); }

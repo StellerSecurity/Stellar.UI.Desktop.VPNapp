@@ -10,6 +10,13 @@ This is release source, not an approved public release. Do not publish an
 artifact or replace either update feed merely by checking out this branch.
 Do not move private signing keys, OTA keys, passwords or account data into Git.
 
+COMPATIBILITY BLOCKER (2026-11-02): The first runtime handoff archive, SHA-256
+970d5c82c82901ddc5eb121bd77f99a6c502b1007dcf1a4948cd631274c554c8,
+requires macOS 27.0 (OpenVPN and four libraries) / 26.0 (LZ4).
+It MUST NOT be used for the app's declared macOS 12 minimum. Do not change
+Mach-O version fields to pretend compatibility. A reviewed source rebuild is
+required. The runtime verifier now rejects binaries requiring macOS > 12.0.
+
 1. Verify the checked-out commit and version 0.5.0 in package.json,
    package-lock.json, src-tauri/Cargo.toml, Cargo.lock and tauri.conf.json.
    The desktop API defaults to the production V2 gateway.

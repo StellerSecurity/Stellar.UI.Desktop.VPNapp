@@ -24,6 +24,27 @@ export function binaryArchitectures(file) {
 export function assertArchitecture(file, arch) {
   if (!binaryArchitectures(file).includes(macArchitecture(arch))) throw new Error(`Architecture mismatch (${arch} required): ${file}`);
 }
+export function minimumMacOS(file) {
+  binaryArchitectures(file);
+  const data = fs.readFileSync(file);
+  const read = data.readUInt32LE(0) === 0xfeedfacf ? offset => data.readUInt32LE(offset) : offset => data.readUInt32BE(offset);
+  const count = read(16), bytes = read(20), end = 32 + bytes;
+  if (end > data.length || count > bytes / 8) throw new Error('Invalid Mach-O load commands');
+  let offset = 32, version;
+  for (let i = 0; i < count; i++) {
+    if (offset + 8 > end) throw new Error('Truncated Mach-O load command');
+    const command = read(offset), size = read(offset + 4);
+    if (size < 8 || offset + size > end) throw new Error('Invalid Mach-O load command size');
+    if (command === 0x32 || command === 0x24) {
+      if (version !== undefined || size < (command === 0x32 ? 24 : 16)) throw new Error('Invalid deployment target');
+      if (command === 0x32 && read(offset + 8) !== 1) throw new Error('Runtime is not built for macOS');
+      version = read(offset + (command === 0x32 ? 12 : 8));
+    }
+    offset += size;
+  }
+  if (offset !== end || version === undefined || version === 0) throw new Error('Missing or invalid macOS deployment target');
+  return [version >>> 16, (version >>> 8) & 255, version & 255].join('.');
+}
 export const sha256 = file => createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 export function verifyRuntime(directory, arch) {
   const platform = `darwin-${macArchitecture(arch)}`;
@@ -38,6 +59,10 @@ export function verifyRuntime(directory, arch) {
     const file = path.join(directory, row.file);
     assertArchitecture(file, arch);
     if (sha256(file) !== row.sha256) throw new Error(`Runtime integrity mismatch: ${row.file}`);
+    const minimum = minimumMacOS(file);
+    const [major, minor, patch] = minimum.split('.').map(Number);
+    if (major > 12 || (major === 12 && (minor > 0 || patch > 0))) throw new Error(`Runtime requires macOS ${minimum}, exceeding app minimum 12.0: ${row.file}`);
+    if (row.minimumMacOS !== undefined && row.minimumMacOS !== minimum) throw new Error(`Runtime deployment target metadata mismatch: ${row.file}`);
   }
   return manifest;
 }

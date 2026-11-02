@@ -1,0 +1,66 @@
+{
+  "purpose": "Static review inputs for the macOS Intel build; not permission to execute or install",
+  "minimumMacOSTarget": "12.0",
+  "artifacts": [
+    {
+      "name": "rust-std",
+      "version": "1.99.1",
+      "target": "x86_64-apple-darwin",
+      "file": "rust-std-1.99.1-x86_64-apple-darwin.tar.xz",
+      "url": "https://static.rust-lang.org/dist/2026-10-15/rust-std-1.99.1-x86_64-apple-darwin.tar.xz",
+      "sha256": "484d5b88b424ddd29df196e1eb9420c8335bb5fac90a3c37140253345a8c65c4",
+      "publisher": "The Rust Project",
+      "repository": "https://github.com/rust-lang/rust",
+      "commit": "58cf8f9c35b355199727627d07ae34a4e2846d67"
+    },
+    {
+      "name": "openvpn",
+      "version": "2.7.8",
+      "file": "openvpn-2.7.8.tar.gz",
+      "url": "https://swupdate.openvpn.net/community/releases/openvpn-2.7.8.tar.gz",
+      "sha256": "c070d1d2440b5a6fca6c2c68645c98cd492116ac36ef4f0946177115532c8e36",
+      "publisher": "OpenVPN Inc. / OpenVPN community",
+      "repository": "https://github.com/OpenVPN/openvpn",
+      "commit": "dc1f569087135894ac2703aeabd7a960ee9452d4"
+    },
+    {
+      "name": "openssl",
+      "version": "4.1.0",
+      "file": "openssl-4.1.0.tar.gz",
+      "url": "https://github.com/openssl/openssl/releases/download/openssl-4.1.0/openssl-4.1.0.tar.gz",
+      "sha256": "50c17baf54cb008f6ce42d50deb4b28050a1aad711636cabd4b241c7e90cc2fd",
+      "publisher": "OpenSSL Project",
+      "repository": "https://github.com/openssl/openssl",
+      "commit": "2f4e3a5fec05394068cfa7379890ab552483a8a6"
+    },
+    {
+      "name": "lzo",
+      "version": "2.10",
+      "file": "lzo-2.10.tar.gz",
+      "url": "https://www.oberhumer.com/opensource/lzo/download/lzo-2.10.tar.gz",
+      "sha256": "c0f892943208266f9b6543b3ae308fab6284c5c90e627931446fb49b4221a072",
+      "publisher": "Markus F. X. J. Oberhumer",
+      "repository": "https://www.oberhumer.com/opensource/lzo/"
+    },
+    {
+      "name": "lz4",
+      "version": "1.10.0",
+      "file": "lz4-1.10.0.tar.gz",
+      "url": "https://github.com/lz4/lz4/archive/refs/tags/v1.10.0.tar.gz",
+      "sha256": "537512904744b35e232912055ccf8ec66d768639ff3abe5788d90d792ec5f48b",
+      "publisher": "Yann Collet / LZ4 project",
+      "repository": "https://github.com/lz4/lz4",
+      "commit": "ebb370ca83af193212df4dcbadcc5d87bc0de2f0"
+    },
+    {
+      "name": "pkcs11-helper",
+      "version": "1.31.0",
+      "file": "pkcs11-helper-1.31.0.tar.bz2",
+      "url": "https://github.com/OpenSC/pkcs11-helper/releases/download/pkcs11-helper-1.31.0/pkcs11-helper-1.31.0.tar.bz2",
+      "sha256": "46f0067bccd7be2c28f88b8bca775172b9e52fb6fc1280b44ca8bb831433fef9",
+      "publisher": "Alon Bar-Lev / OpenSC",
+      "repository": "https://github.com/OpenSC/pkcs11-helper",
+      "commit": "286b4415b95f298ab35d62508a37c2aefc055037"
+    }
+  ]
+}
