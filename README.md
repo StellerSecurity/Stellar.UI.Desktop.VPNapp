@@ -5,7 +5,9 @@ Rust. The interface provides a server map, connection controls, account access,
 settings and signed software updates. Platform-specific network helpers perform
 the privileged VPN and firewall work outside the interface process.
 
-This document describes the current 0.5.0 source and its release requirements.
+This document describes the 0.5.0 project, release requirements and published
+macOS release record. The historical procedure below is documentation, not an
+instruction to rebuild, republish or overwrite the existing 0.5.0 artifacts.
 Build success, notarization and a passing unit-test suite do not by themselves
 establish that a platform is ready for public distribution.
 
@@ -40,7 +42,7 @@ Cloning this repository alone is insufficient to produce a distributable app.
 
 | Platform | Release status and remaining work |
 | --- | --- |
-| macOS Apple Silicon | Source-build runtime targets macOS 12.0. Its six Mach-O targets, hashes, local linkage, ad hoc signatures and library smoke tests passed. Final app/helper signing, notarization, installation and upgrade acceptance must use that replacement runtime. Live macOS 12 compatibility remains unverified. |
+| macOS Apple Silicon | Version 0.5.0 is published. Both OTA feeds offer the corrected ARM64 archive. The signing-machine record reports successful notarization and a controlled 0.2.0 → 0.5.0 upgrade. Live macOS 12 compatibility, full clean-machine VPN/firewall acceptance and automatic login migration remain outstanding. |
 | macOS Intel | Separate reviewed x86_64 runtime, helper, build and native acceptance are required. ARM64 artifacts cannot substitute for Intel artifacts. |
 | Windows x64 | Distribution is blocked by the checked-in release policy until exact runtime/driver approval and native acceptance are complete. |
 | Linux | Release builds are intentionally blocked pending native debug/release validation of the glib backport and the desktop build. In-app OTA updates are not implemented for Linux. |
@@ -349,3 +351,268 @@ It does not upload files, merge platform entries or publish an update.
 A GitHub draft containing runtime inputs is a signing handoff, not an app release
 or an OTA publication. Preserve older working artifacts and a tested recovery
 plan; do not edit manifests to force an unsupported downgrade.
+
+## macOS 0.5.0 signing and OTA release record
+
+Recorded on **2 November 2026** from the signing-machine handoff. The published
+GitHub asset digests and the two public OTA manifests were independently checked
+when this section was added. The notarization, installation and controlled
+upgrade results below are reported by that handoff; they are not new tests run
+while editing this README.
+
+This is a historical procedure and a starting point for future reviewed releases.
+**Do not rebuild and overwrite the published 0.5.0 files.** New signatures and
+timestamps produce different bytes and hashes. A new release needs a separately
+verified source commit, version, artifact paths, pinned hashes and approval.
+
+### Identities, source and hosting
+
+| Item | Historical release value |
+| --- | --- |
+| Apple team | North Star Swiss SA / `7VYLUCU756` |
+| Application certificate SHA-1 fingerprint | `5ECA1D6A477A09B93BF5D4FBF772C969B9CDED02` |
+| Installer certificate SHA-1 fingerprint | `B76774558253A64B657A67257F59156F9BACE878` |
+| Certificate expiry reported by the signing machine | 2 December 2027 |
+| Released application source | `0e8952cc3b26bad5f19b5c2c7d2f95015f4c74f3` |
+| Initial source merge into `main` | `957dd3eac0218dbf07ce1c1303271b62531c759b` |
+| Release hosting | [Stellar.Desktop.Releases](https://github.com/StellerSecurity/Stellar.Desktop.Releases) |
+| Download service source | [Stellar.UI.Download.API](https://github.com/StellerSecurity/Stellar.UI.Download.API) |
+
+These fingerprints identify public certificates, not private keys. Confirm the
+intended valid identities on the signing machine before reuse. Existing keys and
+the older Application certificate were retained; issuing the new certificates
+did not require revoking them. Apple Developer ID signing and OTA signing are
+separate layers. The existing OTA private key stayed on the hardware-encrypted
+drive and was not copied into Git or release hosting.
+
+The historical environment used reviewed Xcode tools, Node 22.12.0, Rust 1.99.1,
+the `aarch64-apple-darwin` target and locked dependencies. This record grants no
+approval to install those tools elsewhere or substitute other versions.
+
+### Signing-machine sequence
+
+Use a fresh isolated checkout of the intended source commit. Keep an unchanged
+copy of the original runtime manifest for provenance, verify the reviewed input
+hashes, and stop on any failed command. Use an isolated, already prepared
+`CARGO_HOME`/`RUSTUP_HOME` if required by the reviewed build environment, and
+confirm that `Cargo.lock` remains unchanged.
+
+The following commands illustrate the historical macOS sequence. Set
+`APP_IDENTITY`, `INSTALLER_IDENTITY` and `NOTARY_PROFILE` locally to the intended
+existing certificate identities and Keychain profile. No new Keychain access
+grant, certificate issuance or credential setup is authorized by this guide.
+
+```sh
+export MACOSX_DEPLOYMENT_TARGET=12.0
+export CARGO_NET_OFFLINE=true
+
+cargo build --locked --offline -p stellar-vpn-helper \
+  --target aarch64-apple-darwin --release
+```
+
+Sign each of the six runtime binaries with the intended Application identity,
+timestamp and hardened runtime options, verify it, and update that file's hash
+in `runtime-manifest.json`. Preserve the original manifest separately. Do not
+reuse the pre-signing hashes as if signing had left the files unchanged.
+
+```sh
+codesign --force --sign "$APP_IDENTITY" \
+  --identifier org.stellarvpn.desktop.helper --timestamp --options runtime \
+  target/aarch64-apple-darwin/release/stellar-vpn-helper
+codesign --verify --strict \
+  target/aarch64-apple-darwin/release/stellar-vpn-helper
+
+node scripts/package-network-helper.mjs --arch arm64 --profile release \
+  --helper target/aarch64-apple-darwin/release/stellar-vpn-helper \
+  --runtime src-tauri/resources/openvpn-runtime
+
+mv src-tauri/resources/NetworkHelper.pkg NetworkHelper-unsigned.pkg
+productsign --sign "$INSTALLER_IDENTITY" --timestamp \
+  NetworkHelper-unsigned.pkg src-tauri/resources/NetworkHelper.pkg
+pkgutil --check-signature src-tauri/resources/NetworkHelper.pkg
+xcrun notarytool submit src-tauri/resources/NetworkHelper.pkg \
+  --keychain-profile "$NOTARY_PROFILE" --wait
+xcrun stapler staple src-tauri/resources/NetworkHelper.pkg
+xcrun stapler validate src-tauri/resources/NetworkHelper.pkg
+spctl --assess --type install --verbose=2 src-tauri/resources/NetworkHelper.pkg
+```
+
+Confirm Apple's **Accepted** result and the expected team. After stapling, write
+the final package SHA-256 to `NetworkHelper.sha256` and `packageSha256` in
+`NetworkHelper.arch.json`. Verify the metadata's signed helper hash too. Only
+then compile the app, so its embedded checksum matches the final package:
+
+```sh
+node node_modules/@tauri-apps/cli/tauri.js build --ci \
+  --target aarch64-apple-darwin --bundles app --no-sign -- --locked --offline
+
+APP="$PWD/target/aarch64-apple-darwin/release/bundle/macos/Stellar VPN.app"
+codesign --force --sign "$APP_IDENTITY" --timestamp --options runtime "$APP"
+codesign --verify --strict --deep "$APP"
+codesign -d --verbose=4 "$APP"
+ditto -c -k --keepParent "$APP" app-for-notarization.zip
+xcrun notarytool submit app-for-notarization.zip \
+  --keychain-profile "$NOTARY_PROFILE" --wait
+xcrun stapler staple "$APP"
+xcrun stapler validate "$APP"
+spctl --assess --type execute --verbose=2 "$APP"
+```
+
+This direct CLI invocation is the macOS final-build step after helper
+finalization, not permission to bypass Windows or Linux release gates. Confirm
+the bundle ID, release version, ARM64 architecture, minimum macOS 12.0, timestamp,
+team and the exact bundled helper-package checksum.
+
+Create the drag-to-Applications DMG from that finalized app in a new staging
+directory. Sign the DMG, submit it for notarization, staple and validate it, and
+run `hdiutil verify` and Gatekeeper assessment on the final container. The app
+and helper require their own checks; a signed outer DMG does not replace them.
+
+Never use shell tracing, passwords in command arguments or shell-history lookup
+to recover credentials. Use an existing Keychain profile or a reviewed hidden
+local prompt. Historical scripts on the signing Mac contain machine-specific
+paths and unlock handling; inspect them before reuse rather than executing them
+as trusted release automation.
+
+### Corrected OTA archive format
+
+The first OTA archive contained AppleDouble entries (`._*`) that the legacy
+updater rejected. The replacement used **USTAR**, without PAX metadata or links,
+inside gzip with `mtime=0`. Repacking preserved the signed app's file bytes.
+Deterministic container metadata does not make a newly signed app identical to
+the published app.
+
+The following packaging example operates only on the already finalized app;
+it does not sign, install or publish it:
+
+```sh
+export STELLAR_APP="$APP"
+python3 - <<'PY'
+import gzip, os, tarfile
+from pathlib import Path
+
+app = Path(os.environ['STELLAR_APP'])
+if app.is_symlink() or not app.is_dir() or app.name != 'Stellar VPN.app':
+    raise RuntimeError('Expected a regular Stellar VPN app directory')
+output = Path('Stellar VPN.app.tar.gz')
+
+def allowed(member):
+    parts = Path(member.name).parts
+    if (not (member.isfile() or member.isdir())
+            or any(p.startswith('._') or p in ('.', '..') for p in parts)):
+        raise RuntimeError('Disallowed archive member')
+    return member
+
+with output.open('xb') as raw:
+    with gzip.GzipFile(filename='', mode='wb', fileobj=raw, mtime=0) as gz:
+        with tarfile.open(fileobj=gz, mode='w', format=tarfile.USTAR_FORMAT) as tar:
+            tar.add(app, arcname=app.name, filter=allowed)
+
+with tarfile.open(output) as tar:
+    members = tar.getmembers()
+    names = [m.name for m in members]
+    assert members and len(names) == len(set(names))
+    assert all((m.isfile() or m.isdir())
+               and m.name.split('/')[0] == app.name
+               and not m.pax_headers for m in members)
+    actual = {m.name: tar.extractfile(m).read() for m in members if m.isfile()}
+    expected = {str(p.relative_to(app.parent)): p.read_bytes()
+                for p in app.rglob('*') if p.is_file()}
+    assert actual == expected
+PY
+```
+
+Sign that exact archive with the existing OTA key. Use the approved local CLI's
+hidden password prompt; if unavailable, stop and review a secure local wrapper
+instead of placing a password in shell arguments or history. With
+`OTA_KEY_PATH` set locally to the hardware drive's key path:
+
+```sh
+node node_modules/@tauri-apps/cli/tauri.js signer sign \
+  --private-key-path "$OTA_KEY_PATH" --app-version 0.5.0 'Stellar VPN.app.tar.gz'
+node scripts/prepare-ota-manifest.mjs \
+  'Stellar VPN.app.tar.gz' 'Stellar VPN.app.tar.gz.sig' \
+  0.5.0 darwin-aarch64 > candidate-latest.json
+```
+
+For a future version, replace **all** version-specific values deliberately.
+The manifest tool verifies the pinned public key and signed version comment.
+The historical corrected URL added `/ota1/` under the target directory. That
+manifest change used JSON parsing and retained the exact signature. Re-extract
+the archive into an empty test directory, compare every app-file hash, and
+verify code signatures, stapling and Gatekeeper on the extracted app.
+
+### Controlled upgrade and remaining acceptance
+
+The signing-machine record reports that an isolated copy of the old production
+0.2.0 app installed the corrected 0.5.0 archive, that every installed app file
+matched the notarized app, and that relaunch was confirmed visually. The user
+installed the reviewed helper through macOS and reported it working; all nine
+installed helper files reportedly matched the package.
+
+Credential fields were retained, but automatic native login migration remained
+disabled. Users may still need to sign in again. This controlled upgrade is not
+a full clean-machine VPN/firewall or leak test. Live macOS 12 testing, complete
+clean-machine acceptance and review of automatic login migration remain open.
+Every new release needs its own real upgrade test.
+
+### Published assets and Azure activation
+
+The final five assets are on
+[release vpn-mac-0.5.0-ota1](https://github.com/StellerSecurity/Stellar.Desktop.Releases/releases/tag/vpn-mac-0.5.0-ota1).
+These are immutable historical digests, not expected hashes of a rebuild:
+
+| Asset | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `Stellar-VPN-0.5.0-darwin-aarch64.app.tar.gz` | 6,774,519 | `0723b0d9e13fd82145052326555bad7ef84c456d129f2a39cf08b7bb32187e88` |
+| `Stellar-VPN-0.5.0-darwin-aarch64.app.tar.gz.sig` | 428 | `3191677fd459c0977ba22c7130b239f0427f938e610f971d62e2291126fd302f` |
+| `Stellar-VPN-0.5.0-macos-arm64.dmg` | 7,244,480 | `8d3a420a4fc2b90bc1f3344423be8742d00c2fc9e196d2829245c3891575969c` |
+| `Stellar-VPN-0.5.0-NetworkHelper-arm64.pkg` | 3,638,424 | `2dc363aa9191ac9ba08c224e69ea640ba0c698319ae44f936214b87d30cd2886` |
+| `latest.json` | 695 | `1f4c1784babfff4274e588932641f0809c19f509512701ec1d420621622345bb` |
+
+The release-hosting repository contains `azure-vpn-release.yml` and
+`scripts/vpn-release.cjs`. The historical deployment used Azure pipeline **190**,
+branch `main`, environment `stellardesktopreleasesprod` and an existing scoped
+Azure service connection. No Azure token was copied to the coding agent.
+
+For an explicitly approved release, the process is:
+
+1. Review the publisher source, pinned inputs and intended version. Its 0.5.0
+   inputs must not be reused with different bytes without a new review.
+2. Validate the exact five assets in the reviewed release-hosting checkout:
+   `node scripts/vpn-release.cjs verify /path/to/exact-assets`.
+3. Run the pipeline with `mode=stage` first.
+4. Perform the real controlled OTA test and record actual evidence.
+5. After concrete release approval, run `mode=activate`. Supply a truthful
+   `controlledOtaTest` record identifying the machine, old/new versions and
+   outcome. Never enter a made-up `PASS` just to satisfy a gate.
+
+The handoff records successful runs **7035** (stage), **7036** (activation) and
+**7038** (DMG alias fix). It describes pinned SHA-256, OTA signature, version,
+USTAR and manifest verification, a feed-hash compare-and-swap, and a recovery
+journal. Stop on unexpected hashes; do not rewrite those checks to force a run.
+Local `az` or `gh` installation was not required for that deployment.
+
+Both public feeds were checked to serve version 0.5.0 with the exact manifest
+digest above and only the `darwin-aarch64` platform:
+
+- [Legacy feed](https://desktopreleasesassetsprod.stellarsecurity.com/vpn/latest.json)
+- [Desktop V2 feed](https://desktopreleasesassetsprod.stellarsecurity.com/vpn/desktop-v2/latest.json)
+
+Their artifact URL is
+`https://desktopreleasesassetsprod.stellarsecurity.com/vpn/desktop-v2/0.5.0/darwin-aarch64/ota1/Stellar%20VPN.app.tar.gz`.
+The old compatible Apple Silicon app offers the update at its next check; the
+user chooses installation. This is not a forced update. Linux offers were
+explicitly paused, and this release did not publish Intel Mac, Windows or mobile
+artifacts.
+
+The handoff also records a DMG compatibility alias using the **same verified
+DMG bytes**, after the download service's original path returned 404:
+
+```text
+https://desktopreleasesassetsprod.stellarsecurity.com/vpn/0.5.0/Stellar%20VPN_0.5.0_aarch64.dmg
+https://download.stellarsecurity.com/vpn/mac
+```
+
+Keep download aliases, release asset names and OTA URLs distinct. Changing a
+filename or manifest path must not silently change the underlying signed bytes.
