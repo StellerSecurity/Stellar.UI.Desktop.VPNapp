@@ -22,13 +22,18 @@ From the repository root on the approved Windows machine:
 
 Sign the built Stellar service and app before packaging. Bundle those signed
 files, then sign the final installer. Preserve third-party driver signatures.
-Use the existing authorized Azure credential context on the Windows build host;
+Use the existing authorized Azure credential context on the local Windows machine;
 never put a client secret or private key into this repository or command line.
 
-For GitHub OIDC, separately approve the exact identity, repository/environment
-federation and Certificate Profile Signer role scoped to this profile before
-creating access. Protected environment approval should guard production signing.
-No OIDC identity or role assignment has been created by adding these files.
+Signing must never run on GitHub or other hosted CI. GitHub may compile and
+export unsigned first-party artifacts only. Transfer the exact build and its
+hashes to the local Windows machine, verify them, then sign and package locally.
+The signing script rejects GitHub Actions and common CI environments before
+loading tools or invoking Azure. Do not unset CI markers to bypass this rule.
+No GitHub OIDC federation, signing identity, signing secrets or signing role
+assignments may be created for this workflow. No such access has been created.
+Azure Artifact Signing remains an online Microsoft service; local signing means
+the signing command runs locally and communicates directly with Azure.
 
 The current Windows release policy still requires runtime/driver execution review
 and native installation, update, uninstall, tunnel, firewall, leak and recovery

@@ -7,6 +7,9 @@ param(
 # The separately reviewed tool bundle must contain all its runtime dependencies.
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+if ($env:GITHUB_ACTIONS -eq 'true' -or $env:TF_BUILD -eq 'True' -or $env:CI -eq 'true') {
+    throw 'Signing is local-only. Hosted CI signing is prohibited.'
+}
 if ($env:OS -ne 'Windows_NT') { throw 'Native Windows signing is required.' }
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $metadata = Join-Path $root 'native/windows/signing-metadata.json'
