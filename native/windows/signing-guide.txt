@@ -34,6 +34,13 @@ No GitHub OIDC federation, signing identity, signing secrets or signing role
 assignments may be created for this workflow. No such access has been created.
 Azure Artifact Signing remains an online Microsoft service; local signing means
 the signing command runs locally and communicates directly with Azure.
+Metadata excludes credential stores, environment credentials and CLI identities;
+the intended authentication method is an interactive Microsoft browser login.
+SignTool 10.0.26100.7705 requires Microsoft's documented HTTP timestamp URL.
+The RFC 3161 timestamp signature must verify; Azure signing uses HTTPS.
+Keep the original SDK side-by-side manifests beside SignTool, including the
+mssign32, wintrust, AppxSip, AppxPackaging and OpcServices assembly manifests
+and their referenced DLLs. Review and hash the complete portable bundle.
 
 The current Windows release policy still requires runtime/driver execution review
 and native installation, update, uninstall, tunnel, firewall, leak and recovery
