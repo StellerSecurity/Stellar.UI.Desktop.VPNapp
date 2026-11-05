@@ -1,0 +1,5 @@
+{
+  "Endpoint": "https://swn.codesigning.azure.net/",
+  "CodeSigningAccountName": "stellarvpnsigning",
+  "CertificateProfileName": "stellar-vpn-windows"
+}
