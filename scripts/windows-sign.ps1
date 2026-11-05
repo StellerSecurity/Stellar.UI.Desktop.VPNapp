@@ -47,7 +47,9 @@ $artifact = Get-Item -LiteralPath $FilePath
 if ($artifact.PSIsContainer -or $artifact.Extension -notin @('.exe', '.dll', '.msi') -or
     ($artifact.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'An explicit regular Windows artifact is required.' }
 $before = (Get-FileHash -LiteralPath $artifact.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-& $signTool sign /fd SHA256 /tr 'https://timestamp.acs.microsoft.com' /td SHA256 /dlib $dlib /dmdf $metadata $artifact.FullName
+# This SDK rejects HTTPS timestamp URLs. Microsoft documents this RFC 3161 TSA;
+# its signed timestamp token is verified below. Azure signing remains HTTPS.
+& $signTool sign /fd SHA256 /tr 'http://timestamp.acs.microsoft.com' /td SHA256 /dlib $dlib /dmdf $metadata $artifact.FullName
 if ($LASTEXITCODE -ne 0) { throw 'Azure Artifact Signing failed.' }
 & $signTool verify /pa /all /tw $artifact.FullName
 if ($LASTEXITCODE -ne 0) { throw 'Signed artifact verification failed.' }
