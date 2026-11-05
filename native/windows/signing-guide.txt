@@ -1,0 +1,40 @@
+Windows Artifact Signing
+
+Account: stellarvpnsigning
+Region/endpoint: Switzerland North / https://swn.codesigning.azure.net/
+Public Trust profile: stellar-vpn-windows
+Verified publisher: Stellar Technology SA
+
+scripts/windows-sign.ps1 signs one explicit artifact with a separately reviewed
+Microsoft SignTool and Artifact Signing client bundle. It does not install tools,
+create Azure identities, assign permissions, read secrets, or publish releases.
+
+The approval JSON must have schema 1, approved true, scope
+"windows-artifact-signing", metadataSha256 matching signing-metadata.json, and
+files containing an exact path/sha256 entry for every file in ToolDirectory.
+Paths are relative, use '/', and include all DLL/runtime dependencies. The bundle
+must contain signtool.exe and Azure.CodeSigning.Dlib.dll at its root.
+Do not produce an approval manifest until the exact bundle security review and
+explicit user approval have been completed. A signature alone is not a review.
+
+From the repository root on the approved Windows machine:
+  powershell -NoProfile -File scripts/windows-sign.ps1 -FilePath <absolute-artifact-path> -ToolDirectory <reviewed-bundle-directory> -ApprovalFile <approved-manifest-path>
+
+Sign the built Stellar service and app before packaging. Bundle those signed
+files, then sign the final installer. Preserve third-party driver signatures.
+Use the existing authorized Azure credential context on the Windows build host;
+never put a client secret or private key into this repository or command line.
+
+For GitHub OIDC, separately approve the exact identity, repository/environment
+federation and Certificate Profile Signer role scoped to this profile before
+creating access. Protected environment approval should guard production signing.
+No OIDC identity or role assignment has been created by adding these files.
+
+The current Windows release policy still requires runtime/driver execution review
+and native installation, update, uninstall, tunnel, firewall, leak and recovery
+acceptance. Signing does not satisfy those tests or authorize distribution.
+The script verifies timestamped Authenticode output, but has not yet been executed
+on Windows with the reviewed signing tool bundle. Test it there before release.
+
+Reference:
+https://learn.microsoft.com/azure/artifact-signing/how-to-signing-integrations
