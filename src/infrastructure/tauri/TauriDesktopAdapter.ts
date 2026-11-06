@@ -5,6 +5,8 @@ import type { ConnectionSnapshot, DesktopSnapshot, Session, Settings } from '../
 import { decodeSnapshot } from './decodeSnapshot';
 import { HttpIdentityClient, SessionRejected, type RememberedIdentity } from '../auth/HttpIdentityClient';
 import { sessionFailure } from '../auth/SessionFailure';
+import { requireRememberedSession } from '../auth/RememberedSession';
+import { SessionRestoration } from '../auth/SessionRestoration';
 import catalog from '../../../assets/servers.json';
 import { ConnectionDeadline } from '../../application/ConnectionDeadline';
 import { vpnAccess } from '../../features/account/domain/VpnAccess';
@@ -12,16 +14,20 @@ import { vpnAccess } from '../../features/account/domain/VpnAccess';
 /** Only this adapter knows the IPC command names or Tauri APIs. */
 export class TauriDesktopAdapter implements DesktopPort {
   private identity = new HttpIdentityClient(undefined, async (accountData, expectedToken) => { await invoke('write_cached_account', { accountData, expectedToken }); }, async (access, expectedToken) => { await invoke('update_subscription_access', { access, expectedToken }); });
-  private restoration?: Promise<void>;
+  private restoration = new SessionRestoration();
   private attempt?: { controller: AbortController; native: boolean; cancellation?: Promise<ConnectionSnapshot> };
   private async rejected(error: unknown): Promise<never> {
     if (error instanceof SessionRejected) await invoke('logout').catch(() => {});
     throw error;
   }
   private restoreIdentity() {
-    return this.restoration ??= (async () => {
+    return this.restoration.run(async isCurrent => {
+      // A locked/denied vault is not an absent session. Keep startup retryable
+      // instead of silently displaying a login form or attempting migration.
+      const saved = await invoke<unknown>('restore_account_session')
+        .catch(error => { throw sessionFailure(error, 'native'); });
+      if (!isCurrent()) return;
       try {
-        const saved = await invoke<unknown>('restore_account_session');
         if (saved) {
           this.identity.restore(saved);
           // The unexpired local session opens immediately. Verify revocation in
@@ -35,7 +41,7 @@ export class TauriDesktopAdapter implements DesktopPort {
           });
         } else {
           const candidate = await invoke<{ storeToken: string | null } | null>('legacy_login_candidate');
-          if (!candidate) return;
+          if (!isCurrent() || !candidate) return;
           // Only these known old-app keys; never scan a browser profile or read stored passwords.
           const token = candidate.storeToken ?? this.legacyBrowserToken();
           if (!token) return;
@@ -49,8 +55,11 @@ export class TauriDesktopAdapter implements DesktopPort {
             await this.finishLegacy(identity.accessToken).catch(() => {});
           });
         }
-      } catch { /* A denied/locked OS vault leaves the ordinary login available. */ }
-    })();
+      } catch (error) {
+        // Optional legacy migration may fail without preventing ordinary login.
+        if (saved) throw error;
+      }
+    });
   }
   private legacyBrowserToken(): string | null {
     try { return localStorage.getItem('stellar_vpn_bearer_token'); } catch { return null; }
@@ -69,9 +78,9 @@ export class TauriDesktopAdapter implements DesktopPort {
     try {
       await this.identity.authenticate(operation, email, password, async (expiresAt, vpnAuth, identity) => {
         phase.value = 'native';
-        session = await invoke<Session>('accept_account_session', { expiresAt: Math.floor(expiresAt / 1000), vpnAuth, accessToken: identity.accessToken, accountId: identity.accountId });
+        session = requireRememberedSession(await invoke<Session & { remembered: boolean }>('accept_account_session', { expiresAt: Math.floor(expiresAt / 1000), vpnAuth, accessToken: identity.accessToken, accountId: identity.accountId }));
       });
-      this.restoration = Promise.resolve();
+      this.restoration.complete();
       if (!session) throw new Error();
       void this.bootstrap().then(state => state.selectedServerId ? this.prepareServer(state.selectedServerId) : undefined).catch(() => {});
       return session;

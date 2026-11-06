@@ -108,11 +108,14 @@ pub async fn accept_account_session(expires_at: u64, vpn_auth: Option<VpnAuthInp
         } else {
             // Invalidate any older saved account before accepting a different ordinary login.
             crate::infrastructure::session::forget(&directory)?;
+            // A login is accepted only after the OS vault has persisted it.
+            // Otherwise the UI would report success until the next app launch.
+            crate::infrastructure::session::save(&directory, &saved)?;
         }
         let session = service.accept_account_session(expires_at)?;
         if let Some(credentials) = saved.credentials()? { service.accept_vpn_credentials(credentials)?; }
         let session = if migrating { service.complete_onboarding()? } else { session };
-        let remembered = migrating || crate::infrastructure::session::save(&directory, &saved).is_ok();
+        let remembered = true;
         let state = app.state::<crate::infrastructure::session::RememberedSession>();
         let mut cache = state.0.lock().map_err(|_| AppError::new("state_unavailable", "Session storage is unavailable."))?;
         cache.attempted = true; cache.saved = Some(saved);
@@ -126,13 +129,15 @@ pub async fn restore_account_session(app: AppHandle) -> Result<Option<RestoredId
         let mut cache = state.0.lock().map_err(|_| AppError::new("state_unavailable", "Session storage is unavailable."))?;
         if !cache.attempted {
             let directory = app.path().app_data_dir().map_err(|_| AppError::new("session_storage_unavailable", "Session storage is unavailable."))?;
-            cache.saved = crate::infrastructure::session::load(&directory)?;
-            cache.attempted = true;
-            if let Some(saved) = &cache.saved {
+            let restored = crate::infrastructure::session::load(&directory)?;
+            if let Some(saved) = &restored {
                 service.accept_account_session(saved.expires_at)?;
                 if let Some(credentials) = saved.credentials()? { service.accept_vpn_credentials(credentials)?; }
                 if saved.onboarding { service.complete_onboarding()?; }
             }
+            // Failed native restoration remains retryable and keeps the vault intact.
+            cache.saved = restored;
+            cache.attempted = true;
         }
         service.expire_session()?;
         if !service.snapshot().session.authenticated { cache.saved = None; return Ok(None); }
