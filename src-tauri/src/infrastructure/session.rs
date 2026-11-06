@@ -293,6 +293,39 @@ mod tests {
         assert!(SavedSession::decode(&bytes).is_err());
     }
     #[cfg(target_os = "macos")]
+    const RESTART_SERVICE: &str = "org.stellarvpn.desktop.session.restart.selftest.v1";
+    #[cfg(target_os = "macos")]
+    #[test]
+    #[ignore = "Subprocess phase for the isolated Keychain restart test only"]
+    fn keychain_restart_phase() {
+        match std::env::var("STELLAR_SESSION_SELFTEST_PHASE").as_deref() {
+            Ok("write") => platform::save_for(RESTART_SERVICE, &sample().encode().unwrap(), LIMIT).unwrap(),
+            Ok("read") => {
+                let bytes = platform::load_for(RESTART_SERVICE, LIMIT).unwrap().expect("saved test session");
+                let restored = SavedSession::decode(&bytes).unwrap();
+                assert_eq!(restored.account_id, "42");
+                assert_eq!(restored.token, sample().token);
+            }
+            Ok("cleanup") => platform::remove_for(RESTART_SERVICE).unwrap(),
+            _ => panic!("Explicit isolated test phase required"),
+        }
+    }
+    #[cfg(target_os = "macos")]
+    #[test]
+    #[ignore = "Explicit Keychain integration; synthetic login in a dedicated selftest item, separate OS processes"]
+    fn keychain_session_survives_process_restart() {
+        let executable = std::env::current_exe().unwrap();
+        let phase = |value: &str| std::process::Command::new(&executable)
+            .args(["--ignored", "--exact", "infrastructure::session::tests::keychain_restart_phase"])
+            .env("STELLAR_SESSION_SELFTEST_PHASE", value)
+            .output().unwrap().status.success();
+        assert!(phase("cleanup"));
+        let written = phase("write");
+        let restored = written && phase("read");
+        let cleaned = phase("cleanup");
+        assert!(written && restored && cleaned, "isolated Keychain write/restart/read/cleanup failed");
+    }
+    #[cfg(target_os = "macos")]
     #[test]
     #[ignore = "Explicit OS Keychain integration test; uses only the isolated Stellar selftest item"]
     fn keychain_round_trip_and_delete() {
