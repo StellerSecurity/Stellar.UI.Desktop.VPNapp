@@ -16,7 +16,7 @@ export interface Settings {
   menuBar: boolean;
   language: string;
 }
-export interface Session { authenticated: boolean; onboardingComplete: boolean; revocationPending?: boolean; remembered?: boolean }
+export interface Session { identityRevision?: number; authenticated: boolean; onboardingComplete: boolean; revocationPending?: boolean; remembered?: boolean }
 export interface DesktopSnapshot {
   subscriptionAccess?: { active: boolean; expiresAt: number | null } | null;
   capabilities?: { autoRotate: boolean; killSwitch: boolean };

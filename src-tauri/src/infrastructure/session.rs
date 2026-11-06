@@ -27,6 +27,12 @@ const DISPLAY_SERVICE: &str = "org.stellarvpn.desktop.account-cache.selftest.v2"
 fn unavailable() -> AppError { AppError::new("session_storage_unavailable", "Couldn’t remember this login securely.") }
 fn now() -> u64 { std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs() }
 
+pub fn valid_renewal(token: &str) -> bool {
+    let Some((id, secret)) = token.split_once('|') else { return false; };
+    id.len() == 34 && id.starts_with("d1") && id[2..].bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+        && secret.len() == 64 && secret.bytes().all(|b| b.is_ascii_alphanumeric())
+}
+#[derive(Clone)]
 pub struct SavedSession {
     pub expires_at: u64,
     pub token: String,
@@ -36,6 +42,7 @@ pub struct SavedSession {
     pub onboarding: bool,
     // Temporary cleanup receipt, protected in the same OS vault as the new session.
     pub legacy_token: Option<String>,
+    pub renewal_token: Option<String>,
 }
 impl SavedSession {
     pub fn validate(&self) -> Result<(), AppError> {
@@ -43,7 +50,8 @@ impl SavedSession {
             if legacy == &self.token || !super::legacy_login::valid_token(legacy) { return Err(unavailable()); }
         }
         let (id, secret) = self.token.split_once('|').ok_or_else(unavailable)?;
-        if self.expires_at <= now() || id.is_empty() || id.starts_with('0') || !id.bytes().all(|c| c.is_ascii_digit())
+        if self.renewal_token.as_ref().is_some_and(|token| !valid_renewal(token)) { return Err(unavailable()); }
+        if (self.expires_at <= now() && self.renewal_token.is_none()) || self.expires_at == 0 || id.is_empty() || id.starts_with('0') || !id.bytes().all(|c| c.is_ascii_digit())
             || id.len() > 32 || secret.len() != 40 || !secret.bytes().all(|c| c.is_ascii_alphanumeric())
             || self.account_id.is_empty() || self.account_id.len() > 32 || self.account_id.starts_with('0')
             || !self.account_id.bytes().all(|c| c.is_ascii_digit()) { return Err(unavailable()); }
@@ -52,19 +60,20 @@ impl SavedSession {
         }
         Ok(())
     }
+    pub fn session_id(&self) -> &str { self.renewal_token.as_deref().unwrap_or(&self.token).split('|').next().unwrap_or("") }
     pub fn credentials(&self) -> Result<Option<VpnCredentials>, AppError> {
         if self.vpn_username.is_empty() { Ok(None) }
         else { VpnCredentials::new(self.vpn_username.clone(), self.vpn_password.clone()).map(Some) }
     }
     fn encode(&self) -> Result<Vec<u8>, AppError> {
         self.validate()?;
-        Ok(format!("2\n{}\n{}\n{}\n{}\n{}\n{}\n{}", self.expires_at, self.token, self.account_id, self.vpn_username, self.vpn_password, u8::from(self.onboarding), self.legacy_token.as_deref().unwrap_or("")).into_bytes())
+        Ok(format!("3\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}", self.expires_at, self.token, self.account_id, self.vpn_username, self.vpn_password, u8::from(self.onboarding), self.legacy_token.as_deref().unwrap_or(""), self.renewal_token.as_deref().unwrap_or("")).into_bytes())
     }
     fn decode(bytes: &[u8]) -> Result<Self, AppError> {
         if bytes.len() > LIMIT { return Err(unavailable()); }
         let fields: Vec<_> = std::str::from_utf8(bytes).map_err(|_| unavailable())?.split('\n').collect();
-        if !((fields.len() == 7 && fields[0] == "1") || (fields.len() == 8 && fields[0] == "2")) || !matches!(fields[6], "0" | "1") { return Err(unavailable()); }
-        let value = Self { expires_at: fields[1].parse().map_err(|_| unavailable())?, token: fields[2].into(), account_id: fields[3].into(), vpn_username: fields[4].into(), vpn_password: fields[5].into(), onboarding: fields[6] == "1", legacy_token: fields.get(7).filter(|s| !s.is_empty()).map(|s| s.to_string()) };
+        if !((fields.len() == 7 && fields[0] == "1") || (fields.len() == 8 && fields[0] == "2") || (fields.len() == 9 && fields[0] == "3")) || !matches!(fields[6], "0" | "1") { return Err(unavailable()); }
+        let value = Self { expires_at: fields[1].parse().map_err(|_| unavailable())?, token: fields[2].into(), account_id: fields[3].into(), vpn_username: fields[4].into(), vpn_password: fields[5].into(), onboarding: fields[6] == "1", legacy_token: fields.get(7).filter(|s| !s.is_empty()).map(|s| s.to_string()), renewal_token: fields.get(8).filter(|s| !s.is_empty()).map(|s| s.to_string()) };
         value.validate()?;
         Ok(value)
     }
@@ -74,7 +83,9 @@ impl Drop for SavedSession {
         for text in [&mut self.token, &mut self.vpn_username, &mut self.vpn_password] {
             for byte in unsafe { text.as_bytes_mut() } { unsafe { std::ptr::write_volatile(byte, 0) }; }
         }
-        if let Some(legacy) = &mut self.legacy_token { unsafe { legacy.as_bytes_mut().fill(0) }; }
+        for token in [&mut self.legacy_token, &mut self.renewal_token].into_iter().flatten() {
+            for byte in unsafe { token.as_bytes_mut() } { unsafe { std::ptr::write_volatile(byte, 0) }; }
+        }
     }
 }
 #[derive(Default)]
@@ -129,6 +140,57 @@ pub fn clear_migration_receipt(value: &SavedSession) -> Result<(), AppError> {
     let result = platform::save(&bytes);
     for byte in &mut bytes { unsafe { std::ptr::write_volatile(byte, 0) }; }
     result
+}
+
+#[cfg(all(any(target_os = "macos", target_os = "windows"), not(test)))]
+const REVOCATIONS_SERVICE: &str = "org.stellarvpn.desktop.session.revocations.v1";
+#[cfg(all(any(target_os = "macos", target_os = "windows"), test))]
+const REVOCATIONS_SERVICE: &str = "org.stellarvpn.desktop.session.revocations.selftest.v1";
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+fn write_revocations(values: &[String]) -> Result<(), AppError> {
+    if values.is_empty() { return platform::remove_for(REVOCATIONS_SERVICE); }
+    if values.len() > 16 || values.iter().any(|v| !valid_renewal(v)) { return Err(unavailable()); }
+    let mut bytes = values.join("\n").into_bytes();
+    let result = platform::save_for(REVOCATIONS_SERVICE, &bytes, LIMIT);
+    for byte in &mut bytes { unsafe { std::ptr::write_volatile(byte, 0) }; }
+    result
+}
+pub fn pending_revocations() -> Result<Vec<String>, AppError> {
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    {
+        let Some(mut bytes) = platform::load_for(REVOCATIONS_SERVICE, LIMIT)? else { return Ok(Vec::new()); };
+        let result = (|| {
+            let values: Vec<String> = std::str::from_utf8(&bytes).map_err(|_| unavailable())?.split('\n').map(String::from).collect();
+            if values.len() > 16 || values.iter().any(|v| !valid_renewal(v)) { return Err(unavailable()); }
+            Ok(values)
+        })();
+        for byte in &mut bytes { unsafe { std::ptr::write_volatile(byte, 0) }; }
+        result
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    Ok(Vec::new())
+}
+pub fn queue_revocation(token: &str) -> Result<(), AppError> {
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    {
+        if !valid_renewal(token) { return Err(unavailable()); }
+        let mut pending = pending_revocations()?;
+        if pending.iter().any(|v| v == token) { return Ok(()); }
+        if pending.iter().any(|v| v.split('|').next() == token.split('|').next()) { return Err(unavailable()); }
+        pending.push(token.to_owned()); write_revocations(&pending)
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    { let _ = token; Err(unavailable()) }
+}
+pub fn acknowledge_revocation(id: &str) -> Result<(), AppError> {
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    {
+        let mut pending = pending_revocations()?;
+        pending.retain(|token| token.split('|').next() != Some(id));
+        write_revocations(&pending)
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    { let _ = id; Ok(()) }
 }
 
 pub fn load_account_cache(expected_token: &str) -> Result<Option<String>, AppError> {
@@ -235,7 +297,7 @@ mod platform {
 #[cfg(test)]
 mod tests {
     use super::*;
-    fn sample() -> SavedSession { SavedSession { expires_at: u64::MAX, token: format!("42|{}", "a".repeat(40)), account_id: "42".into(), vpn_username: format!("stvpn_{}", "a".repeat(16)), vpn_password: "b".repeat(32), onboarding: true, legacy_token: None } }
+    fn sample() -> SavedSession { SavedSession { expires_at: u64::MAX, token: format!("42|{}", "a".repeat(40)), account_id: "42".into(), vpn_username: format!("stvpn_{}", "a".repeat(16)), vpn_password: "b".repeat(32), onboarding: true, legacy_token: None, renewal_token: None } }
     fn fixture_directory(label: &str) -> std::path::PathBuf {
         let directory = std::env::temp_dir().join(format!("stellar-session-{label}-{}", std::process::id()));
         fs::create_dir_all(&directory).unwrap();
@@ -270,6 +332,14 @@ mod tests {
         assert!(load_with(&directory, || Ok(Some(sample().encode().unwrap()))).unwrap().is_some());
         fs::remove_dir_all(directory).unwrap();
     }
+    #[test] fn an_expired_access_token_does_not_erase_a_remembered_login() {
+        let mut saved = sample(); saved.expires_at = 1;
+        assert!(saved.validate().is_err());
+        saved.renewal_token = Some(format!("d1{}|{}", "a".repeat(32), "b".repeat(64)));
+        let restored = SavedSession::decode(&saved.encode().unwrap()).unwrap();
+        assert_eq!(restored.expires_at, 1); assert_eq!(restored.renewal_token, saved.renewal_token);
+        saved.renewal_token = Some("invalid".into()); assert!(saved.validate().is_err());
+    }
     #[test] fn v1_vault_sessions_remain_readable_and_migration_receipts_are_validated() {
         let original = sample();
         let old = format!("1\n{}\n{}\n{}\n{}\n{}\n1", original.expires_at, original.token, original.account_id, original.vpn_username, original.vpn_password);
@@ -293,18 +363,37 @@ mod tests {
         assert!(SavedSession::decode(&bytes).is_err());
     }
     #[cfg(target_os = "macos")]
+    #[test]
+    #[ignore = "Explicit isolated Keychain revocation outbox test; synthetic credentials only"]
+    fn keychain_revocation_outbox_preserves_other_pending_logouts() {
+        platform::remove_for(REVOCATIONS_SERVICE).unwrap();
+        let first = format!("d1{}|{}", "a".repeat(32), "c".repeat(64));
+        let second = format!("d1{}|{}", "b".repeat(32), "d".repeat(64));
+        queue_revocation(&first).unwrap(); queue_revocation(&first).unwrap(); queue_revocation(&second).unwrap();
+        assert_eq!(pending_revocations().unwrap().len(), 2);
+        acknowledge_revocation(first.split('|').next().unwrap()).unwrap();
+        assert_eq!(pending_revocations().unwrap(), vec![second.clone()]);
+        acknowledge_revocation(second.split('|').next().unwrap()).unwrap();
+        assert!(pending_revocations().unwrap().is_empty());
+    }
+    #[cfg(target_os = "macos")]
     const RESTART_SERVICE: &str = "org.stellarvpn.desktop.session.restart.selftest.v1";
     #[cfg(target_os = "macos")]
     #[test]
     #[ignore = "Subprocess phase for the isolated Keychain restart test only"]
     fn keychain_restart_phase() {
         match std::env::var("STELLAR_SESSION_SELFTEST_PHASE").as_deref() {
-            Ok("write") => platform::save_for(RESTART_SERVICE, &sample().encode().unwrap(), LIMIT).unwrap(),
+            Ok("write") => {
+                let mut saved = sample(); saved.expires_at = 1;
+                saved.renewal_token = Some(format!("d1{}|{}", "a".repeat(32), "b".repeat(64)));
+                platform::save_for(RESTART_SERVICE, &saved.encode().unwrap(), LIMIT).unwrap();
+            },
             Ok("read") => {
                 let bytes = platform::load_for(RESTART_SERVICE, LIMIT).unwrap().expect("saved test session");
                 let restored = SavedSession::decode(&bytes).unwrap();
                 assert_eq!(restored.account_id, "42");
                 assert_eq!(restored.token, sample().token);
+                assert_eq!(restored.expires_at, 1); assert!(restored.renewal_token.is_some());
             }
             Ok("cleanup") => platform::remove_for(RESTART_SERVICE).unwrap(),
             _ => panic!("Explicit isolated test phase required"),
