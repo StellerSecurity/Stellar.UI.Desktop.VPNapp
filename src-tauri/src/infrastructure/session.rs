@@ -92,20 +92,30 @@ pub fn forget(directory: &Path) -> Result<(), AppError> {
     Ok(())
 }
 pub fn save(directory: &Path, value: &SavedSession) -> Result<(), AppError> {
+    save_with(directory, value, platform::save)
+}
+fn save_with(directory: &Path, value: &SavedSession, store: impl FnOnce(&[u8]) -> Result<(), AppError>) -> Result<(), AppError> {
     value.validate()?;
-    // Same-session updates must preserve its display cache and existing ACLs.
-    // A new login explicitly calls forget before accepting another session.
+    // Only explicit logout/account replacement may create a logout guard.
+    // Failed optional updates must preserve the previously durable session.
+    // A new ordinary login calls forget first; retain that guard if storage fails.
     fs::create_dir_all(directory).map_err(|_| unavailable())?;
-    fs::write(directory.join("session-forgotten"), b"1").map_err(|_| unavailable())?;
     let mut bytes = value.encode()?;
-    let result = platform::save(&bytes);
+    let result = store(&bytes);
     for byte in &mut bytes { unsafe { std::ptr::write_volatile(byte, 0) }; }
     result?;
-    fs::remove_file(directory.join("session-forgotten")).map_err(|_| unavailable())
+    match fs::remove_file(directory.join("session-forgotten")) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(_) => Err(unavailable()),
+    }
 }
 pub fn load(directory: &Path) -> Result<Option<SavedSession>, AppError> {
+    load_with(directory, platform::load)
+}
+fn load_with(directory: &Path, read: impl FnOnce() -> Result<Option<Vec<u8>>, AppError>) -> Result<Option<SavedSession>, AppError> {
     if directory.join("session-forgotten").exists() { return Ok(None); }
-    let Some(mut bytes) = platform::load()? else { return Ok(None); };
+    let Some(mut bytes) = read()? else { return Ok(None); };
     let result = SavedSession::decode(&bytes);
     for byte in &mut bytes { unsafe { std::ptr::write_volatile(byte, 0) }; }
     match result { Ok(value) => Ok(Some(value)), Err(_) => { forget(directory)?; Ok(None) } }
@@ -226,6 +236,40 @@ mod platform {
 mod tests {
     use super::*;
     fn sample() -> SavedSession { SavedSession { expires_at: u64::MAX, token: format!("42|{}", "a".repeat(40)), account_id: "42".into(), vpn_username: format!("stvpn_{}", "a".repeat(16)), vpn_password: "b".repeat(32), onboarding: true, legacy_token: None } }
+    fn fixture_directory(label: &str) -> std::path::PathBuf {
+        let directory = std::env::temp_dir().join(format!("stellar-session-{label}-{}", std::process::id()));
+        fs::create_dir_all(&directory).unwrap();
+        directory
+    }
+    #[test] fn failed_optional_update_does_not_log_out_a_durable_session_after_restart() {
+        // Simulate Keychain with synthetic bytes; never access a real OS vault.
+        let directory = fixture_directory("update-failure");
+        let original = sample();
+        let mut durable = Vec::new();
+        save_with(&directory, &original, |bytes| { durable = bytes.to_vec(); Ok(()) }).unwrap();
+        let mut updated = sample(); updated.onboarding = false;
+        assert!(save_with(&directory, &updated, |_| Err(unavailable())).is_err());
+        let restored = load_with(&directory, || Ok(Some(durable))).unwrap();
+        assert!(restored.is_some(), "a failed optional write must not create a logout tombstone");
+        assert!(restored.unwrap().onboarding);
+        fs::remove_dir_all(directory).unwrap();
+    }
+    #[test] fn explicit_logout_remains_durable_when_replacement_storage_fails() {
+        let directory = fixture_directory("logout-failure");
+        fs::write(directory.join("session-forgotten"), b"1").unwrap();
+        assert!(save_with(&directory, &sample(), |_| Err(unavailable())).is_err());
+        assert!(load_with(&directory, || panic!("must not resurrect the old login")).unwrap().is_none());
+        save_with(&directory, &sample(), |_| Ok(())).unwrap();
+        assert!(load_with(&directory, || Ok(Some(sample().encode().unwrap()))).unwrap().is_some());
+        fs::remove_dir_all(directory).unwrap();
+    }
+    #[test] fn temporary_vault_read_failure_preserves_the_saved_login_for_retry() {
+        let directory = fixture_directory("load-retry");
+        assert!(load_with(&directory, || Err(unavailable())).is_err());
+        assert!(!directory.join("session-forgotten").exists());
+        assert!(load_with(&directory, || Ok(Some(sample().encode().unwrap()))).unwrap().is_some());
+        fs::remove_dir_all(directory).unwrap();
+    }
     #[test] fn v1_vault_sessions_remain_readable_and_migration_receipts_are_validated() {
         let original = sample();
         let old = format!("1\n{}\n{}\n{}\n{}\n{}\n1", original.expires_at, original.token, original.account_id, original.vpn_username, original.vpn_password);

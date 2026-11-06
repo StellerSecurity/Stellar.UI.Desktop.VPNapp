@@ -290,7 +290,10 @@ export class HttpIdentityClient {
         };
         throw new Error(activationMessages[code] || 'Activation could not be confirmed. Retry the same code to resume safely.');
       }
-      if (token && [401, 403].includes(status)) {
+      // Only an explicit session rejection may erase a protected login. A 403
+      // from origin/access policy or a service-auth failure still blocks this
+      // operation, but does not establish that the user's token was revoked.
+      if (token && [401, 403].includes(status) && ['invalid_session', 'unauthenticated'].includes(code)) {
         // A late rejection from an older login must not revoke a newer one.
         if (this.#token !== token) throw new Error(messages.invalid_session);
         if (this.#token === token) { this.#token = null; this.#expiresAt = 0; this.#accountId = null; this.#accountCache = null; this.#accountRequest = null; this.#configurations.clear(); }
