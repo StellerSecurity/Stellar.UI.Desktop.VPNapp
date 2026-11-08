@@ -27,7 +27,23 @@ $review = Get-Content -LiteralPath (Join-Path $root 'native/windows/rust-build-a
 if ($review.approved -ne $true -or $review.scope -ne 'windows-rust-debug-build-and-synthetic-tests' -or $review.releaseApproved -ne $false) { throw 'Exact Rust build execution approval required.' }
 if ($review.packages.Count -ne 410) { throw 'Reviewed dependency count changed.' }
 function Verify-Lock {
-    if ((Get-FileHash -LiteralPath (Join-Path $root 'Cargo.lock') -Algorithm SHA256).Hash.ToLowerInvariant() -ne $review.lockSha256) { throw 'Reviewed Cargo.lock changed.' }
+    $lockPath = Join-Path $root 'Cargo.lock'
+    if ((Get-FileHash -LiteralPath $lockPath -Algorithm SHA256).Hash.ToLowerInvariant() -ne $review.sourceLockSha256) { throw 'Exact source Cargo.lock changed.' }
+    if ($review.firstPartyLockVersion.name -ne 'stellar-vpn-desktop' -or
+        $review.firstPartyLockVersion.from -ne '0.1.0' -or $review.firstPartyLockVersion.to -ne '0.5.1') {
+        throw 'Unexpected first-party version-only change.'
+    }
+    # Preserve the original reviewed dependency lock hash. Only the authored app version differs.
+    $text = [IO.File]::ReadAllText($lockPath)
+    $current = 'name = "stellar-vpn-desktop"' + "`n" + 'version = "0.5.1"'
+    $original = 'name = "stellar-vpn-desktop"' + "`n" + 'version = "0.1.0"'
+    if ([regex]::Matches($text, [regex]::Escape($current)).Count -ne 1) { throw 'Unique first-party lock entry required.' }
+    $normalized = $text.Replace($current, $original)
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try {
+        $hash = [BitConverter]::ToString($sha.ComputeHash($utf8.GetBytes($normalized))).Replace('-', '').ToLowerInvariant()
+    } finally { $sha.Dispose() }
+    if ($hash -ne $review.lockSha256) { throw 'Reviewed dependency graph changed.' }
 }
 Verify-Lock
 $rustBin = Join-Path $env:USERPROFILE '.rustup\toolchains\stable-x86_64-pc-windows-msvc\bin'

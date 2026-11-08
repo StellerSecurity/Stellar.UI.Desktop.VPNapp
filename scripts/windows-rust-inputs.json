@@ -27,7 +27,7 @@
     },
     {
       "path": "Cargo.lock",
-      "sha256": "4319eceb2a78a39d3c25c3417ce6444997ceb186ccc1cd3fa113ff5c638800d1"
+      "sha256": "6dba8e4c7cefb2c8128d6eadd76b26c89d742b169b92dfd1d78dfcfb1675f3f9"
     },
     {
       "path": "Cargo.toml",
@@ -39,7 +39,7 @@
     },
     {
       "path": "crates/stellar-core/src/application.rs",
-      "sha256": "395c7ff12859b844d64dd25c240b98461da28ad6b54d930e77cad60d5f112be4"
+      "sha256": "8e7c30929736f35da372a3df87b9ebf70a38172427b636ecdc47d8efee8e8b82"
     },
     {
       "path": "crates/stellar-core/src/domain.rs",
@@ -79,7 +79,7 @@
     },
     {
       "path": "crates/stellar-vpn-helper/src/main.rs",
-      "sha256": "33449057893ba9d2ac225be2b17f29088a166dbb670f69ea8f3f1d1cb8f8d3ec"
+      "sha256": "f88405b8bd0803d2336a7911d797d3e999d07258e3a5ee960b0b3ca6846f93ff"
     },
     {
       "path": "native/windows/bridge-link-test.cpp",
@@ -111,7 +111,7 @@
     },
     {
       "path": "native/windows/native-tests.cpp",
-      "sha256": "67ab64ac6f96ebd1d4188bc482778306855d9742e1cfe7ff5f6136ab766b0b3c"
+      "sha256": "e30a7d4b0c8f8b408d4a7c76f3bdfa1892dbc0ce4674bdd71f8be687e2aa07a7"
     },
     {
       "path": "native/windows/release-policy.json",
@@ -119,11 +119,11 @@
     },
     {
       "path": "native/windows/rust-build-approval.json",
-      "sha256": "648bed184116d55dce795cea0611d2d84a722101e7d5e14b9a3fdef2e5d610d9"
+      "sha256": "b96fda83c9595501c52647c689fde7c3ab77c084e735005e3001d6ee6775206f"
     },
     {
       "path": "native/windows/service.cpp",
-      "sha256": "b0df74c2011eeee7e62195739f32a051cfa08751a28f3c4a431c76a64cb62510"
+      "sha256": "e661c40341da631aaa48158cd013e9ec3f75a674212f6bc48088361f84e9ff9e"
     },
     {
       "path": "scripts/windows-native-compile.ps1",
@@ -131,7 +131,7 @@
     },
     {
       "path": "src-tauri/Cargo.toml",
-      "sha256": "4498d211e053a85260a1d6eae6f763f2bb539fa1c4d9836bd2ed2977639ffad5"
+      "sha256": "6888ae247c5bcee879cd33f6c855b5b33e2c90412b17830b0dce5ceb9452c819"
     },
     {
       "path": "src-tauri/build.rs",
@@ -223,7 +223,7 @@
     },
     {
       "path": "src-tauri/permissions/desktop.toml",
-      "sha256": "66d3218e25f6ae66edc06fa93b7fd16c6ef332810900c7ac78ac17f06f443df1"
+      "sha256": "89311c662f013002ce9efb354cff521f5da86d594d1c519b002d879b8aa814c0"
     },
     {
       "path": "src-tauri/permissions/updates.toml",
@@ -235,7 +235,7 @@
     },
     {
       "path": "src-tauri/src/commands.rs",
-      "sha256": "9c053d26857677c1fc8cefdedd32427cc40b7b3f5145a41b40624a1167550aa4"
+      "sha256": "686a298f47c4ec58a0a17de2eeeb4ee1130002945e1a34744edbe28abcb0ac24"
     },
     {
       "path": "src-tauri/src/infrastructure/legacy_login.rs",
@@ -243,7 +243,7 @@
     },
     {
       "path": "src-tauri/src/infrastructure/links.rs",
-      "sha256": "82aa525ce9f935b0196ac730d354c79caa016442912fe803b1890d8d2e58358d"
+      "sha256": "bc7ac6d62e06fdd795aa07a5148f38afc0547ec6496c719f72f5f110071dfd74"
     },
     {
       "path": "src-tauri/src/infrastructure/mod.rs",
@@ -263,11 +263,11 @@
     },
     {
       "path": "src-tauri/src/infrastructure/session.rs",
-      "sha256": "c96e54bd7602009973b8c508b46ccbd28f45c69d1d3de83f18b929f80b8e615f"
+      "sha256": "eafeb15e4580af0148342d05b7a781c89a9a77ef0ad875003208788ddf4299f7"
     },
     {
       "path": "src-tauri/src/infrastructure/session_windows.rs",
-      "sha256": "cf94be4136bf141a54418bd8176658a65485372db93011c06543a732579850b0"
+      "sha256": "e24d0a20c7fd5c32e565af12c73919fd3b2845e28ca53ccc543af1d721d000c6"
     },
     {
       "path": "src-tauri/src/infrastructure/startup.rs",
@@ -291,7 +291,7 @@
     },
     {
       "path": "src-tauri/src/lib.rs",
-      "sha256": "016871dd7387664a6c054edab82a4ddec298410a1b245df24f4b3c4ddef343c0"
+      "sha256": "e9bdd82859242cd71b69059a85fb0d9ca470c2775f565d5a077d57268db369f1"
     },
     {
       "path": "src-tauri/src/main.rs",
@@ -331,7 +331,7 @@
     },
     {
       "path": "src-tauri/tauri.conf.json",
-      "sha256": "1b8e110ef4c5871de0ff870fc3d63002971337afa455d57c69de8767b73c723d"
+      "sha256": "5fdc9742bafee867175f6d2ee72f1e37a082468939579f78b9f955c9da1f2eb2"
     },
     {
       "path": "src/shared/i18n/notices.ts",
@@ -352,6 +352,10 @@
     {
       "path": "vendor/glib-0.18.5/src/lib.rs",
       "sha256": "70abc92bf0d02f3c4989034501065cdf64d70901e511f6720d8cd65fcbb662e1"
+    },
+    {
+      "path": "crates/stellar-vpn-helper/src/macos_client.rs",
+      "sha256": "10dab2472b52bf30ee924bfd83e0ceaf50fa726c19404fd5173e150ff92eff51"
     }
   ]
 }

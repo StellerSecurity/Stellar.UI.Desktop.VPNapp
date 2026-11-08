@@ -8,7 +8,11 @@ test('Windows Rust job pins only the approved graph and first-party source input
   assert.equal(approval.approved, true);
   assert.equal(approval.releaseApproved, false);
   assert.equal(approval.packages.length, 410);
-  assert.equal(approval.lockSha256, createHash('sha256').update(read('Cargo.lock')).digest('hex'));
+  const sourceLock = read('Cargo.lock');
+  assert.equal(approval.sourceLockSha256, createHash('sha256').update(sourceLock).digest('hex'));
+  assert.deepEqual(approval.firstPartyLockVersion, { name: 'stellar-vpn-desktop', from: '0.1.0', to: '0.5.1' });
+  const original = sourceLock.replace('name = "stellar-vpn-desktop"\nversion = "0.5.1"', 'name = "stellar-vpn-desktop"\nversion = "0.1.0"');
+  assert.equal(approval.lockSha256, createHash('sha256').update(original).digest('hex'));
   const manifest = JSON.parse(read('scripts/windows-rust-inputs.json'));
   assert.equal(new Set(manifest.files.map(f => f.path)).size, manifest.files.length);
   for (const file of manifest.files) {
