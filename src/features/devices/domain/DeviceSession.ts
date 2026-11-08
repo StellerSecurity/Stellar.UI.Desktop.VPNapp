@@ -1,6 +1,6 @@
 export interface DeviceLogin { id: string; current: boolean; createdAt: string; revoked: boolean }
 export interface DeviceLoginsPage { sessions: DeviceLogin[]; nextCursor: string | null }
-export const validDeviceSessionId = (id: string) => /^d1[a-f0-9]{32}$/.test(id);
+export const validDeviceSessionId = (id: string) => id.length === 34 && /^d1[a-f0-9]{32}$/.test(id);
 
 /** Accept a bounded, ordered public projection; never retain server token/hash fields. */
 export function deviceLoginsPage(value: Record<string, unknown>, after?: string): DeviceLoginsPage {

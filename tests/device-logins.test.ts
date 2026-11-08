@@ -20,6 +20,7 @@ test('session projection rejects unbounded, malformed and non-progressing pages 
     { sessions: [{ ...row, current: 'true' }], next_cursor: null },
     { sessions: [{ ...row, created_at: 'invalid' }], next_cursor: null },
     { sessions: [{ ...row, id: root }], next_cursor: null },
+    { sessions: [{ ...row, id: id + '\n' }], next_cursor: null },
   ]) assert.throws(() => deviceLoginsPage(value));
   assert.throws(() => deviceLoginsPage({ sessions: [row], next_cursor: null }, id));
 });
