@@ -137,9 +137,24 @@ static void bridge_tests() {
     auto again = stellar_windows_instance(); expect(again > 0, "process lock not released"); stellar_windows_close_instance(again);
     expect(stellar_windows_autostart(0) == 1 && stellar_windows_autostart(1) == 1, "development runner did not skip autostart registration");
 }
+static void client_identity_tests() {
+    rejects([] { verify_client_process(INVALID_HANDLE_VALUE); }, "invalid pipe client accepted");
+    auto suffix = random_hex();
+    auto name = L"\\\\.\\pipe\\stellar-client-auth-test-" + std::wstring(suffix.begin(), suffix.end());
+    handle server(CreateNamedPipeW(name.c_str(), PIPE_ACCESS_DUPLEX | FILE_FLAG_FIRST_PIPE_INSTANCE,
+        PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS, 1, 1024, 1024, 0, nullptr));
+    check(server.value != INVALID_HANDLE_VALUE);
+    handle client(CreateFileW(name.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr));
+    check(client.value != INVALID_HANDLE_VALUE);
+    ULONG pid = 0;
+    expect(GetNamedPipeClientProcessId(server, &pid) && pid == GetCurrentProcessId(), "synthetic pipe peer lookup failed");
+    rejects([&] { verify_client_process(server); }, "uninstalled same-user client accepted");
+    DisconnectNamedPipe(server);
+}
+
 int main() {
     try {
-        parser_tests(); migration_tests(); bridge_tests();
+        parser_tests(); migration_tests(); bridge_tests(); client_identity_tests();
         std::cout << "{\"suite\":\"windows-native-synthetic\",\"assertionsPassed\":" << passed
             << ",\"serviceInstalled\":false,\"firewallChanged\":false,\"externalRequests\":false}" << std::endl;
         return 0;

@@ -346,6 +346,15 @@ function useAppState(container: Container, surface: 'main' | 'tray') {
     selected: servers.find(server => server.id === selectedId), pending, pendingAction, pendingSince, cancelling, connectionError, connectionErrorKind, cancelConnect, collapsed, setCollapsed, settingsPending,
     favoriteIds, toggleFavorite: (id: string) => setFavoriteIds(ids => ids.includes(id) ? ids.filter(item => item !== id) : [...ids, id]),
     dialog, setDialog, toast, notify, bootError, connect, disconnect, selectServer, activateMarker, saveSettings, toggleSetting,
+    deviceLoginsAvailable: !!container.desktop.listDeviceSessions && snapshot?.session.remembered === true,
+    listDeviceSessions: (after?: string) => {
+      if (!container.desktop.listDeviceSessions) throw new Error('Session management is unavailable.');
+      return container.desktop.listDeviceSessions(after);
+    },
+    revokeDeviceSession: (id: string) => {
+      if (!container.desktop.revokeDeviceSession) throw new Error('Session management is unavailable.');
+      return container.desktop.revokeDeviceSession(id);
+    },
     authenticate, createAnonymousAccount: () => container.session.createAnonymousAccount(), finishOnboarding, logout, activateCode, loadWorldMap: container.loadWorldMap,
     showMain: () => container.desktop.showMain?.(), showLocations: () => container.desktop.showLocations?.(), hideTray: () => container.desktop.hideTray?.(), quit: () => container.desktop.quit?.(),
     openExternal: (url: string) => { void container.desktop.openExternal(url).catch(error => notify(errorMessage(error))); } };

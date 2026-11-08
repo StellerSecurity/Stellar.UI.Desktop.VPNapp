@@ -1,3 +1,4 @@
+import { deviceLoginsPage, validDeviceSessionId } from '../../features/devices/domain/DeviceSession.ts';
 import { PRODUCTION_API_BASE } from '../config/Production.ts';
 import { ANONYMOUS_SIGNUP_URL } from '../config/Signup.ts';
 import { accountCacheData, decodeAccount, mergeAccount, type Account } from '../../features/account/domain/Account.ts';
@@ -103,6 +104,22 @@ export class HttpIdentityClient {
   get sessionId(): string | undefined { return (this.#renewal ?? this.#token)?.split('|')[0]; }
   get active(): boolean { return this.#token !== null && this.#expiresAt > Date.now(); }
   get remembered(): boolean { return this.#renewal !== null; }
+  async listDeviceSessions(after?: string) {
+    const root = this.#renewal, revision = this.#accountRevision;
+    if (!root) throw new Error('Please sign in once to enable secure remembered login.');
+    if (after !== undefined && !validDeviceSessionId(after)) throw new Error('Invalid session identifier.');
+    const data = await this.send('device-sessions', after === undefined ? {} : { after }, root);
+    if (this.#renewal !== root || revision !== this.#accountRevision) throw new SessionChanged();
+    return deviceLoginsPage(data, after);
+  }
+  async revokeDeviceSession(id: string): Promise<void> {
+    const root = this.#renewal, revision = this.#accountRevision;
+    if (!root) throw new Error('Please sign in once to enable secure remembered login.');
+    if (!validDeviceSessionId(id) || id === root.split('|')[0]) throw new Error('Use Log out to remove this device.');
+    const data = await this.send('device-revoke', { session_id: id }, root);
+    if (this.#renewal !== root || revision !== this.#accountRevision) throw new SessionChanged();
+    if (data.revoked !== true) throw new Error('Could not confirm session revocation.');
+  }
   async rememberSession(): Promise<void> {
     if (this.remembered || !this.active) return;
     throw new Error('Please sign in once to enable secure remembered login.');
@@ -338,7 +355,7 @@ export class HttpIdentityClient {
     return pending;
   }
 
-  private async send(operation: 'remember' | 'renew' | 'device-logout' | 'login' | 'register' | 'account-login' | 'account-create' | 'migrate-legacy' | 'logout' | 'account' | 'configuration' | 'session' | 'activation' | 'vpn-auth', body: Record<string, string>, token?: string): Promise<Record<string, unknown>> {
+  private async send(operation: 'device-sessions' | 'device-revoke' | 'remember' | 'renew' | 'device-logout' | 'login' | 'register' | 'account-login' | 'account-create' | 'migrate-legacy' | 'logout' | 'account' | 'configuration' | 'session' | 'activation' | 'vpn-auth', body: Record<string, string>, token?: string): Promise<Record<string, unknown>> {
     const bucket = operation === 'account-create' ? 'creation' : ['login', 'register', 'account-login', 'migrate-legacy'].includes(operation) ? 'credentials' : 'session';
     const limitMessage = operation === 'account-create' ? 'Too many attempts. Please try again later.'
       : operation === 'configuration' ? 'Location requests are temporarily limited. Wait a moment before switching again.'

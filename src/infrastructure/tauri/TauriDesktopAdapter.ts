@@ -123,6 +123,14 @@ export class TauriDesktopAdapter implements DesktopPort {
   register(email: string, password: string) { return this.authenticate('register', email, password); }
   loginAccount(accountNumber: string) { return this.authenticate('account', accountNumber, ''); }
   createAnonymousAccount() { return this.identity.createAnonymousAccount(); }
+  async listDeviceSessions(after?: string) {
+    await this.synchronizeIdentity();
+    return this.identity.listDeviceSessions(after).catch(error => this.rejected(error));
+  }
+  async revokeDeviceSession(id: string) {
+    await this.synchronizeIdentity();
+    return this.identity.revokeDeviceSession(id).catch(error => this.rejected(error));
+  }
   async current() {
     const account = await this.identity.currentAccount().catch(error => this.rejected(error));
     if (vpnAccess(account)?.active) {

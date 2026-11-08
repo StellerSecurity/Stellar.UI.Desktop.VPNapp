@@ -186,6 +186,7 @@ fn read_line(reader: &mut impl BufRead, max: usize) -> io::Result<String> {
 fn handle(mut stream: UnixStream, state: &Shared, uid: u32) -> io::Result<()> {
     let (mut peer, mut gid) = (u32::MAX, u32::MAX);
     if unsafe { getpeereid(stream.as_raw_fd(), &mut peer, &mut gid) } != 0 || peer != uid { return Err(io::Error::other("Access denied")); }
+    crate::macos_client::verify(&stream)?;
     stream.set_read_timeout(Some(Duration::from_secs(3)))?; stream.set_write_timeout(Some(Duration::from_secs(3)))?;
     let mut reader = BufReader::new(stream.try_clone()?);
     let header = read_line(&mut reader, 256)?;
