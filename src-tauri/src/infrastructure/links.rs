@@ -27,6 +27,7 @@ pub fn open(url: &str) -> Result<(), AppError> {
     }
     #[cfg(target_os = "linux")]
     let result = std::process::Command::new("/usr/bin/xdg-open").arg(url).spawn();
+    #[cfg(not(target_os = "windows"))]
     result.map(|_| ()).map_err(|_| AppError::new("open_link_failed", "The browser could not be opened"))
 }
 #[cfg(test)]
