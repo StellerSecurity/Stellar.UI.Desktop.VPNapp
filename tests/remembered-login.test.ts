@@ -61,26 +61,14 @@ test('a renewal completing after logout cannot restore the identity', async () =
   await client.logout(); finish(reply(response())); await assert.rejects(pending);
   assert.equal(client.remembered, false); assert.equal(client.active, false);
 });
-test('a still-valid old login upgrades in place before the renewal credential is used', async () => {
-  let persisted = false;
-  const expiry = Date.now() + 3600_000;
-  const client = new HttpIdentityClient(async url => {
-    assert.ok(String(url).endsWith('/auth/remember'));
-    return reply({ ...response(), renewal_token: root });
-  }, undefined, undefined, async (identity, expected) => {
-    assert.equal(expected, old); assert.equal(client.remembered, false);
-    assert.equal(identity.renewalToken, root); persisted = true;
-  });
-  client.restore({ accessToken: old, accountId: '42', expiresAt: expiry });
-  await client.rememberSession(); assert.equal(persisted, true); assert.equal(client.remembered, true);
+test('an old access token cannot enroll a durable credential without a new login', async () => {
+  const client = new HttpIdentityClient(async () => { assert.fail('must not send a bearer-only enrollment'); });
+  client.restore({ accessToken: '42|' + 'a'.repeat(40), accountId: '42', expiresAt: Date.now() + 3600000 });
+  await assert.rejects(client.rememberSession(), /sign in once/);
+  assert.equal(client.active, true);
+  assert.equal(client.remembered, false);
 });
-test('an unavailable enrollment endpoint does not discard an existing valid login', async () => {
-  const client = new HttpIdentityClient(async () => new Response(JSON.stringify({ error: { code: 'integration_unavailable' }, meta: { api_version: 'v2' } }), {
-    status: 503, headers: { 'Content-Type': 'application/json', 'Retry-After': '60' },
-  }));
-  client.restore({ accessToken: old, accountId: '42', expiresAt: Date.now() + 3600_000 });
-  await assert.rejects(client.rememberSession()); assert.equal(client.active, true); assert.equal(client.remembered, false);
-});
+
 test('native identity synchronization adopts another window login and clears local logout without an API call', async () => {
   const client = new HttpIdentityClient(async () => { assert.fail('no HTTP during native synchronization'); });
   client.restore(expired); const before = client.identityRevision;
@@ -117,4 +105,30 @@ test('a stale logout target cannot revoke a newly adopted login', async () => {
   client.restore(expired);const oldId=client.sessionId!;
   client.synchronize({...expired,accessToken:next,accountId:'43',renewalToken:'d1'+'b'.repeat(32)+'|'+'d'.repeat(64)});
   await assert.rejects(client.logout(oldId));assert.equal(client.remembered,true);
+});
+
+test('late primary login cannot restore a session after logout', async () => {
+  let complete!: (value: Response) => void;
+  let accepted = false;
+  const client = new HttpIdentityClient(() => new Promise(resolve => { complete = resolve; }));
+  const pending = client.authenticate('login', 'test@example.test', 'synthetic-password', async () => { accepted = true; });
+  await client.logout();
+  complete(new Response(JSON.stringify({ data: {
+    access_token: '42|' + 'a'.repeat(40), account_id: '42', token_type: 'Bearer',
+    expires_at: new Date(Date.now() + 3600000).toISOString(),
+  }, meta: { api_version: 'v2' } }), { headers: { 'Content-Type': 'application/json' } }));
+  await assert.rejects(pending, /cancelled/);
+  assert.equal(client.active, false);
+  assert.equal(accepted, false);
+});
+
+test('a late failed login cannot revoke a newer login', async () => {
+  let complete!: (value: Response) => void;
+  const client = new HttpIdentityClient(() => new Promise(resolve => { complete = resolve; }));
+  const pending = client.authenticate('login', 'old@example.test', 'synthetic-password');
+  client.synchronize({ accessToken: '99|' + 'b'.repeat(40), accountId: '99', expiresAt: Date.now() + 3600000 });
+  complete(new Response(JSON.stringify({ error: { code: 'invalid_credentials' }, meta: { api_version: 'v2' } }), { status: 401, headers: { 'Content-Type': 'application/json' } }));
+  await assert.rejects(pending, /cancelled/);
+  assert.equal(client.active, true);
+  assert.equal(client.sessionId, '99');
 });

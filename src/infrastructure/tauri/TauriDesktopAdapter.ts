@@ -3,7 +3,7 @@ import { listen } from '@tauri-apps/api/event';
 import type { DesktopPort } from '../../application/ports/DesktopPort';
 import type { ConnectionSnapshot, DesktopSnapshot, Session, Settings } from '../../contracts/desktop';
 import { decodeSnapshot } from './decodeSnapshot';
-import { HttpIdentityClient, SessionRejected, type RememberedIdentity } from '../auth/HttpIdentityClient';
+import { HttpIdentityClient, SessionChanged, SessionRejected, type RememberedIdentity } from '../auth/HttpIdentityClient';
 import { sessionFailure } from '../auth/SessionFailure';
 import { requireRememberedSession } from '../auth/RememberedSession';
 import { SessionRestoration } from '../auth/SessionRestoration';
@@ -56,7 +56,7 @@ export class TauriDesktopAdapter implements DesktopPort {
       try {
         if (saved) {
           this.identity.restore(saved);
-          void this.identity.rememberSession().catch(() => {});
+
           // The unexpired local session opens immediately. Verify revocation in
           // the background; a network outage must not erase a valid saved login.
           void this.identity.verifyRestoredSession().then(async () => {
@@ -113,6 +113,7 @@ export class TauriDesktopAdapter implements DesktopPort {
       return { ...session, identityRevision: this.identity.identityRevision };
     }
     catch (error) {
+      if (error instanceof SessionChanged) throw error;
       await this.identity.logout().catch(() => {});
       if (phase.value === 'native') await invoke('logout').catch(() => {});
       throw sessionFailure(error, phase.value);
@@ -178,7 +179,7 @@ export class TauriDesktopAdapter implements DesktopPort {
   onShowLocations(callback: () => void) { return listen('show-locations', callback); }
   hideTray() { return invoke<void>('hide_tray'); }
   quit() { return invoke<void>('quit_preview'); }
-  async bootstrap(): Promise<DesktopSnapshot> { await this.restoreIdentity(); this.sweepRevocations(); await this.synchronizeIdentity(); await this.identity.rememberSession().catch(() => {}); await this.identity.renewSession().catch(error => { if (error instanceof SessionRejected) return this.rejected(error); }); return this.withIdentity(decodeSnapshot(await invoke<unknown>('bootstrap'))); }
+  async bootstrap(): Promise<DesktopSnapshot> { await this.restoreIdentity(); this.sweepRevocations(); await this.synchronizeIdentity(); await this.identity.renewSession().catch(error => { if (error instanceof SessionRejected) return this.rejected(error); }); return this.withIdentity(decodeSnapshot(await invoke<unknown>('bootstrap'))); }
   openExternal(url: string) { return invoke<void>('open_stellar_link', { url }); }
   async connect(serverId: string) {
     const deadline = new ConnectionDeadline();

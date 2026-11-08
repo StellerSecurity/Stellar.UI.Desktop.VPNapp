@@ -7,6 +7,7 @@ const BASE = `${PRODUCTION_API_BASE}/auth/`;
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 export type VpnLoginAuth = { username: string; password: string };
 export type RememberedIdentity = { accessToken: string; accountId: string; expiresAt: number; renewalToken?: string };
+export class SessionChanged extends Error {}
 export class SessionRejected extends Error {
   readonly sessionId?: string;
   constructor(message: string, sessionId?: string) { super(message); this.sessionId = sessionId; }
@@ -48,9 +49,16 @@ export class HttpIdentityClient {
   constructor(request: typeof fetch = globalThis.fetch.bind(globalThis), rememberAccount?: (data: string, token: string) => Promise<void>, acceptAccess?: (access: VpnAccess, token: string) => Promise<void>, persistRenewal?: (identity: RememberedIdentity, expectedToken: string) => Promise<void>) { this.persistRenewal = persistRenewal; this.request = request; this.rememberAccount = rememberAccount; this.acceptAccess = acceptAccess; }
 
   async authenticate(operation: 'login' | 'register' | 'account', email: string, password: string, accept?: (expiresAt: number, vpnAuth: VpnLoginAuth | null, identity: RememberedIdentity) => Promise<void>): Promise<number> {
-    this.#accountRevision++;
+    const revision = ++this.#accountRevision;
     if (operation === 'account' && !/^[0-9]{16}$/.test(email)) throw new Error('Enter all 16 digits.');
-    const data = operation === 'account' ? await this.send('account-login', { account_number: email }) : await this.send(operation, { username: email, password });
+    let data: Record<string, unknown>;
+    try {
+      data = operation === 'account' ? await this.send('account-login', { account_number: email }) : await this.send(operation, { username: email, password });
+    } catch (error) {
+      if (revision !== this.#accountRevision) throw new SessionChanged('The login attempt was cancelled.');
+      throw error;
+    }
+    if (revision !== this.#accountRevision) throw new SessionChanged('The login attempt was cancelled.');
     const expiry = typeof data.expires_at === 'string' ? Date.parse(data.expires_at) : NaN;
     if (typeof data.access_token !== 'string' || !/^[1-9][0-9]*\|[A-Za-z0-9]{40}$/.test(data.access_token)
       || data.access_token.length > 256 || data.token_type !== 'Bearer'
@@ -70,7 +78,13 @@ export class HttpIdentityClient {
     this.#expiresAt = expiry;
     this.#accountId = data.account_id;
     // Native adapter consumes the one-time VPN secret; it is not returned to React state.
-    if (accept) await accept(expiry, vpnAuth, { accessToken: data.access_token, accountId: data.account_id, expiresAt: expiry, ...(this.#renewal ? { renewalToken: this.#renewal } : {}) });
+    try {
+      if (accept) await accept(expiry, vpnAuth, { accessToken: data.access_token, accountId: data.account_id, expiresAt: expiry, ...(this.#renewal ? { renewalToken: this.#renewal } : {}) });
+    } catch (error) {
+      if (revision !== this.#accountRevision) throw new SessionChanged('The login attempt was cancelled.');
+      throw error;
+    }
+    if (revision !== this.#accountRevision) throw new SessionChanged('The login attempt was cancelled.');
     return expiry;
   }
 
@@ -92,29 +106,8 @@ export class HttpIdentityClient {
   get active(): boolean { return this.#token !== null && this.#expiresAt > Date.now(); }
   get remembered(): boolean { return this.#renewal !== null; }
   async rememberSession(): Promise<void> {
-    if (this.#renewal || !this.active || !this.#token) return;
-    if (this.#enrolling) return this.#enrolling;
-    if (Date.now() < this.#rememberRetryAt) return;
-    this.#rememberRetryAt = Date.now() + 300_000;
-    const previous = this.#token, revision = this.#accountRevision;
-    const pending = (async () => {
-      const data = await this.send('remember', {}, previous);
-      if (this.#token !== previous || this.#renewal || revision !== this.#accountRevision) throw new Error(messages.invalid_session);
-      const expiry = typeof data.expires_at === 'string' ? Date.parse(data.expires_at) : NaN;
-      if (typeof data.renewal_token !== 'string' || !/^d1[a-f0-9]{32}\|[A-Za-z0-9]{64}$/.test(data.renewal_token)
-        || typeof data.access_token !== 'string' || !/^[1-9][0-9]{0,31}\|[A-Za-z0-9]{40}$/.test(data.access_token)
-        || data.account_id !== this.#accountId || data.token_type !== 'Bearer' || !Number.isFinite(expiry) || expiry <= Date.now()
-        || expiry > Date.now() + 86400_000 + 30_000) throw new Error('Stellar returned an invalid remembered session.');
-      const identity: RememberedIdentity = { accessToken: data.access_token, accountId: this.#accountId!, expiresAt: expiry, renewalToken: data.renewal_token };
-      await this.persistRenewal?.(identity, previous);
-      if (this.#token !== previous || revision !== this.#accountRevision) {
-        if (this.#token === identity.accessToken && this.#renewal === identity.renewalToken && this.#accountId === identity.accountId) return;
-        throw new Error(messages.invalid_session);
-      }
-      this.#renewal = identity.renewalToken!; this.#token = identity.accessToken; this.#expiresAt = expiry;
-    })();
-    this.#enrolling = pending;
-    try { await pending; } finally { if (this.#enrolling === pending) this.#enrolling = null; }
+    if (this.remembered || !this.active) return;
+    throw new Error('Please sign in once to enable secure remembered login.');
   }
   async renewSession(): Promise<void> {
     const root = this.#renewal, previous = this.#token, revision = this.#accountRevision;
