@@ -263,11 +263,11 @@
     },
     {
       "path": "src-tauri/src/infrastructure/session.rs",
-      "sha256": "eafeb15e4580af0148342d05b7a781c89a9a77ef0ad875003208788ddf4299f7"
+      "sha256": "50508ed3ee634e736d1adc33ad9b6423c347f0be10b10f21f3b73602b4339254"
     },
     {
       "path": "src-tauri/src/infrastructure/session_windows.rs",
-      "sha256": "e24d0a20c7fd5c32e565af12c73919fd3b2845e28ca53ccc543af1d721d000c6"
+      "sha256": "ab368f8e5e6f821172fc4980e903c538ef649547258f2919ac4c87d6b3c8b5a3"
     },
     {
       "path": "src-tauri/src/infrastructure/startup.rs",
