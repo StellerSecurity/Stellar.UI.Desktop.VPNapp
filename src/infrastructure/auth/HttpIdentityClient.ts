@@ -28,8 +28,6 @@ export class HttpIdentityClient {
   #token: string | null = null;
   #renewal: string | null = null;
   #renewing: Promise<void> | null = null;
-  #enrolling: Promise<void> | null = null;
-  #rememberRetryAt = 0;
   #logouts = new Map<string, Promise<void>>();
   #lastLogout?: Promise<void>;
   #expiresAt = 0;
