@@ -339,9 +339,10 @@
     }
   ],
   "toolchainExecutionApproval": {
-    "approved": false,
+    "approved": true,
     "scope": "exact-installed-msvc-debug-build-and-synthetic-tests",
     "version": "14.44.35230.0",
-    "reason": "Hosted compiler changed; explicit exact-file execution approval pending. No compiler component may run until approved."
+    "reason": "Explicit user approval on 2026-11-14 for this exact compiler subset and the scoped hosted debug build/synthetic tests, with narrow exception for unavailable full proprietary source.",
+    "reviewSha256": "a532e923e3081a164235259403d1de901643b12e83315be3caceb624ee583f74"
   }
 }

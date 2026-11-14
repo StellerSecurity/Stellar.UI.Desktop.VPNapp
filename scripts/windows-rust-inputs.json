@@ -95,7 +95,7 @@
     },
     {
       "path": "native/windows/compile-approval.json",
-      "sha256": "2a909897854a52872c38fadc735863bff1c3c3f2f9b854ac1491d184320342d0"
+      "sha256": "88200df590a36a5329ef38921085679905bdd827f5a50cf76304efbc2e28956d"
     },
     {
       "path": "native/windows/firewall.hpp",
