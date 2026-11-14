@@ -46,6 +46,13 @@ function Read-PeImports([byte[]] $Data) {
     }
     $importRva = [long] (U32 ($optional + 120))
     $importSize = [long] (U32 ($optional + 124))
+    if ($importRva -eq 0 -and $importSize -eq 0) {
+        return [ordered]@{
+            machine = 'x64'; imports = @()
+            delayImportRva = U32 ($optional + 112 + 13 * 8); delayImportSize = U32 ($optional + 116 + 13 * 8)
+            tlsRva = U32 ($optional + 112 + 9 * 8); tlsSize = U32 ($optional + 116 + 9 * 8)
+        }
+    }
     if ($importRva -eq 0 -or $importSize -lt 20 -or $importSize -gt 65536) { throw 'Expected bounded PE import directory.' }
     $start = Resolve $importRva $importSize
     $imports = @()
@@ -127,8 +134,68 @@ foreach ($candidate in @((Join-Path $directory 'ServicingCommon.dll'), (Join-Pat
         signatureStatus = $signature.Status.ToString(); signer = $signer; pe = Read-PeImports $bytes
     }
 }
+# Exact compiler subset selected by the existing isolated compile harness.
+# Metadata inspection does not authorize changed compiler execution.
+$compilerNames = @(
+    'atlprov.dll',
+    'c1.dll',
+    'c1xx.dll',
+    'c2.dll',
+    'c2dd.dll',
+    'cfgpersist.dll',
+    'cl.exe',
+    'clang_rt.asan_dbg_dynamic-x86_64.dll',
+    'clang_rt.asan_dynamic-x86_64.dll',
+    'ConcurrencyCheck.dll',
+    'CppBuildInsights.dll',
+    'CppCoreCheck.dll',
+    'cvtres.exe',
+    'dpcmi.dll',
+    'EnumIndex.dll',
+    'EspXEngine.dll',
+    'HResultCheck.dll',
+    'KernelTraceControl.dll',
+    'lib.exe',
+    'link.exe',
+    'msobj140.dll',
+    'mspdb140.dll',
+    'mspdbcore.dll',
+    'mspdbsrv.exe',
+    'mspdbst.dll',
+    'mspft140.dll',
+    'msvcdis140.dll',
+    'msvcp140.dll',
+    'msvcp140_1.dll',
+    'msvcp140_2.dll',
+    'msvcp140_atomic_wait.dll',
+    'msvcp140_codecvt_ids.dll',
+    'pgodb140.dll',
+    'pgort140.dll',
+    'SecurityChecks.dll',
+    'tbbmalloc.dll',
+    'VariantClear.dll',
+    'vcmeta.dll',
+    'vcruntime140.dll',
+    'vcruntime140_1.dll',
+    'vcruntime140_threads.dll',
+    '1033/clui.dll',
+    '1033/linkui.dll'
+)
+$compilerRoot = Join-Path ${env:ProgramFiles} 'Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.44.35207\bin\Hostx64\x64'
+$compilerRows = @()
+foreach ($name in $compilerNames) {
+    $file = Get-Item -LiteralPath (Join-Path $compilerRoot $name)
+    if ($file.Attributes -band [IO.FileAttributes]::ReparsePoint -or $file.Length -gt 16MB) { throw 'Unexpected compiler component.' }
+    $bytes = [IO.File]::ReadAllBytes($file.FullName)
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try { $hash = [BitConverter]::ToString($sha.ComputeHash($bytes)).Replace('-', '').ToLowerInvariant() } finally { $sha.Dispose() }
+    $signature = Get-AuthenticodeSignature -LiteralPath $file.FullName
+    if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -ne 'CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US') { throw 'Valid Microsoft compiler signature required.' }
+    $compilerRows += [ordered]@{ name = $name; sha256 = $hash; version = $file.VersionInfo.ProductVersion; signer = $signature.SignerCertificate.Subject; pe = Read-PeImports $bytes }
+}
 Write-Output ('STELLAR_SDK_STATIC_REVIEW=' + (ConvertTo-Json -Depth 12 -Compress -InputObject ([ordered]@{
     schema = 1; executionApproved = $false; binariesExecuted = $false; files = $rows
     dependencyCandidates = $dependencyCandidates
+    compilerComponents = $compilerRows
     limitations = 'Imports and directory metadata only; not full proprietary source review, disassembly, runtime behavior approval or approval to change build pins.'
 })))
