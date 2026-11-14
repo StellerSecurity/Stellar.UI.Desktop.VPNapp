@@ -39,7 +39,7 @@
     },
     {
       "path": "crates/stellar-core/src/application.rs",
-      "sha256": "8e7c30929736f35da372a3df87b9ebf70a38172427b636ecdc47d8efee8e8b82"
+      "sha256": "9685fbf81a0e279b85f09ddf13c4531bb0484196f0e1ad240ed66e8ead94e7ab"
     },
     {
       "path": "crates/stellar-core/src/domain.rs",
@@ -235,7 +235,7 @@
     },
     {
       "path": "src-tauri/src/commands.rs",
-      "sha256": "686a298f47c4ec58a0a17de2eeeb4ee1130002945e1a34744edbe28abcb0ac24"
+      "sha256": "2b62a7b0371b0da615ce998681f5e8f814bb3da5b5f3eadb54d025689097446a"
     },
     {
       "path": "src-tauri/src/infrastructure/legacy_login.rs",
@@ -263,7 +263,7 @@
     },
     {
       "path": "src-tauri/src/infrastructure/session.rs",
-      "sha256": "50508ed3ee634e736d1adc33ad9b6423c347f0be10b10f21f3b73602b4339254"
+      "sha256": "317cf3be29d7092b3c06b38539ae7521b20a9b30ab3b5fdd957d393c1c370fc3"
     },
     {
       "path": "src-tauri/src/infrastructure/session_windows.rs",

@@ -91,7 +91,7 @@ pub async fn accept_account_session(expires_at: u64, vpn_auth: Option<VpnAuthInp
     let (vpn_username, vpn_password) = vpn_auth.map(|auth| (auth.username, auth.password)).unwrap_or_default();
     let migrating = legacy_token.is_some();
     let saved = crate::infrastructure::session::SavedSession { expires_at, token: access_token, account_id, vpn_username, vpn_password, onboarding: migrating, legacy_token, renewal_token };
-    saved.validate()?;
+    saved.validate_login()?;
     background(app.clone(), move |service| {
         let directory = app.path().app_data_dir().map_err(|_| AppError::new("session_storage_unavailable", "Session storage is unavailable."))?;
         if migrating {
@@ -116,7 +116,9 @@ pub async fn accept_account_session(expires_at: u64, vpn_auth: Option<VpnAuthInp
         if saved.renewal_token.is_some() { service.remember_login(); }
         if let Some(credentials) = saved.credentials()? { service.accept_vpn_credentials(credentials)?; }
         let session = if migrating { service.complete_onboarding()? } else { session };
-        let remembered = true;
+        // Legacy migration retains its bounded stored session; ordinary login
+        // has already required a durable renewal credential before vault I/O.
+        let remembered = saved.renewal_token.is_some() || migrating;
         let state = app.state::<crate::infrastructure::session::RememberedSession>();
         let mut cache = state.0.lock().map_err(|_| AppError::new("state_unavailable", "Session storage is unavailable."))?;
         cache.attempted = true; cache.saved = Some(saved);
@@ -132,11 +134,16 @@ pub async fn restore_account_session(app: AppHandle) -> Result<Option<RestoredId
             let directory = app.path().app_data_dir().map_err(|_| AppError::new("session_storage_unavailable", "Session storage is unavailable."))?;
             let restored = crate::infrastructure::session::load(&directory)?;
             if let Some(saved) = &restored {
-                if saved.expires_at > std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs() {
+                if saved.renewal_token.is_some() {
+                    service.restore_remembered_session(saved.expires_at)?;
+                } else {
                     service.accept_account_session(saved.expires_at)?;
-                    if let Some(credentials) = saved.credentials()? { service.accept_vpn_credentials(credentials)?; }
-                } else { service.restore_remembered_identity()?; }
-                if saved.renewal_token.is_some() { service.remember_login(); }
+                }
+                if saved.expires_at > std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs() {
+                    if let Some(credentials) = saved.credentials()? {
+                        service.accept_vpn_credentials(credentials)?;
+                    }
+                }
                 if saved.onboarding { service.complete_onboarding()?; }
             }
             // Failed native restoration remains retryable and keeps the vault intact.
