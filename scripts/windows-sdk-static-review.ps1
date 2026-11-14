@@ -190,7 +190,11 @@ foreach ($name in $compilerNames) {
     $sha = [Security.Cryptography.SHA256]::Create()
     try { $hash = [BitConverter]::ToString($sha.ComputeHash($bytes)).Replace('-', '').ToLowerInvariant() } finally { $sha.Dispose() }
     $signature = Get-AuthenticodeSignature -LiteralPath $file.FullName
-    if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -ne 'CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US') { throw 'Valid Microsoft compiler signature required.' }
+    $compilerSigners = @(
+        'CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US',
+        'CN=Microsoft Windows Software Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US'
+    )
+    if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notin $compilerSigners) { throw ('Valid expected Microsoft compiler signature required: ' + $name) }
     $compilerRows += [ordered]@{ name = $name; sha256 = $hash; version = $file.VersionInfo.ProductVersion; signer = $signature.SignerCertificate.Subject; pe = Read-PeImports $bytes }
 }
 Write-Output ('STELLAR_SDK_STATIC_REVIEW=' + (ConvertTo-Json -Depth 12 -Compress -InputObject ([ordered]@{
