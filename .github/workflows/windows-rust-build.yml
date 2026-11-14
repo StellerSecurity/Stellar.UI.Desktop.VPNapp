@@ -30,7 +30,7 @@ jobs:
           if ($env:SOURCE_COMMIT -notmatch '^[a-f0-9]{40}$') { throw 'Exact source commit required.' }
           $files = @(
             @{ path = 'scripts/windows-rust-build.ps1'; sha256 = '492002fadd4e09e80e116fbd9b281a8773c81ce6a14689cfaa8c0ff9c78d7804' },
-            @{ path = 'scripts/windows-rust-inputs.json'; sha256 = '219fae77e966b3fca902b5224c30f7f3e94a265fa05af1877548530d797ea650' },
+            @{ path = 'scripts/windows-rust-inputs.json'; sha256 = '16f0edadd351a6dba5b28430e348f7a4178b1db954feefe4bf17f7631f99fd82' },
             @{ path = '.github/actions/upload-windows-interface-test/action.yml'; sha256 = 'aa643c5298b83c09698d7f7a55e9eea1f4455f3dc778c78aba9a6d63bac3c617' },
             @{ path = '.github/actions/upload-windows-interface-test/index.mjs'; sha256 = '7e2b0caf7ef9dd91bcfeae88e7228b6c18aaa1de425ae416e0eff17ac3cf4153' }
           )
