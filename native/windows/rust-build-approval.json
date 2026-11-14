@@ -22,17 +22,23 @@
       "signatureStatus": "NotSigned"
     }
   ],
-  "sdkVersion": "10.0.26100.7705",
+  "sdkVersion": "10.0.26100.9457",
   "sdk": [
     {
       "name": "rc.exe",
-      "sha256": "43da1503c262c30894c851589bf0155f8365d77e63a5f7bc13982320e3a6b42d",
+      "sha256": "9e2ee68da28b3318f50a9f1008d64567a9b402bda384a007a9b71a3f16bd011b",
       "signatureStatus": "Valid",
       "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
       "name": "rcdll.dll",
-      "sha256": "9a11e4759adc48abe1fa9e3082ad7db4b53f4d6d77701c13729f4ffd47ae934c",
+      "sha256": "4452fa0b470749e6fd70ed2ed2ac859fc243fbe4b67e6875250cfaec64f4388a",
+      "signatureStatus": "Valid",
+      "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+    },
+    {
+      "name": "ServicingCommon.dll",
+      "sha256": "f469074774958cbb105c74accfee4817b20f5884cd8acf71077702eda3e3d44d",
       "signatureStatus": "Valid",
       "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     }
@@ -2095,5 +2101,11 @@
     "name": "stellar-vpn-desktop",
     "from": "0.1.0",
     "to": "0.5.1"
+  },
+  "sdkExecutionApproval": {
+    "approved": false,
+    "scope": "exact-installed-sdk-debug-build-and-synthetic-tests",
+    "version": "10.0.26100.9457",
+    "reason": "SDK changed on hosted runner; explicit review approval pending. Existing Rust and locked dependency approval is unchanged."
   }
 }

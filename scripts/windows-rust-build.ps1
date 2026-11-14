@@ -25,6 +25,11 @@ foreach ($entry in $manifest.files) {
 }
 $review = Get-Content -LiteralPath (Join-Path $root 'native/windows/rust-build-approval.json') -Raw | ConvertFrom-Json
 if ($review.approved -ne $true -or $review.scope -ne 'windows-rust-debug-build-and-synthetic-tests' -or $review.releaseApproved -ne $false) { throw 'Exact Rust build execution approval required.' }
+if ($review.sdkExecutionApproval.approved -ne $true -or
+    $review.sdkExecutionApproval.scope -ne 'exact-installed-sdk-debug-build-and-synthetic-tests' -or
+    $review.sdkExecutionApproval.version -ne $review.sdkVersion) {
+    throw 'Exact changed SDK execution approval required.'
+}
 if ($review.packages.Count -ne 410) { throw 'Reviewed dependency count changed.' }
 function Verify-Lock {
     $lockPath = Join-Path $root 'Cargo.lock'
@@ -57,8 +62,10 @@ if ((Get-Item -LiteralPath (Join-Path $rustBin 'rustc.exe')).VersionInfo.Product
 $sdkBin = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin\10.0.26100.0\x64'
 $stagedSdk = Join-Path $root 'reviewed-sdk'
 [IO.Directory]::CreateDirectory($stagedSdk) | Out-Null
+if ($review.sdk.Count -ne 3 -or
+    @($review.sdk.name | Sort-Object -Unique).Count -ne 3) { throw 'Exact three-file SDK bundle required.' }
 foreach ($pin in $review.sdk) {
-    if ($pin.name -notin @('rc.exe', 'rcdll.dll')) { throw 'Unexpected SDK tool.' }
+    if ($pin.name -notin @('rc.exe', 'rcdll.dll', 'ServicingCommon.dll')) { throw 'Unexpected SDK tool.' }
     $file = Get-Item -LiteralPath (Join-Path $sdkBin $pin.name)
     if ($file.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'SDK tool reparse point rejected.' }
     if ((Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant() -ne $pin.sha256 -or $file.VersionInfo.ProductVersion -ne $review.sdkVersion) { throw 'SDK tool changed.' }
