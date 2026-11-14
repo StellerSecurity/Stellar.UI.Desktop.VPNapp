@@ -3,48 +3,48 @@
   "scope": "native-cpp-compile-only",
   "syntheticTestsApproved": true,
   "syntheticTestApproval": "User requested all remaining Windows tests; first-party synthetic tests only. No service/driver/firewall/network changes.",
-  "compilerVersion": "14.44.35229.0",
+  "compilerVersion": "14.44.35230.0",
   "sdkDirectory": "10.0.26100.0",
   "userApproval": "2026-10-31: explicit approval after exact review, including closed-source inspection limitation",
   "components": [
     {
       "name": "1033/clui.dll",
-      "sha256": "8877a566cf0e39504f1eebed7a37202974d2dc91e850ef24175c9433fe82b7ab",
+      "sha256": "791ea64118970a0b934201576fa843febffb68bbb58fbf43948e4a539c673f42",
       "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
       "name": "1033/linkui.dll",
-      "sha256": "437129ea3e4b102753d197ca79333273f69c0fa075bcf62b339e501613c9a102",
+      "sha256": "c7f0f86fe6be4a6b48612303089163b92c08931857fdee2f1798d1601c51cc35",
       "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
       "name": "atlprov.dll",
-      "sha256": "fc4c78bf6d6007a89ef48a1e9d805565a516464d9ff5282eac3d8d47f6139f39",
+      "sha256": "4941d79bd09ae22fbef93f4c47a88ae9621fbd7d30c0973c2dbc5397e5c8fdb1",
       "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
       "name": "bscmake.exe",
-      "sha256": "1f7608fed1ecfacee20300d7bac77cdf1b8c75d8d89abdd2a9a0e21ab9a06b42",
+      "sha256": "7863450dd794495dd6b6e910f94b8477b972dd892a5b3b8b7a97974642a3eb1b",
       "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
       "name": "c1.dll",
-      "sha256": "6176d88c3e682f64ef960e29ecde0ff431785da664eba854e571e280dba6604b",
+      "sha256": "3b82d58d21354fdb611efdd5ab82ec0484acfa5f3de37ca6bea42c630ff2c24a",
       "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
       "name": "c1xx.dll",
-      "sha256": "b96238e05dcc5fd9aa2614ab5e29ee2f9d3fd775fe41ce0a2202875956f383ed",
+      "sha256": "a9348b973d399e7e042a79be7e22dc054e008381a2ef3d9f394300e41aa47470",
       "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
       "name": "c2.dll",
-      "sha256": "b057a18570f712ffb535e227825a291706620f3337e5b13d896d6586fb6b3cec",
+      "sha256": "e2fdfd6505cd6e9b670922733a914fbf22cae5d226943290548f24eaf699267a",
       "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
       "name": "c2dd.dll",
-      "sha256": "79dc88b75996e56ff2b760358a497002b69025e254e155de0fff3eb93d2bceaf",
+      "sha256": "0f00f002a4fde516605c39e72beb0f95d98bf015749d43b93168a2ee9132ab29",
       "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
@@ -54,7 +54,7 @@
     },
     {
       "name": "cl.exe",
-      "sha256": "fe251ef50a1545b1b0835ee17b1e785459712b38d79e45b5c1d3d28970a36619",
+      "sha256": "e87e78b3ef6580b75aebda843f8a22e874612d9f766344046551399f898eb226",
       "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
@@ -84,7 +84,7 @@
     },
     {
       "name": "cvtres.exe",
-      "sha256": "b5da94e7b9ff60b388ea9013d9e0e3d4a2a68bff7c668c7017583459dac4e3c5",
+      "sha256": "6f79237d4a6c140d89c41864a3af0b7263738b1d66ee21c19746a4a3ca01117d",
       "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
@@ -94,17 +94,17 @@
     },
     {
       "name": "dpcmi.dll",
-      "sha256": "84b73b9e22dd0d701ef43da2fbedc61592ccdfc0ae71f1a87fde3cf44605dbf6",
+      "sha256": "234ba0878d2ba010c62722625d0cdf32d88ae0d03d058bce3b795c039fa3d471",
       "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
       "name": "dumpbin.exe",
-      "sha256": "cfee7ed764b7b0866aae0be12f9c0ad2a7f5aecc4046ba2b7de26335827ca815",
+      "sha256": "e2c0ec987bb904acfe88c0685cbc836e695cf22007cb17f3ce9f39e785dec980",
       "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
       "name": "editbin.exe",
-      "sha256": "e0d0024920f3073410c346813220ba61d034bb22fe13212de4f84094d978ef89",
+      "sha256": "068b97bfbee5bb8362ec8c7df8f5481eb07163d089202a4351af320be305c0ab",
       "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
@@ -124,7 +124,7 @@
     },
     {
       "name": "ifc.exe",
-      "sha256": "b9f2f8c53ff8a108d00947c84a1368b2e0159a23d4497f0def7853bc3dc05122",
+      "sha256": "64b90a77bf67d694b35ed22dfb78739f78e22c53532231d81d2298a00e18fd32",
       "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
@@ -134,12 +134,12 @@
     },
     {
       "name": "lib.exe",
-      "sha256": "fde148a275981855689c45f932dda56b10dc9289a0290826a0fb93478da34929",
+      "sha256": "69317eda3d44fd723b959c87d5a3b0617e3b7be70b02ff3f51ec45288ec559d2",
       "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
       "name": "link.exe",
-      "sha256": "a364af801a8539e4324d9489313dbf001d959128451fc99a27b24676bbac058f",
+      "sha256": "49a5df25c3182a22684375b1d62a025016deffccea247894fe5ca2c85610c6a6",
       "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
@@ -169,82 +169,82 @@
     },
     {
       "name": "ml64.exe",
-      "sha256": "5caf9b734273a9ccb109eb0465581bd6c9fb67fa52a1cd12cc6d40ee12e40d4a",
+      "sha256": "63ca982bd559796275ff0e1cd409fee9985d22ae104629f99329cecaf4ce20ec",
       "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
       "name": "msobj140.dll",
-      "sha256": "6a23e3aa1f1dc964f62c5a761d4ea279f77cc7c2ae3ac43e4fb91e7830bdd88f",
+      "sha256": "ab46c91576e85ca8dd5d3faa17462ff6f06ada8129072704fa114e317bf68f93",
       "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
       "name": "mspdb140.dll",
-      "sha256": "eb6535aae9d1a9860c6973fdcd1c20c20045d13db77e1d1897a474b90867aff9",
+      "sha256": "51c1a191ba6ec8fc3c364c356e0379dfc41787ff6f9b74972e93f89f5a297589",
       "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
       "name": "mspdbcmf.exe",
-      "sha256": "ccbdf80b764229f5f8a6c3f64bd74ccd8db316736b0bc25a6bce3cdd579d3dfb",
+      "sha256": "0933e6f2e57820742725151b2795343a68a665716810b08aba4c3036b52560c1",
       "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
       "name": "mspdbcore.dll",
-      "sha256": "589861f069bbbcc47cbf496c1d9c823a23cdaccbda671d602d88ff67b48d227e",
+      "sha256": "a9fa44569d0555a92f53b56cb2b90cdca99bbb030fad2064f247cd03b2b406b1",
       "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
       "name": "mspdbsrv.exe",
-      "sha256": "8ffbacfdbef90a79e8441d640bc8b4c86be02a2d9035ce87c5fa4f36dc3c70e1",
+      "sha256": "28978586efb41a22ae0e680e564b694d95f51af7849f799c6f31f5de046df212",
       "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
       "name": "mspdbst.dll",
-      "sha256": "e3b1d078aab45329fb88c99e2262dfad6974e650fb75c6e8237d4bd38be7d056",
+      "sha256": "b9307355d64fb8dfee68c4e492c19e06d2452649fabdb63d045a627e7838ef66",
       "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
       "name": "mspft140.dll",
-      "sha256": "33beb55552b9884e6dee3890542c646212246d5611bfdaab1da0037061150118",
+      "sha256": "64306753e8aa16010fc71208ec3c2c5908e25f1453773c222d250cc6ae5d90f3",
       "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
       "name": "msvcdis140.dll",
-      "sha256": "e117f84ab6a78ce5e896ced882db6cde3e2fec0018a0963e8f50d6dc5bed52ff",
+      "sha256": "07c9a810f9512128be635594a5e67066ed33d5f6a6a46405013a60e443a1b67d",
       "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
       "name": "msvcp140.dll",
-      "sha256": "0fa7eb792d3fbcf2233e4ea47e9144b9b1309ba8ed5d4731a72fffa8f4f556d6",
+      "sha256": "19e7201c25bff372ad918022fb62814a428554fd1e83f13fd0a727bec1264513",
       "signer": "CN=Microsoft Windows Software Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
       "name": "msvcp140_1.dll",
-      "sha256": "9648d46b710235db9888732a8dbd9e247b8dcb37a9e0dd64fa7c9a9d6763d282",
+      "sha256": "27a4e8ea0f16a3a1b17cf47e9dc409066606218e112fe81185257c7449b9bfe6",
       "signer": "CN=Microsoft Windows Software Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
       "name": "msvcp140_2.dll",
-      "sha256": "f21990f3da34972486072a15bb509773cafae7764f1d9bd14b00825a7ee601af",
+      "sha256": "eb77b6023c478e5877e3c8a56e15f3fe7f5c5b87c7154dbbec42063a90578300",
       "signer": "CN=Microsoft Windows Software Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
       "name": "msvcp140_atomic_wait.dll",
-      "sha256": "b366579799aa419a9d50daefb34c1898d22044f72dbe0c38136f86f8c216cfa1",
+      "sha256": "cb56dbfb37d57ce88e1efcb640de1709edb2f6ee41bcf30480c286870f321b9b",
       "signer": "CN=Microsoft Windows Software Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
       "name": "msvcp140_codecvt_ids.dll",
-      "sha256": "e642ecabfd668ab738aa35438644783cedf1d6d2c0f0b0df946ba4c21f7e35ae",
+      "sha256": "60b4789b1a0cb0b68f700224d8600ce48745d94cfe120588e0d2b0fdced35c33",
       "signer": "CN=Microsoft Windows Software Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
       "name": "Newtonsoft.Json.dll",
-      "sha256": "db96e2166c19dd698041f0d689e810f77bdf11c6596bfc1203d196aee0792f46",
+      "sha256": "dec582845bc758395364d215724d47e11d69ea9235e995588539acc595d610ca",
       "signer": "CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
       "name": "nmake.exe",
-      "sha256": "ce6b50c2d8e6704b671ec116e52ce9d2fbc1d20dd28c5b895b5421adddf94ebb",
+      "sha256": "f54573f6570c8c8831f3e4d2375fccb35590759c9684b5ae38074f5e91610aee",
       "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
@@ -289,12 +289,12 @@
     },
     {
       "name": "tbbmalloc.dll",
-      "sha256": "3629efbb6000da9c4ce7a9332affb85c8d04873be22a7af46b10e58a45357d89",
+      "sha256": "5056b511d7c9a69b5df16f88bb0fc5c355429a4474df4f4647977f7d9dd19b01",
       "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
       "name": "undname.exe",
-      "sha256": "567c5cd29643b97c45c9eeac20521f642b2e770357f4154b9c755166f5f85126",
+      "sha256": "9fe619c8337afcb1e79f18d1a2ed8ac29d035c851567eb6e3f26495fa33ab00b",
       "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
@@ -304,38 +304,44 @@
     },
     {
       "name": "vcmeta.dll",
-      "sha256": "509ed7bbf934a56baa4a168a1ecd6660f76b2b9f178a86e8bca4342e1b9007ae",
+      "sha256": "02383500852509e3c5ff97f9430fa215486367c5cd1b870bb8191d56c9208623",
       "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
       "name": "vcperf.exe",
-      "sha256": "0528568f4ead8fc3ac7eeac119eab8de7186fdfafe67adab8f610478b9a6b54a",
+      "sha256": "74b62176c901a1ca4674b3c8e7ac18b4cac31f745be6d80279531403befff395",
       "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
       "name": "vcruntime140.dll",
-      "sha256": "80b039ca328f53ce4f468eda0e6d25a6e565eb4842b3690db1d1cf033a1f2aca",
+      "sha256": "ead410181a785bc821d6c119c0eb2e15300fa150bc721984523c5177785c969a",
       "signer": "CN=Microsoft Windows Software Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
       "name": "vcruntime140_1.dll",
-      "sha256": "99ad0c5380674e28f965dc76b7cdfb8688cc2175a6641e00ab524195c3eaa900",
+      "sha256": "25c6cc1b88000fb3778427e45643333b8963301daf883cc7d6b51ecf2f17d25c",
       "signer": "CN=Microsoft Windows Software Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
       "name": "vcruntime140_threads.dll",
-      "sha256": "cb6c85a96cedbf21d3bff225ff47ed5aa0ee4dac4d5f05cd80f505f43ecfbd91",
+      "sha256": "2972d26d004e3b566921a39a3a05e556142839176b44730e523e0483a17b1b7e",
       "signer": "CN=Microsoft Windows Software Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
       "name": "vctip.exe",
-      "sha256": "d591358c6aee4b673562ca3b3a15c250e612708394fe3b44a7a7eda2470570a5",
+      "sha256": "c344a9dba77c62d271abb0a982486cfc9ae26b1f96dda6f5ec02703ff55526e6",
       "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     },
     {
       "name": "xdcmake.exe",
-      "sha256": "b40291d8df221cf5a3cba7ceb98332f6db9d1ee3e97b3a21fccd96c16b0d3f3f",
+      "sha256": "43577e1195fbfff6b902a962cafe88e31f750f5e026e156d09f76e964ebe0ee6",
       "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     }
-  ]
+  ],
+  "toolchainExecutionApproval": {
+    "approved": false,
+    "scope": "exact-installed-msvc-debug-build-and-synthetic-tests",
+    "version": "14.44.35230.0",
+    "reason": "Hosted compiler changed; explicit exact-file execution approval pending. No compiler component may run until approved."
+  }
 }

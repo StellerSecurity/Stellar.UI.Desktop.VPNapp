@@ -11,9 +11,23 @@ pub fn open(url: &str) -> Result<(), AppError> {
     #[cfg(target_os = "macos")]
     let result = std::process::Command::new("/usr/bin/open").arg("--").arg(url).spawn();
     #[cfg(target_os = "windows")]
-    let result = std::process::Command::new("rundll32.exe").arg("url.dll,FileProtocolHandler").arg(url).spawn();
+    {
+        use std::ffi::c_void;
+        #[link(name = "Shell32")]
+        unsafe extern "system" {
+            fn ShellExecuteW(window: *mut c_void, operation: *const u16, file: *const u16,
+                parameters: *const u16, directory: *const u16, show: i32) -> isize;
+        }
+        let operation: Vec<u16> = "open".encode_utf16().chain(Some(0)).collect();
+        let target: Vec<u16> = url.encode_utf16().chain(Some(0)).collect();
+        // Native URL dispatch; no executable or DLL lookup through PATH/CWD.
+        let status = unsafe { ShellExecuteW(std::ptr::null_mut(), operation.as_ptr(), target.as_ptr(),
+            std::ptr::null(), std::ptr::null(), 1) };
+        return if status > 32 { Ok(()) } else { Err(AppError::new("open_link_failed", "The browser could not be opened")) };
+    }
     #[cfg(target_os = "linux")]
-    let result = std::process::Command::new("xdg-open").arg(url).spawn();
+    let result = std::process::Command::new("/usr/bin/xdg-open").arg(url).spawn();
+    #[cfg(not(target_os = "windows"))]
     result.map(|_| ()).map_err(|_| AppError::new("open_link_failed", "The browser could not be opened"))
 }
 #[cfg(test)]

@@ -260,6 +260,24 @@ static void monitor(uint64_t generation, uint64_t expiry, std::string username, 
     if (socket != INVALID_SOCKET) closesocket(socket);
     wipe(username); wipe(password); wipe(config); wipe(management_password);
 }
+static void verify_client_process(HANDLE pipe) {
+    ULONG pid = 0;
+    check(GetNamedPipeClientProcessId(pipe, &pid) && pid != 0);
+    // Hold the process handle while validating, rather than trusting a caller-supplied PID/path.
+    handle process(OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid));
+    check(process.value != nullptr && process.value != INVALID_HANDLE_VALUE);
+    std::wstring image(32768, L'\0');
+    DWORD length = static_cast<DWORD>(image.size());
+    check(QueryFullProcessImageNameW(process, 0, image.data(), &length) && length && length < image.size());
+    image.resize(length);
+    const auto expected = (install_root() / L"Stellar VPN.exe").wstring();
+    check(CompareStringOrdinal(image.c_str(), static_cast<int>(image.size()),
+        expected.c_str(), static_cast<int>(expected.size()), TRUE) == CSTR_EQUAL);
+    // The installed client must be signed and every path component admin-controlled.
+    // A different signed executable elsewhere is not an authorized IPC client.
+    verify_signature(std::filesystem::path(image));
+}
+
 static void request(HANDLE pipe) {
     auto header = line(pipe, 256);
     secret_guard clear_header{header};
@@ -268,6 +286,7 @@ static void request(HANDLE pipe) {
     BOOL opened = OpenThreadToken(GetCurrentThread(), TOKEN_QUERY, TRUE, &raw_token);
     std::wstring sid; try { check(opened); handle token(raw_token); sid = token_sid(token); } catch (...) { RevertToSelf(); throw; }
     check(RevertToSelf()); check(sid == console_sid());
+    verify_client_process(pipe);
     if (header == "CAPABILITIES") { send(pipe, firewall_verified ? "CAPABILITIES 3 kill-switch live-kill-switch\n" : "CAPABILITIES 3\n"); return; }
     if (header == "STATUS") { std::lock_guard lock(state_mutex); send(pipe, snapshot_locked()); return; }
     if (header == "DISCONNECT" || header == "EXPIRE") {

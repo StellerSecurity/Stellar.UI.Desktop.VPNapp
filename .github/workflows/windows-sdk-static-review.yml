@@ -1,0 +1,49 @@
+name: Windows SDK static review
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['stellar/mac-login-persistence']
+    paths:
+      - '.github/workflows/windows-sdk-static-review.yml'
+      - 'scripts/windows-sdk-static-review.ps1'
+
+permissions: {}
+
+jobs:
+  inspect:
+    if: github.repository == 'StellerSecurity/Stellar.UI.Desktop.VPNapp'
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - name: Inspect pinned installed SDK bytes without executing them
+        env:
+          STELLAR_SOURCE_COMMIT: ${{ github.sha }}
+        shell: powershell
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+          if ($env:STELLAR_SOURCE_COMMIT -notmatch '^[a-f0-9]{40}$') { throw 'Exact first-party source required.' }
+          $url = 'https://raw.githubusercontent.com/StellerSecurity/Stellar.UI.Desktop.VPNapp/' + $env:STELLAR_SOURCE_COMMIT + '/scripts/windows-sdk-static-review.ps1'
+          $request = [Net.HttpWebRequest]::Create($url)
+          $request.AllowAutoRedirect = $false
+          $request.Timeout = 30000
+          $response = $request.GetResponse()
+          try {
+              $stream = $response.GetResponseStream()
+              $buffer = New-Object IO.MemoryStream
+              try {
+                  $chunk = New-Object byte[] 4096
+                  while (($length = $stream.Read($chunk, 0, $chunk.Length)) -gt 0) {
+                      if ($buffer.Length + $length -gt 65536) { throw 'First-party script exceeds bound.' }
+                      $buffer.Write($chunk, 0, $length)
+                  }
+                  $bytes = $buffer.ToArray()
+              } finally { $buffer.Dispose(); $stream.Dispose() }
+          } finally { $response.Dispose() }
+          $sha = [Security.Cryptography.SHA256]::Create()
+          try { $hash = [BitConverter]::ToString($sha.ComputeHash($bytes)).Replace('-', '').ToLowerInvariant() } finally { $sha.Dispose() }
+          if ($hash -ne 'e802e873bb1632450d1fd2560233eed5dd4a06afc73d9aca08045925f1bdb70c') { throw 'Reviewed first-party script hash mismatch.' }
+          $script = Join-Path $env:RUNNER_TEMP ('stellar-sdk-review-' + [Guid]::NewGuid().ToString('N') + '.ps1')
+          [IO.File]::WriteAllBytes($script, $bytes)
+          & $script

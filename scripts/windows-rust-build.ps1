@@ -25,9 +25,30 @@ foreach ($entry in $manifest.files) {
 }
 $review = Get-Content -LiteralPath (Join-Path $root 'native/windows/rust-build-approval.json') -Raw | ConvertFrom-Json
 if ($review.approved -ne $true -or $review.scope -ne 'windows-rust-debug-build-and-synthetic-tests' -or $review.releaseApproved -ne $false) { throw 'Exact Rust build execution approval required.' }
+if ($review.sdkExecutionApproval.approved -ne $true -or
+    $review.sdkExecutionApproval.scope -ne 'exact-installed-sdk-debug-build-and-synthetic-tests' -or
+    $review.sdkExecutionApproval.version -ne $review.sdkVersion) {
+    throw 'Exact changed SDK execution approval required.'
+}
 if ($review.packages.Count -ne 410) { throw 'Reviewed dependency count changed.' }
 function Verify-Lock {
-    if ((Get-FileHash -LiteralPath (Join-Path $root 'Cargo.lock') -Algorithm SHA256).Hash.ToLowerInvariant() -ne $review.lockSha256) { throw 'Reviewed Cargo.lock changed.' }
+    $lockPath = Join-Path $root 'Cargo.lock'
+    if ((Get-FileHash -LiteralPath $lockPath -Algorithm SHA256).Hash.ToLowerInvariant() -ne $review.sourceLockSha256) { throw 'Exact source Cargo.lock changed.' }
+    if ($review.firstPartyLockVersion.name -ne 'stellar-vpn-desktop' -or
+        $review.firstPartyLockVersion.from -ne '0.1.0' -or $review.firstPartyLockVersion.to -ne '0.5.1') {
+        throw 'Unexpected first-party version-only change.'
+    }
+    # Preserve the original reviewed dependency lock hash. Only the authored app version differs.
+    $text = [IO.File]::ReadAllText($lockPath)
+    $current = 'name = "stellar-vpn-desktop"' + "`n" + 'version = "0.5.1"'
+    $original = 'name = "stellar-vpn-desktop"' + "`n" + 'version = "0.1.0"'
+    if ([regex]::Matches($text, [regex]::Escape($current)).Count -ne 1) { throw 'Unique first-party lock entry required.' }
+    $normalized = $text.Replace($current, $original)
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try {
+        $hash = [BitConverter]::ToString($sha.ComputeHash($utf8.GetBytes($normalized))).Replace('-', '').ToLowerInvariant()
+    } finally { $sha.Dispose() }
+    if ($hash -ne $review.lockSha256) { throw 'Reviewed dependency graph changed.' }
 }
 Verify-Lock
 $rustBin = Join-Path $env:USERPROFILE '.rustup\toolchains\stable-x86_64-pc-windows-msvc\bin'
@@ -41,8 +62,10 @@ if ((Get-Item -LiteralPath (Join-Path $rustBin 'rustc.exe')).VersionInfo.Product
 $sdkBin = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin\10.0.26100.0\x64'
 $stagedSdk = Join-Path $root 'reviewed-sdk'
 [IO.Directory]::CreateDirectory($stagedSdk) | Out-Null
+if ($review.sdk.Count -ne 3 -or
+    @($review.sdk.name | Sort-Object -Unique).Count -ne 3) { throw 'Exact three-file SDK bundle required.' }
 foreach ($pin in $review.sdk) {
-    if ($pin.name -notin @('rc.exe', 'rcdll.dll')) { throw 'Unexpected SDK tool.' }
+    if ($pin.name -notin @('rc.exe', 'rcdll.dll', 'ServicingCommon.dll')) { throw 'Unexpected SDK tool.' }
     $file = Get-Item -LiteralPath (Join-Path $sdkBin $pin.name)
     if ($file.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'SDK tool reparse point rejected.' }
     if ((Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant() -ne $pin.sha256 -or $file.VersionInfo.ProductVersion -ne $review.sdkVersion) { throw 'SDK tool changed.' }

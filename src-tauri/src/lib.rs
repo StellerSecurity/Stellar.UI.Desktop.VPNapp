@@ -47,7 +47,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::bootstrap, commands::installation_status, commands::open_network_helper, commands::select_location, commands::connect_preview, commands::disconnect_preview, commands::update_subscription_access,
             commands::save_settings, commands::accept_account_session, commands::has_vpn_auth, commands::accept_vpn_auth,
-            commands::restore_account_session,
+            commands::restore_account_session, commands::peek_account_session, commands::queue_session_revocation, commands::pending_session_revocations, commands::acknowledge_session_revocation, commands::renew_account_session,
             commands::legacy_login_candidate, commands::finish_legacy_login,
             commands::read_cached_account, commands::write_cached_account,
             commands::prepare_vpn_configuration,

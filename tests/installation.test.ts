@@ -67,11 +67,29 @@ test('a failed repair has one error, not a status plus an identical alert', () =
   const help = installationHelpState({ ...ready, helper: 'unavailable' }, true, true, false);
   assert.equal(help.diagnostic, 'Setup could not finish. Check macOS permission prompts and try again.');
   assert.equal(help.alert, true);
-  assert.equal(help.retryOnly, false);
+  assert.equal(help.retryOnly, true);
 });
 test('normal Mac repair and Windows installed-helper recovery are preserved', () => {
   for (const platform of ['macos', 'windows'] as const) {
     assert.equal(installationHelpState({ ...ready, platform, helper: 'missing' }, false, false, false).button, 'Install network helper');
     assert.equal(installationHelpState({ ...ready, platform, helper: 'missing' }, false, false, true).button, 'Try again');
   }
+});
+
+test('a temporary helper check failure retries verification without opening an installer', async () => {
+  let checks = 0, installers = 0;
+  const service = new InstallationService({
+    check: async () => ++checks === 1 ? { ...ready, helper: 'unavailable' } : ready,
+    openHelper: async () => { installers++; },
+  });
+  const unavailable = await service.check();
+  assert.equal(installationReady(unavailable), false);
+  const help = installationHelpState(unavailable, false, false, false);
+  assert.equal(help.button, 'Check again');
+  assert.equal(help.retryOnly, true);
+  const checked = help.retryOnly ? await service.check() : await service.openHelper();
+  assert.equal(checks, 2);
+  assert.equal(installers, 0);
+  assert.equal(installationReady(checked as InstallationStatus), true);
+  assert.equal(installationHelpState(null, true, false, false).retryOnly, true);
 });

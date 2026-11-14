@@ -24,7 +24,7 @@ export function App() {
     document.documentElement.classList.remove('auth-pending');
   }, [app.screen]);
   useEffect(() => {
-    const keydown = (event: KeyboardEvent) => { if (event.key === 'Escape' && !app.dialog && app.view !== 'connection') { app.setView('connection'); document.getElementById(app.view === 'account' ? 'account-tab' : 'settings-tab')?.focus(); } };
+    const keydown = (event: KeyboardEvent) => { if (event.key === 'Escape' && !event.defaultPrevented && !app.dialog && !document.querySelector('dialog[open]') && app.view !== 'connection') { app.setView('connection'); document.getElementById(app.view === 'account' ? 'account-tab' : 'settings-tab')?.focus(); } };
     document.addEventListener('keydown', keydown); return () => document.removeEventListener('keydown', keydown);
   }, [app.dialog, app.view]);
   if (app.screen === 'booting' || app.bootError) {

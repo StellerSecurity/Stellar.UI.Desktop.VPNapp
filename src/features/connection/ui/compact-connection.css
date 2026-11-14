@@ -148,6 +148,8 @@
 .locations-picker .server-list.grouped-server-list { display: block; }
 .locations-picker .server-region-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 10px; padding-top: 4px; }
 .devices-page .account-devices { margin-top: 0; }
+.devices-page .account-devices + .account-devices { margin-top: 24px; }
+.devices-page .account-device { flex-wrap: wrap; }
 .devices-page .account-device-copy strong { overflow-wrap: anywhere; }
 .selector-popover { width: min(240px, calc(100vw - 48px)); max-height: min(420px, 65dvh); overflow-y: auto; overscroll-behavior: contain; }
 @media (max-width: 640px) {

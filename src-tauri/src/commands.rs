@@ -83,15 +83,15 @@ pub async fn open_network_helper(app: AppHandle) -> Result<(), AppError> {
 }
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RestoredIdentity { access_token: String, account_id: String, expires_at: u64, migration_pending: bool }
+pub struct RestoredIdentity { access_token: String, account_id: String, expires_at: u64, migration_pending: bool, renewal_token: Option<String> }
 #[derive(serde::Serialize)]
 pub struct AcceptedSession { #[serde(flatten)] session: Session, remembered: bool }
 #[tauri::command]
-pub async fn accept_account_session(expires_at: u64, vpn_auth: Option<VpnAuthInput>, access_token: String, account_id: String, legacy_token: Option<String>, app: AppHandle) -> Result<AcceptedSession, AppError> {
+pub async fn accept_account_session(expires_at: u64, vpn_auth: Option<VpnAuthInput>, access_token: String, account_id: String, legacy_token: Option<String>, renewal_token: Option<String>, app: AppHandle) -> Result<AcceptedSession, AppError> {
     let (vpn_username, vpn_password) = vpn_auth.map(|auth| (auth.username, auth.password)).unwrap_or_default();
     let migrating = legacy_token.is_some();
-    let saved = crate::infrastructure::session::SavedSession { expires_at, token: access_token, account_id, vpn_username, vpn_password, onboarding: migrating, legacy_token };
-    saved.validate()?;
+    let saved = crate::infrastructure::session::SavedSession { expires_at, token: access_token, account_id, vpn_username, vpn_password, onboarding: migrating, legacy_token, renewal_token };
+    saved.validate_login()?;
     background(app.clone(), move |service| {
         let directory = app.path().app_data_dir().map_err(|_| AppError::new("session_storage_unavailable", "Session storage is unavailable."))?;
         if migrating {
@@ -108,11 +108,17 @@ pub async fn accept_account_session(expires_at: u64, vpn_auth: Option<VpnAuthInp
         } else {
             // Invalidate any older saved account before accepting a different ordinary login.
             crate::infrastructure::session::forget(&directory)?;
+            // A login is accepted only after the OS vault has persisted it.
+            // Otherwise the UI would report success until the next app launch.
+            crate::infrastructure::session::save(&directory, &saved)?;
         }
         let session = service.accept_account_session(expires_at)?;
+        if saved.renewal_token.is_some() { service.remember_login(); }
         if let Some(credentials) = saved.credentials()? { service.accept_vpn_credentials(credentials)?; }
         let session = if migrating { service.complete_onboarding()? } else { session };
-        let remembered = migrating || crate::infrastructure::session::save(&directory, &saved).is_ok();
+        // Legacy migration retains its bounded stored session; ordinary login
+        // has already required a durable renewal credential before vault I/O.
+        let remembered = saved.renewal_token.is_some() || migrating;
         let state = app.state::<crate::infrastructure::session::RememberedSession>();
         let mut cache = state.0.lock().map_err(|_| AppError::new("state_unavailable", "Session storage is unavailable."))?;
         cache.attempted = true; cache.saved = Some(saved);
@@ -126,18 +132,78 @@ pub async fn restore_account_session(app: AppHandle) -> Result<Option<RestoredId
         let mut cache = state.0.lock().map_err(|_| AppError::new("state_unavailable", "Session storage is unavailable."))?;
         if !cache.attempted {
             let directory = app.path().app_data_dir().map_err(|_| AppError::new("session_storage_unavailable", "Session storage is unavailable."))?;
-            cache.saved = crate::infrastructure::session::load(&directory)?;
-            cache.attempted = true;
-            if let Some(saved) = &cache.saved {
-                service.accept_account_session(saved.expires_at)?;
-                if let Some(credentials) = saved.credentials()? { service.accept_vpn_credentials(credentials)?; }
+            let restored = crate::infrastructure::session::load(&directory)?;
+            if let Some(saved) = &restored {
+                if saved.renewal_token.is_some() {
+                    service.restore_remembered_session(saved.expires_at)?;
+                } else {
+                    service.accept_account_session(saved.expires_at)?;
+                }
+                if saved.expires_at > std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs() {
+                    if let Some(credentials) = saved.credentials()? {
+                        service.accept_vpn_credentials(credentials)?;
+                    }
+                }
                 if saved.onboarding { service.complete_onboarding()?; }
             }
+            // Failed native restoration remains retryable and keeps the vault intact.
+            cache.saved = restored;
+            cache.attempted = true;
         }
         service.expire_session()?;
         if !service.snapshot().session.authenticated { cache.saved = None; return Ok(None); }
-        Ok(cache.saved.as_ref().map(|saved| RestoredIdentity { access_token: saved.token.clone(), account_id: saved.account_id.clone(), expires_at: saved.expires_at.saturating_mul(1000), migration_pending: saved.legacy_token.is_some() }))
+        Ok(cache.saved.as_ref().map(|saved| RestoredIdentity { access_token: saved.token.clone(), account_id: saved.account_id.clone(), expires_at: saved.expires_at.saturating_mul(1000), migration_pending: saved.legacy_token.is_some(), renewal_token: saved.renewal_token.clone() }))
     }).await
+}
+#[tauri::command]
+pub async fn renew_account_session(expected_token: String, access_token: String, account_id: String, expires_at: u64, renewal_token: Option<String>, app: AppHandle) -> Result<(), AppError> {
+    background(app.clone(), move |service| {
+        let state = app.state::<crate::infrastructure::session::RememberedSession>();
+        let mut cache = state.0.lock().map_err(|_| AppError::new("state_unavailable", "Session unavailable."))?;
+        // Main and tray can finish the same idempotent renewal concurrently.
+        if cache.saved.as_ref().is_some_and(|s| s.token == access_token && s.account_id == account_id && s.expires_at == expires_at && s.renewal_token.is_some() && s.renewal_token == renewal_token) { return Ok(()); }
+        let saved = cache.saved.as_ref().filter(|s| s.token == expected_token && s.account_id == account_id && (s.renewal_token.is_none() || s.renewal_token == renewal_token))
+            .ok_or_else(|| AppError::new("invalid_session", "Session changed."))?;
+        let mut renewed = saved.clone(); renewed.token = access_token; renewed.expires_at = expires_at; renewed.renewal_token = renewal_token;
+        if renewed.renewal_token.is_none() { return Err(AppError::new("invalid_session", "Session changed.")); }
+        renewed.validate()?;
+        let directory = app.path().app_data_dir().map_err(|_| AppError::new("session_storage_unavailable", "Session storage unavailable."))?;
+        crate::infrastructure::session::save(&directory, &renewed)?;
+        service.remember_login();
+        service.renew_account_session(expires_at)?;
+        if let Some(credentials) = renewed.credentials()? { service.accept_vpn_credentials(credentials)?; }
+        cache.saved = Some(renewed);
+        Ok(())
+    }).await
+}
+#[tauri::command]
+pub async fn queue_session_revocation(expected_session_id: String, app: AppHandle) -> Result<(), AppError> {
+    background(app.clone(), move |_| {
+        let state = app.state::<crate::infrastructure::session::RememberedSession>();
+        let cache = state.0.lock().map_err(|_| AppError::new("state_unavailable", "Session unavailable."))?;
+        if let Some(root) = cache.saved.as_ref().filter(|s| s.session_id() == expected_session_id).and_then(|s| s.renewal_token.as_deref()) {
+            crate::infrastructure::session::queue_revocation(root)?;
+        }
+        Ok(())
+    }).await
+}
+#[tauri::command]
+pub async fn pending_session_revocations(app: AppHandle) -> Result<Vec<String>, AppError> {
+    background(app, |_| crate::infrastructure::session::pending_revocations()).await
+}
+#[tauri::command]
+pub async fn acknowledge_session_revocation(session_id: String, app: AppHandle) -> Result<(), AppError> {
+    background(app, move |_| crate::infrastructure::session::acknowledge_revocation(&session_id)).await
+}
+#[tauri::command]
+pub fn peek_account_session(app: AppHandle) -> Result<Option<RestoredIdentity>, AppError> {
+    let state = app.state::<crate::infrastructure::session::RememberedSession>();
+    let cache = state.0.lock().map_err(|_| AppError::new("state_unavailable", "Session unavailable."))?;
+    // Cache-only read: never emit a desktop event or read Keychain here.
+    Ok(cache.saved.as_ref().filter(|saved| saved.validate().is_ok()).map(|saved| RestoredIdentity {
+        access_token: saved.token.clone(), account_id: saved.account_id.clone(), expires_at: saved.expires_at.saturating_mul(1000),
+        migration_pending: saved.legacy_token.is_some(), renewal_token: saved.renewal_token.clone(),
+    }))
 }
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -308,8 +374,13 @@ pub async fn save_settings(settings: Settings, app: AppHandle) -> Result<Setting
     }).await
 }
 #[tauri::command]
-pub async fn logout(expected_token: Option<String>, app: AppHandle) -> Result<Session, AppError> {
+pub async fn logout(expected_token: Option<String>, expected_session_id: Option<String>, app: AppHandle) -> Result<Session, AppError> {
     background(app.clone(), move |service| {
+        if let Some(expected) = &expected_session_id {
+            let state = app.state::<crate::infrastructure::session::RememberedSession>();
+            let cache = state.0.lock().map_err(|_| AppError::new("state_unavailable", "Session unavailable."))?;
+            if cache.saved.as_ref().map(|saved| saved.session_id()) != Some(expected.as_str()) { return Ok(service.snapshot().session); }
+        }
         if let Some(expected) = &expected_token {
             let state = app.state::<crate::infrastructure::session::RememberedSession>();
             let cache = state.0.lock().map_err(|_| AppError::new("state_unavailable", "Session storage is unavailable."))?;
