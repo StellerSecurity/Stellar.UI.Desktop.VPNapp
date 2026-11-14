@@ -55,6 +55,13 @@ impl DesktopService {
         self.session = Session { authenticated: true, onboarding_complete: false };
         Ok(self.session.clone())
     }
+    pub fn restore_remembered_session(&mut self, expires_at: u64) -> Result<Session, AppError> {
+        self.restore_remembered_identity()?;
+        if expires_at > Self::now() {
+            self.renew_account_session(expires_at)?;
+        }
+        Ok(self.session.clone())
+    }
     pub fn renew_account_session(&mut self, expires_at: u64) -> Result<(), AppError> {
         if !self.session.authenticated || !self.remembered_login || expires_at <= Self::now() {
             return Err(AppError::new("invalid_session", "Session changed."));
@@ -292,6 +299,29 @@ mod tests {
         service.restore_remembered_identity().unwrap(); assert!(service.snapshot().session.authenticated);
         assert!(service.logout().is_err()); assert!(!service.snapshot().session.authenticated);
         assert!(service.renew_account_session(u64::MAX).is_err());
+    }
+    #[test]
+    fn remembered_restart_does_not_call_an_unavailable_transport() {
+        struct Unavailable;
+        impl VpnEngine for Unavailable {
+            fn connect(&mut self, _: &str) -> Result<ConnectionSnapshot, AppError> {
+                Err(AppError::new("vpn_unavailable", "Unavailable"))
+            }
+            fn disconnect(&mut self) -> Result<ConnectionSnapshot, AppError> {
+                panic!("restoring an account must not disconnect through the helper");
+            }
+        }
+        for expires_at in [1, u64::MAX] {
+            let mut service = DesktopService::new(Box::new(MemoryPreferences), Box::new(Unavailable)).unwrap();
+            let session = service.restore_remembered_session(expires_at).unwrap();
+            assert!(session.authenticated);
+            assert!(service.snapshot().session.authenticated);
+            // Restored identity alone never grants a tunnel or subscription.
+            assert!(service.connect("dk-1").is_err());
+            if expires_at == 1 {
+                assert!(service.update_subscription_access(SubscriptionAccess { active: true, expires_at: None }).is_err());
+            }
+        }
     }
     #[test] fn remembered_login_survives_access_expiry_without_granting_vpn_access() {
         let mut service = DesktopService::new(Box::new(MemoryPreferences), Box::new(Engine)).unwrap();

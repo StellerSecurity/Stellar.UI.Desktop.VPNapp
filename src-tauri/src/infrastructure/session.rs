@@ -60,6 +60,13 @@ impl SavedSession {
         }
         Ok(())
     }
+    pub fn validate_login(&self) -> Result<(), AppError> {
+        self.validate()?;
+        if self.legacy_token.is_none() && self.renewal_token.is_none() {
+            return Err(unavailable());
+        }
+        Ok(())
+    }
     pub fn session_id(&self) -> &str { self.renewal_token.as_deref().unwrap_or(&self.token).split('|').next().unwrap_or("") }
     pub fn credentials(&self) -> Result<Option<VpnCredentials>, AppError> {
         if self.vpn_username.is_empty() { Ok(None) }
@@ -302,6 +309,17 @@ mod tests {
         let directory = std::env::temp_dir().join(format!("stellar-session-{label}-{}", std::process::id()));
         fs::create_dir_all(&directory).unwrap();
         directory
+    }
+    #[test]
+    fn primary_login_requires_a_durable_credential_before_any_vault_write() {
+        let mut saved = sample();
+        // Old short-lived records may still be decoded for legacy migration.
+        assert!(SavedSession::decode(&saved.encode().unwrap()).is_ok());
+        assert!(saved.validate_login().is_err());
+        saved.renewal_token = Some(format!("d1{}|{}", "a".repeat(32), "b".repeat(64)));
+        assert!(saved.validate_login().is_ok());
+        saved.renewal_token = Some("invalid".into());
+        assert!(saved.validate_login().is_err());
     }
     #[test] fn failed_optional_update_does_not_log_out_a_durable_session_after_restart() {
         // Simulate Keychain with synthetic bytes; never access a real OS vault.
