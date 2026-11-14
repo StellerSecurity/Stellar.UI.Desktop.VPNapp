@@ -95,7 +95,7 @@
     },
     {
       "path": "native/windows/compile-approval.json",
-      "sha256": "d044068f202e74210cd5e5062a21f3ee7011dd01709327e0456e488853a6eaa4"
+      "sha256": "2a909897854a52872c38fadc735863bff1c3c3f2f9b854ac1491d184320342d0"
     },
     {
       "path": "native/windows/firewall.hpp",
@@ -127,7 +127,7 @@
     },
     {
       "path": "scripts/windows-native-compile.ps1",
-      "sha256": "fac3bf54b9811213535de4ce236213058eb974e4bab8b089ea14e390e3dd11a0"
+      "sha256": "0010373606b1bc92280501ceb9e6d47406fadfa4cfb53e79c8b9241543271ffd"
     },
     {
       "path": "src-tauri/Cargo.toml",
