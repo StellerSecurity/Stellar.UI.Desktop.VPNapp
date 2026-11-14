@@ -43,7 +43,7 @@ jobs:
           } finally { $response.Dispose() }
           $sha = [Security.Cryptography.SHA256]::Create()
           try { $hash = [BitConverter]::ToString($sha.ComputeHash($bytes)).Replace('-', '').ToLowerInvariant() } finally { $sha.Dispose() }
-          if ($hash -ne 'c6b74ca8a610a469e65db63910479cc152006ca5547acd3ac468012cd21377de') { throw 'Reviewed first-party script hash mismatch.' }
+          if ($hash -ne 'a9de88d76c35930c911e24e7ca4c61e610183b6af18f1b1ab860b9f0e9b75df7') { throw 'Reviewed first-party script hash mismatch.' }
           $script = Join-Path $env:RUNNER_TEMP ('stellar-sdk-review-' + [Guid]::NewGuid().ToString('N') + '.ps1')
           [IO.File]::WriteAllBytes($script, $bytes)
           & $script

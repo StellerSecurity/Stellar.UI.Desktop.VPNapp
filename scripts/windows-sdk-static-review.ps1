@@ -106,7 +106,29 @@ foreach ($pin in $pins) {
     if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -ne 'CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US') { throw 'Valid Microsoft SDK signature required.' }
     $rows += [ordered]@{ name = $pin.name; sha256 = $hash; version = $file.VersionInfo.ProductVersion; signer = $signature.SignerCertificate.Subject; pe = Read-PeImports $bytes }
 }
+$dependencyCandidates = @()
+# Inspect only the dependency named by the pinned rcdll import table, at its
+# two explicit candidate locations. Do not load it or search user directories.
+foreach ($candidate in @((Join-Path $directory 'ServicingCommon.dll'), (Join-Path $env:WINDIR 'System32\ServicingCommon.dll'))) {
+    if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) {
+        $dependencyCandidates += [ordered]@{ path = $candidate; found = $false }
+        continue
+    }
+    $file = Get-Item -LiteralPath $candidate
+    if ($file.Attributes -band [IO.FileAttributes]::ReparsePoint -or $file.Length -gt 16MB) { throw 'Unexpected dependency file.' }
+    $bytes = [IO.File]::ReadAllBytes($file.FullName)
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try { $hash = [BitConverter]::ToString($sha.ComputeHash($bytes)).Replace('-', '').ToLowerInvariant() } finally { $sha.Dispose() }
+    $signature = Get-AuthenticodeSignature -LiteralPath $file.FullName
+    $signer = $null
+    if ($null -ne $signature.SignerCertificate) { $signer = $signature.SignerCertificate.Subject }
+    $dependencyCandidates += [ordered]@{
+        path = $candidate; found = $true; sha256 = $hash; version = $file.VersionInfo.ProductVersion
+        signatureStatus = $signature.Status.ToString(); signer = $signer; pe = Read-PeImports $bytes
+    }
+}
 Write-Output ('STELLAR_SDK_STATIC_REVIEW=' + (ConvertTo-Json -Depth 12 -Compress -InputObject ([ordered]@{
     schema = 1; executionApproved = $false; binariesExecuted = $false; files = $rows
+    dependencyCandidates = $dependencyCandidates
     limitations = 'Imports and directory metadata only; not full proprietary source review, disassembly, runtime behavior approval or approval to change build pins.'
 })))
