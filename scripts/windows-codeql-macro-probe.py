@@ -35,6 +35,14 @@ def main():
             (work / name).mkdir()
         profile = json.loads((root / 'rust-sysroot-source-inputs.json').read_bytes())
         sysroot = sysroot_helper.stage_source(work / 'reviewed-sysroot', profile)
+        # Diagnostic control only: RA's documented stitched-sysroot fallback
+        # must resolve builtin macros without attempting the incomplete offline
+        # standard-library Cargo graph. Preserve the exact manifest separately;
+        # change no Rust source or installed SDK. This is not release coverage.
+        sysroot_manifest = Path(sysroot['source_root']) / 'Cargo.toml'
+        retained_manifest = work / 'retained-sysroot-Cargo.toml'
+        manifest_hash = hashlib.sha256(sysroot_manifest.read_bytes()).hexdigest()
+        sysroot_manifest.rename(retained_manifest)
         rust = Path(plan['rust_root']) / 'bin'
         env = dict(PATH=str(rust) + ';' + str(Path(plan['java_root']) / 'bin') + ';C:/Windows/System32',
                    SystemRoot='C:/Windows', WINDIR='C:/Windows', COMSPEC='C:/Windows/System32/cmd.exe',
@@ -65,6 +73,8 @@ def main():
             raise ValueError('synthetic source input changed')
         macro_failures = [line for line in interesting if 'macro expansion failed' in line]
         print(json.dumps(dict(synthetic_builtin_macros=['format', 'matches', 'cfg'],
+                              sysroot_manifest_relocated_for_diagnostic_control=True,
+                              retained_sysroot_manifest_sha256=manifest_hash,
                               command=result, diagnostics=interesting, macro_expansion_failures=len(macro_failures),
                               source_files_unchanged=len(before), app_analyzed=False, app_executed=False,
                               release_approved=False)), flush=True)
