@@ -19,6 +19,7 @@ jobs:
       - name: Read actual Cargo manifests without build scripts
         env:
           SOURCE_COMMIT: ${{ github.sha }}
+          EXECUTE_USER_APPROVED_METADATA: 'false'
         shell: python
         run: |
           import hashlib, os, pathlib, re, subprocess, sys, tempfile, urllib.request
@@ -26,7 +27,7 @@ jobs:
           if not re.fullmatch('[a-f0-9]{40}', commit):
               raise ValueError('exact first-party commit required')
           files = {
-              'scripts/rust-manifest-metadata.py': ('80add078c845793d7f51e4cf22ce04c3ddedd8a7beff289e023e82645b00e870', 65536),
+              'scripts/rust-manifest-metadata.py': ('68f309315f490fd27aaa0552207caa08ccd6beced8fbc265d75b794c97506bbd', 65536),
               'scripts/codeql-rust-probe.py': ('51992ff68b94b0fd1f45b8187e93753a149cabfdadb429ae301a3968ecc3062e', 65536),
               'native/codeql/app-metadata-inputs.json': ('a9738f4c3e98c02edbe4b8a9e74bab3d6e53aff29936a4ec39f870c9f0b55a4d', 65536),
               'native/codeql/runtime-review.json': ('c8965ee984ca699e87fead31b46c68330c645759f85bd63711c77ebe64eaf0db', 262144),
@@ -46,4 +47,9 @@ jobs:
                   if len(raw) > limit or hashlib.sha256(raw).hexdigest() != expected:
                       raise ValueError('first-party metadata helper drift')
                   (root / pathlib.Path(name).name).write_bytes(raw)
-              subprocess.run([sys.executable, str(root / 'rust-manifest-metadata.py')], check=True, timeout=480)
+              command = [sys.executable, str(root / 'rust-manifest-metadata.py')]
+              if os.environ['EXECUTE_USER_APPROVED_METADATA'] == 'true':
+                  command.append('--execute-reviewed-metadata')
+              elif os.environ['EXECUTE_USER_APPROVED_METADATA'] != 'false':
+                  raise ValueError('unknown execution mode')
+              subprocess.run(command, check=True, timeout=480)

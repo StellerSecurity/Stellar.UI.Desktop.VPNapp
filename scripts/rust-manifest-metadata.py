@@ -3,6 +3,7 @@
 Only --no-deps --locked --offline metadata. No CodeQL extraction, dependency
 resolution/download, package execution, application launch, signing or upload.
 """
+import argparse
 import hashlib
 import importlib.util
 import json
@@ -36,6 +37,9 @@ def acquire(commit, name, size, expected):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--execute-reviewed-metadata', action='store_true')
+    args = parser.parse_args()
     root = Path(__file__).resolve().parent
     raw = (root / 'app-metadata-inputs.json').read_bytes()
     if hashlib.sha256(raw).hexdigest() != PIN:
@@ -83,6 +87,11 @@ def main():
                    TMPDIR=str(work / 'tmp'), LANG='C.UTF-8', CARGO_HOME=str(work / 'cargo'),
                    CARGO_NET_OFFLINE='true', RUSTUP_HOME=str(work / 'rustup'),
                    RUSTUP_TOOLCHAIN=rust, RUSTC=rust + '/bin/rustc')
+        if not args.execute_reviewed_metadata:
+            print(json.dumps(dict(source_preflight_passed=True, source_files=len(seen),
+                                  source_bytes=total, native_execution=False,
+                                  explicit_application_metadata_approval_required=True)))
+            return
         results = []
         for manifest, expected in plan['manifests'].items():
             if manifest not in seen:
