@@ -20,12 +20,14 @@ jobs:
           if not re.fullmatch('[a-f0-9]{40}', commit):
               raise ValueError('exact first-party commit required')
           files = {
-              'scripts/windows-app-metadata.py': ('bc7051ea2f89869daf23fce1e8f3910224f463c6513ad1f60c252117baebaf18', 524288),
+              'native/codeql/rust-sysroot-source-inputs.json': ('002ff08b64041193a2991dfd6438263645bdb4c07b7ae6e96520f614ad722ef8', 2097152),
+              'scripts/stage-reviewed-rust-sysroot.py': ('39cee2a4fd131e0f8910fe53d15f34b5df1791eb9e02b735e31be39a4516c9af', 2097152),
+              'scripts/windows-app-metadata.py': ('548d310bc9d38f51c7bafb304261fba51589b489b914af1a0249082d6fdaca0c', 524288),
               'scripts/windows-codeql-source.ps1': ('9482bf246b971803556f584a0d2d19b108f13310c0bbf78b0735c9e44f6d2894', 524288),
               'scripts/windows-codeql-probe.py': ('e31b5cc2b344e86b26d6dff8a2847062ca482c94ce47b550bdbf712b7c20697c', 524288),
               'native/codeql/windows-codeql-probe-plan.json': ('21f0e631884a873028a5b8d9f875bb233ed0ca4a82029a8cbf4397e52e67cf08', 524288),
               'native/codeql/windows-app-source-inputs.json': ('d867ca1414b3d6db0e809d0fe3ba0b2c8291955dde4e17122862a20bcbe8764e', 524288),
-              'native/codeql/windows-app-metadata-plan.json': ('8f6ca4fc89644f90be09f1a51d4eaada95741318957d26bb25c2115537dade67', 524288),
+              'native/codeql/windows-app-metadata-plan.json': ('241ff0aba292737b3474e8f89b958e339e4d0177dc866f6a337bd335ba352af3', 524288),
           }
           with tempfile.TemporaryDirectory(prefix='stellar-app-metadata-') as folder:
               root = pathlib.Path(folder)

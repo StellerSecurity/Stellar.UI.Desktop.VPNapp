@@ -103,6 +103,13 @@ def body_probe(source, stage, env, guard, runtime):
     env.update(CODEQL_JAVA_HOME=runtime['java_root'], CODEQL_DIST=runtime['codeql_root'], CODEQL_PLATFORM='win64')
     env['PATH'] = str(Path(runtime['rust_root']) / 'bin') + ';' + str(Path(runtime['java_root']) / 'bin') + ';C:/Windows/System32'
     database = stage / 'database'
+    helper_path = Path(__file__).with_name('stage-reviewed-rust-sysroot.py')
+    profile = json.loads(Path(__file__).with_name('rust-sysroot-source-inputs.json').read_bytes())
+    spec = importlib.util.spec_from_file_location('firstparty_sysroot_source', helper_path)
+    helper = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(helper)
+    sysroot = helper.stage_source(stage / 'reviewed-sysroot-source', profile)
+    env['RUST_SRC_PATH'] = sysroot['source_root']
     before = source_snapshot(source)
     commands = [guard.run([str(codeql), 'database', 'create', str(database), '--language=rust', '--build-mode=none', '--no-calculate-baseline',
                           '--source-root=' + str(source), '--extractor-option=rust.extract_dependencies_as_source=true',
@@ -129,7 +136,7 @@ def body_probe(source, stage, env, guard, runtime):
         raise ValueError('application query output bounds')
     if source_snapshot(source) != before:
         raise ValueError('analysis modified actual source inputs')
-    return dict(commands=commands, extraction_diagnostics=diagnostics, analysis_source_files_unchanged=len(before), function_bodies=validate_bodies(json.loads(decoded.read_bytes())),
+    return dict(commands=commands, sysroot_analysis_inputs=sysroot, extraction_diagnostics=diagnostics, analysis_source_files_unchanged=len(before), function_bodies=validate_bodies(json.loads(decoded.read_bytes())),
                 windows_scope_only=True, security_query_suite_executed=False, release_approved=False)
 
 
