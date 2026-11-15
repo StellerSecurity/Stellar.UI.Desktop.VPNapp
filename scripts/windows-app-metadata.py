@@ -117,6 +117,17 @@ def stage_native_approval(source):
     return dict(path=path.relative_to(source).as_posix(), sha256=checksum, copied_without_changes=True)
 
 
+def canonical_analysis_roots(work, source, stage):
+    # On Windows resolve() expands existing 8.3 aliases (RUNNER~1) to the same
+    # long paths used by CodeQL's Java pack resolver. Mixed aliases make result
+    # interpretation see a query outside its own pack after successful evaluation.
+    work, source, stage = (Path(path).resolve(strict=True) for path in (work, source, stage))
+    if (not all(path.is_dir() for path in (work, source, stage)) or
+            work not in source.parents or source.parent != stage):
+        raise ValueError('unexpected canonical analysis output location')
+    return source, stage
+
+
 def security_suite(stage, env, guard, runtime, database):
     """Run the unmodified official suite from verified source-only local packs."""
     helper_path = Path(__file__).with_name('stage-reviewed-rust-queries.py')
@@ -301,7 +312,7 @@ def main():
     guard = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(guard)
     with tempfile.TemporaryDirectory(prefix='stellar-app-analysis-') as folder:
-        work = Path(folder)
+        work = Path(folder).resolve(strict=True)
         for name in ('home', 'temp', 'rustup'):
             (work / name).mkdir()
         rust = Path(runtime['rust_root']) / 'bin'
@@ -321,9 +332,7 @@ def main():
         if not state_path.is_file() or state_path.stat().st_size > 65536:
             raise ValueError('source preparation result missing/oversized')
         state = json.loads(state_path.read_bytes())
-        source, stage = Path(state['sourceRoot']), Path(state['stageRoot'])
-        if work.resolve() not in source.resolve().parents or source.parent != stage:
-            raise ValueError('unexpected preparation output location')
+        source, stage = canonical_analysis_roots(work, state['sourceRoot'], state['stageRoot'])
         inputs = json.loads((root / 'windows-app-source-inputs.json').read_bytes())['files']
         for row in inputs:
             if hashlib.sha256((source / row['path']).read_bytes()).hexdigest() != row['sha256']:

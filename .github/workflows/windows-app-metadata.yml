@@ -20,12 +20,13 @@ jobs:
           if not re.fullmatch('[a-f0-9]{40}', commit):
               raise ValueError('exact first-party commit required')
           files = {
+              'tests/windows-analysis-paths.test.py': ('7b36dbaeb72f3e33b84d948235ac4015d8ee964a3ed555a5a53ae99047c6408f', 524288),
               'scripts/stage-reviewed-rust-queries.py': ('cc7561508d8fddf5c5f8cb15961b1a5878591c267f9a626607f0031881298134', 2097152),
               'native/codeql/rust-query-source-inputs.json': ('fe87f7bca97ceed18061370646aeb9ab1db649b56c11e6dc30ea2c4b0dfe9a4f', 2097152),
               'scripts/windows-codeql-toolchain.ps1': ('583313a8db4d59507ce06580e80a72304a0f66fa40f80b9e671ca8644383cdde', 524288),
               'native/codeql/rust-sysroot-source-inputs.json': ('002ff08b64041193a2991dfd6438263645bdb4c07b7ae6e96520f614ad722ef8', 2097152),
               'scripts/stage-reviewed-rust-sysroot.py': ('39cee2a4fd131e0f8910fe53d15f34b5df1791eb9e02b735e31be39a4516c9af', 2097152),
-              'scripts/windows-app-metadata.py': ('0e02e2cc57f678e62192f37f8a660554fe14a8c4840f8ce0cae2d7d7945dedce', 524288),
+              'scripts/windows-app-metadata.py': ('e336717585cc8199de9f6c160abb5b22b290722ecd09be7406ed111dea09c56a', 524288),
               'scripts/windows-codeql-source.ps1': ('9482bf246b971803556f584a0d2d19b108f13310c0bbf78b0735c9e44f6d2894', 524288),
               'scripts/windows-codeql-probe.py': ('f3a792800c5cb12c913e847c93bd72cb59921a38c56710e59451b33ce1282212', 524288),
               'native/codeql/windows-codeql-probe-plan.json': ('b01261fdfef54b1e59f83973f0f2b61d3c38b2c0f4ca14e9ef9e9a869e4c5f49', 524288),
@@ -41,4 +42,5 @@ jobs:
                       if response.geturl() != url or len(raw) > limit or hashlib.sha256(raw).hexdigest() != expected:
                           raise ValueError('reviewed analysis helper drift')
                   (root / pathlib.Path(name).name).write_bytes(raw)
+              subprocess.run([sys.executable, str(root / 'windows-analysis-paths.test.py')], check=True, timeout=30)
               subprocess.run([sys.executable, str(root / 'windows-app-metadata.py')], check=True, timeout=2400)
