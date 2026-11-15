@@ -30,7 +30,7 @@ while queue:
         if not manifest_path.is_file() or manifest_path.is_symlink() or manifest_path.stat().st_size > 65536:
             raise ValueError('query pack manifest bounds')
         manifest = manifest_path.read_text(encoding='utf-8')
-        metadata = {'name': name, 'version_directory': version.name, 'manifest': manifest, 'files': [], 'opaque_files': []}
+        metadata = {'name': name, 'version_directory': version.name, 'manifest': manifest, 'files': [], 'opaque_files': [], 'packing_metadata': {}}
         dependencies = False
         for line in manifest.splitlines():
             if line == 'dependencies:':
@@ -58,10 +58,12 @@ while queue:
                 raw = path.read_bytes()
                 bytes_read += len(raw)
                 file_count += 1
+                if filename in ('.packinfo', 'codeql-pack.lock.yml', 'qlpack.lock.yml', 'codeql-pack.release.yml') and len(raw) <= 16384:
+                    metadata['packing_metadata'][path.relative_to(version).as_posix()] = raw.decode('utf-8')
                 row = dict(path=path.relative_to(version).as_posix(), bytes=len(raw), sha256=hashlib.sha256(raw).hexdigest(), git_blob_sha1=hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest())
                 try:
                     raw.decode('utf-8')
-                    text = path.suffix in ('.ql', '.qll', '.yml', '.yaml', '.json', '.dbscheme', '.stats', '.csv', '.txt') or filename in ('LICENSE', 'NOTICE')
+                    text = path.suffix in ('.ql', '.qll', '.qls', '.yml', '.yaml', '.json', '.dbscheme', '.stats', '.csv', '.txt', '.properties') or filename in ('LICENSE', 'NOTICE')
                 except UnicodeDecodeError:
                     text = False
                 metadata['files' if text else 'opaque_files'].append(row)
