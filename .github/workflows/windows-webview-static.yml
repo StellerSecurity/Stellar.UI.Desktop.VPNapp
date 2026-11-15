@@ -1,0 +1,35 @@
+name: Windows exact WebView loader trust diagnostic
+on:
+  workflow_dispatch:
+  push:
+    branches: ['stellar/codeql-vendor-workspace-20261115']
+    paths: ['.github/workflows/windows-webview-static.yml', 'scripts/windows-webview-static.py', 'scripts/windows-webview-signature.ps1']
+permissions: {}
+jobs:
+  inspect:
+    runs-on: windows-2022
+    timeout-minutes: 8
+    steps:
+      - name: Inspect exact public loader signatures without target execution
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        shell: python
+        run: |
+          import hashlib, os, pathlib, re, subprocess, sys, tempfile, urllib.request
+          commit = os.environ['SOURCE_COMMIT']
+          if not re.fullmatch('[a-f0-9]{40}', commit):
+              raise ValueError('exact first-party commit required')
+          files = {
+              'scripts/windows-webview-static.py': 'dc2886c8bba913ebb0333c4a8ad9e1c1639c5e410e48d4e555e3c80f7cea2080',
+              'scripts/windows-webview-signature.ps1': 'f32cc2c219a150f93ddb1b63ab4a9960cb6b70070419f0f6aa503946ba242223',
+          }
+          with tempfile.TemporaryDirectory(prefix='stellar-loader-review-') as folder:
+              root = pathlib.Path(folder)
+              for name, checksum in files.items():
+                  url = 'https://raw.githubusercontent.com/StellerSecurity/Stellar.UI.Desktop.VPNapp/' + commit + '/' + name
+                  with urllib.request.urlopen(url, timeout=30) as response:
+                      data = response.read(262145)
+                      if response.geturl() != url or len(data) > 262144 or hashlib.sha256(data).hexdigest() != checksum:
+                          raise ValueError('first-party trust reader changed')
+                  (root / pathlib.Path(name).name).write_bytes(data)
+              subprocess.run([sys.executable, str(root / 'windows-webview-static.py')], check=True, timeout=240)
