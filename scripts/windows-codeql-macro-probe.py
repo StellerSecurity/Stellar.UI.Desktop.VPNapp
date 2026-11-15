@@ -48,6 +48,10 @@ def main():
                    CODEQL_EXTRACTOR_RUST_OPTION_SYSROOT_SRC=sysroot['source_root'],
                    CODEQL_EXTRACTOR_RUST_OPTION_CARGO_EXTRA_ENV='RUSTUP_AUTO_INSTALL=0,CARGO_NET_OFFLINE=true',
                    CODEQL_EXTRACTOR_RUST_OPTION_LOGGING_VERBOSITY='info',
+                   # Verified official tracing setup accepts module-scoped RUST_LOG.
+                   # Keep per-file extractor tracing off and inspect Cargo/sysroot
+                   # discovery only, within the unchanged 8 MiB process-log bound.
+                   RUST_LOG='warn,codeql_rust=info,ra_ap_project_model=debug,ra_ap_load_cargo=debug',
                    HTTP_PROXY='http://127.0.0.1:9', HTTPS_PROXY='http://127.0.0.1:9', ALL_PROXY='http://127.0.0.1:9', NO_PROXY='')
         command = [str(Path(plan['codeql_root']) / 'codeql.exe'), 'database', 'create', str(work / 'database'),
                    '--language=rust', '--build-mode=none', '--no-calculate-baseline',
@@ -56,7 +60,7 @@ def main():
         result = guard.run(command, work / 'source', env, 480, capture=True)
         output = result.pop('output')
         interesting = [line for line in output.splitlines() if any(word in line.casefold() for word in
-                       ('warning', 'error', 'failed', 'sysroot', 'cargo metadata', 'stdlib', 'proc_macro', 'toolchain'))]
+                       ('warning', 'error', 'failed', 'sysroot', 'cargo', 'stdlib', 'proc_macro', 'toolchain'))]
         if any(hashlib.sha256((work / name).read_bytes()).hexdigest() != digest for name, digest in before.items()):
             raise ValueError('synthetic source input changed')
         macro_failures = [line for line in interesting if 'macro expansion failed' in line]
