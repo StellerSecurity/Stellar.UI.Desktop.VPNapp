@@ -240,6 +240,12 @@ def body_probe(source, stage, env, guard, runtime):
     if source_snapshot(source) != before:
         raise ValueError('analysis modified actual source inputs')
     bodies = validate_bodies(json.loads(decoded.read_bytes()))
+    # Preserve the coverage evidence even if later suite resolution/compilation
+    # fails. A completed body query is never a release/security-suite pass.
+    print(json.dumps(dict(actual_authentication_body_coverage=bodies,
+                          extraction_diagnostics=diagnostics,
+                          analysis_source_files_unchanged=len(before),
+                          security_query_suite_executed=False, release_approved=False)), flush=True)
     security = security_suite(stage, env, guard, runtime, database)
     if source_snapshot(source) != before:
         raise ValueError('security suite modified actual source inputs')
