@@ -26,8 +26,8 @@ jobs:
           if not re.fullmatch('[a-f0-9]{40}', commit):
               raise ValueError('exact first-party commit required')
           files = {
-              'scripts/build-reviewed-esbuild.py': ('5d704ee8c7a4abfb9c126320432546ec9d8beafb728fc4236c1c3bcfb831658f', 65536),
-              'native/codeql/esbuild-rebuild-plan.json': ('7476bcb26a19dde2ffe16ffe7dbde086a29bf3ae2d4bb4a6ca100922ed64f00d', 65536),
+              'scripts/build-reviewed-esbuild.py': ('2c4bde28d12ef775eb4fea73060b31df5cbcafb473a2fe69ccdbcd0692ca31ad', 65536),
+              'native/codeql/esbuild-rebuild-plan.json': ('ce6f1eccbb042131a562a47b235ed8ddadccfb6fe267245141155d6d22cee060', 65536),
           }
           with tempfile.TemporaryDirectory(prefix='stellar-esbuild-review-') as folder:
               root = pathlib.Path(folder)

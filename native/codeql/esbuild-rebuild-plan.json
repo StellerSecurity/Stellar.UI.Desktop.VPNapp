@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "script_sha256": "5d704ee8c7a4abfb9c126320432546ec9d8beafb728fc4236c1c3bcfb831658f",
+  "script_sha256": "2c4bde28d12ef775eb4fea73060b31df5cbcafb473a2fe69ccdbcd0692ca31ad",
   "sdk": "Go 1.26.11 linux/amd64",
   "sdk_tool_sha256": {
     "bin/go": "95499375c24b610cdc9e3684cec920174ec4c4f3f66d35b4332107f0f7d3d27d",
@@ -30,5 +30,14 @@
     "go-12611-source-git-identity.json",
     "x-sys-044-source-static-result.json"
   ],
-  "execute_generated_targets": false
+  "execute_generated_targets": false,
+  "generated_sdk_source_sha256": {
+    "src/cmd/cgo/zdefaultcc.go": "f476aa257cbc0317f9b374ad381788c330ac8448fa866ac25f42cc73e7d7594f",
+    "src/cmd/go/internal/cfg/zdefaultcc.go": "d5c37c7f3dad61c06f58ff1cdfb09c30a9bd8a6296283365acccb734d268cf56",
+    "src/cmd/internal/objabi/zbootstrap.go": "d747f1f15f91fd8154c3572b1ecd48ccdf991bee4ea06650cbc1177c76917f76",
+    "src/internal/buildcfg/zbootstrap.go": "4e6146afcacb40f677f7632b98da78aede37f356cb348cf027b4c5c5c7659476",
+    "src/internal/runtime/sys/zversion.go": "f69c03727973664529c2e6fa2d2c53b2d3440c887938d0d9b22254f7984052f2",
+    "src/time/tzdata/zzipdata.go": "b1cd92e2ea67506152ecdfe00958fb50940eb20e74ed64ebf9efa477d00f40df"
+  },
+  "official_sdk_distribution_sha256": "9849f4e04ee35303714e34fbc3ac8ab44ea3e448a95aa182f91e3b9b79c710ec"
 }

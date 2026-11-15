@@ -103,8 +103,11 @@ def main():
             raise ValueError('SDK source symlink')
         if path.is_file():
             name = path.relative_to(SDK).as_posix()
-            if name not in sources or digest(path.read_bytes()) != digest(sources[name]):
-                raise ValueError('SDK source differs from exact approved release')
+            expected = plan['generated_sdk_source_sha256'].get(name)
+            if expected is None:
+                expected = digest(sources[name]) if name in sources else None
+            if expected is None or digest(path.read_bytes()) != expected:
+                raise ValueError('SDK source differs from exact approved release: ' + name)
             verified += 1
     for path in (SDK / 'pkg/include').glob('*.h'):
         if path.is_symlink() or path.read_bytes() != sources['src/runtime/' + path.name]:
