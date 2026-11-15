@@ -1,4 +1,4 @@
-"""Isolated source rebuild. Never execute the generated esbuild programs."""
+"""Isolated source rebuild and exact Linux-only synthetic probes after hash checks."""
 import hashlib
 import io
 import json
@@ -75,10 +75,14 @@ def materialize(root, files):
         target.write_bytes(raw)
 
 
-def run(command, cwd, env, seconds=300):
+def run(command, cwd, env, seconds=300, input_bytes=None):
     # Bounded first-party runner; no ambient env, credentials or shell.
     with tempfile.TemporaryFile() as log:
-        process = subprocess.Popen(command, cwd=cwd, env=env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+        process = subprocess.Popen(command, cwd=cwd, env=env, stdin=subprocess.PIPE if input_bytes is not None else subprocess.DEVNULL,
+                                   stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+        if input_bytes is not None:
+            process.stdin.write(input_bytes)
+            process.stdin.close()
         started = time.monotonic()
         while process.poll() is None:
             if time.monotonic() - started > seconds or os.fstat(log.fileno()).st_size > 4 * 1024**2:
@@ -161,6 +165,7 @@ def main():
         if version != 'go version go1.26.11 linux/amd64':
             raise ValueError('unexpected reviewed SDK version')
         outputs = []
+        synthetic_tests = []
         for target_os, target_arch in plan['targets']:
             target = work / 'output' / ('esbuild-' + target_os + '-' + target_arch)
             target_env = dict(env, GOOS=target_os, GOARCH=target_arch)
@@ -169,11 +174,25 @@ def main():
             metadata = run([str(SDK/'bin/go'), 'version', '-m', str(target)], source, env, 30)
             if 'go1.26.11' not in metadata or 'golang.org/x/sys\tv0.44.0' not in metadata and target_os != 'windows':
                 raise ValueError('patched build component identity mismatch')
+            identity = digest(target.read_bytes())
+            if identity != plan['expected_target_sha256'][target_os + '/' + target_arch]:
+                raise ValueError('independent rebuild bytes differ; target execution blocked')
+            if (target_os, target_arch) == ('linux', 'amd64'):
+                if run([str(target), '--version'], source, env, 30).strip() != '0.28.1':
+                    raise ValueError('reviewed esbuild version probe failed')
+                transformed = run([str(target), '--loader=js', '--minify', '--log-level=error'], source, env, 30,
+                                  input_bytes=b'console.log(1 + 2);\n')
+                if transformed != 'console.log(3);\n':
+                    raise ValueError('reviewed synthetic transformation failed')
+                synthetic_tests = ['exact-version', 'stdin-javascript-minification']
             outputs.append(dict(os=target_os, arch=target_arch, bytes=target.stat().st_size,
-                                sha256=digest(target.read_bytes()), build_metadata=metadata, target_executed=False))
+                                sha256=identity, build_metadata=metadata,
+                                target_executed=(target_os, target_arch) == ('linux', 'amd64')))
         print(json.dumps(dict(sdk_source_files_verified=verified, sdk_version=version,
                               outputs=outputs, source_patch='Go directive 1.25.0 and x/sys v0.44.0; application Rust and JS unchanged',
-                              target_executed=False, module_downloads_enabled=False,
+                              synthetic_tests=synthetic_tests, independent_rebuild_hashes_match=True,
+                              target_execution_scope='Linux amd64 only: --version and fixed 20-byte stdin expression; no target app or Mac execution',
+                              module_downloads_enabled=False,
                               cgo_enabled=False, installed=False, published=False,
                               scope='Isolated patched esbuild source rebuild only, not native clearance or application release.')))
 
