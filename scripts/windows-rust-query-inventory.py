@@ -68,6 +68,18 @@ while queue:
                     text = False
                 metadata['files' if text else 'opaque_files'].append(row)
         packages.append(metadata)
-print(json.dumps(dict(packages=packages, missing=missing, files_hashed=file_count, bytes_hashed=bytes_read,
+rust = Path('C:/Users/runneradmin/.rustup/toolchains/stable-x86_64-pc-windows-msvc')
+sysroot_files = []
+for relative in ('lib/rustlib/src/rust/library/Cargo.toml', 'lib/rustlib/src/rust/library/core/src/lib.rs',
+                 'lib/rustlib/src/rust/library/alloc/src/lib.rs', 'lib/rustlib/src/rust/library/std/src/lib.rs'):
+    path = rust / relative
+    row = dict(path=relative, exists=path.is_file(), symlink=path.is_symlink())
+    if path.is_file() and not path.is_symlink():
+        if path.stat().st_size > 4 * 1024**2:
+            raise ValueError('sysroot source metadata byte bounds')
+        raw = path.read_bytes()
+        row.update(bytes=len(raw), sha256=hashlib.sha256(raw).hexdigest())
+    sysroot_files.append(row)
+print(json.dumps(dict(sysroot_source_files=sysroot_files, packages=packages, missing=missing, files_hashed=file_count, bytes_hashed=bytes_read,
                       source_review_complete=False, query_executed=False, sdk_executed=False,
                       downloaded=False, signing=False, private_credentials_read=False), separators=(',', ':')))

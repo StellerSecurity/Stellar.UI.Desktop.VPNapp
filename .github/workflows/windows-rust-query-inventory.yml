@@ -21,7 +21,7 @@ jobs:
           url = 'https://raw.githubusercontent.com/StellerSecurity/Stellar.UI.Desktop.VPNapp/' + commit + '/scripts/windows-rust-query-inventory.py'
           with urllib.request.urlopen(url, timeout=30) as response:
               raw = response.read(65537)
-              if response.geturl() != url or len(raw) > 65536 or hashlib.sha256(raw).hexdigest() != '6bab3e504a65b57a44334cf83baf68c618429cb145103b2bb722767ada2754b6':
+              if response.geturl() != url or len(raw) > 65536 or hashlib.sha256(raw).hexdigest() != '596542a0277e539f684d1dee3301dfedfa41c1e53e08227a9372aa3211b37d7b':
                   raise ValueError('static inventory helper drift')
           with tempfile.TemporaryDirectory(prefix='stellar-query-inventory-') as folder:
               script = pathlib.Path(folder) / 'inventory.py'
