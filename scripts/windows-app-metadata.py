@@ -116,9 +116,11 @@ def body_probe(source, stage, env, guard, runtime):
                           '--extractor-option=rust.cargo_features=default', '--threads=2', '--ram=3072'], source, env, 900, capture=True)]
     creation_output = commands[0].pop('output')
     diagnostics = [line for line in creation_output.splitlines() if 'error' in line.casefold() or 'warning' in line.casefold() or 'failed' in line.casefold()]
-    if len(diagnostics) > 100 or any('[error]' in line.casefold() or 'extraction failed' in line.casefold() for line in diagnostics):
-        print(json.dumps(dict(extraction_diagnostics=diagnostics[:100])))
-        raise ValueError('actual application extraction reported errors')
+    if any('[error]' in line.casefold() or 'extraction failed' in line.casefold() for line in diagnostics):
+        print(json.dumps(dict(extraction_diagnostics=diagnostics, release_approved=False)))
+        raise ValueError('actual application extraction reported fatal errors')
+    # Preserve every warning for review. This diagnostic may query a completed
+    # database, but cannot turn warning-bearing coverage into release clearance.
     queries = stage / 'queries'
     queries.mkdir()
     query = queries / 'application-bodies.ql'
@@ -137,7 +139,8 @@ def body_probe(source, stage, env, guard, runtime):
     if source_snapshot(source) != before:
         raise ValueError('analysis modified actual source inputs')
     return dict(commands=commands, sysroot_analysis_inputs=sysroot, extraction_diagnostics=diagnostics, analysis_source_files_unchanged=len(before), function_bodies=validate_bodies(json.loads(decoded.read_bytes())),
-                windows_scope_only=True, security_query_suite_executed=False, release_approved=False)
+                windows_scope_only=True, coverage_diagnostics_status='requires-review' if diagnostics else 'no-diagnostics',
+                security_query_suite_executed=False, release_approved=False)
 
 
 def main():
