@@ -2,7 +2,7 @@
   "schema": 1,
   "scope": "Exact Windows app-source CodeQL extraction and first-party function-body coverage only; not the Rust security query suite, release clearance or app execution.",
   "app_reference": "a96d5a58029b316cce4cab9d3c4daeabc24d2312",
-  "runtime_plan_sha256": "b01261fdfef54b1e59f83973f0f2b61d3c38b2c0f4ca14e9ef9e9a869e4c5f49",
+  "runtime_plan_sha256": "ec6220c54a86ab0139682b09b213d77e455564a8a8d414acd96628a7bf37be14",
   "first_party_inputs": {
     "windows-codeql-source.ps1": "9482bf246b971803556f584a0d2d19b108f13310c0bbf78b0735c9e44f6d2894",
     "windows-codeql-probe.py": "f3a792800c5cb12c913e847c93bd72cb59921a38c56710e59451b33ce1282212",

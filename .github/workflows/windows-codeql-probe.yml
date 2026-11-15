@@ -22,7 +22,7 @@ jobs:
           files = {
               'scripts/windows-codeql-probe.py': ('f3a792800c5cb12c913e847c93bd72cb59921a38c56710e59451b33ce1282212', 65536),
               'scripts/codeql-layout-probe.py': ('caa01ad8ba40a5455ba046b273956a37d3c8fe78ea3d7c5cbd44ca1b26aa8224', 65536),
-              'native/codeql/windows-codeql-probe-plan.json': ('b01261fdfef54b1e59f83973f0f2b61d3c38b2c0f4ca14e9ef9e9a869e4c5f49', 524288),
+              'native/codeql/windows-codeql-probe-plan.json': ('ec6220c54a86ab0139682b09b213d77e455564a8a8d414acd96628a7bf37be14', 524288),
           }
           with tempfile.TemporaryDirectory(prefix='stellar-windows-codeql-') as folder:
               root = pathlib.Path(folder)

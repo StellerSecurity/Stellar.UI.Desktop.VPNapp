@@ -1930,13 +1930,28 @@
       "root": "C:/Users/runneradmin/.rustup/toolchains/stable-x86_64-pc-windows-msvc",
       "path": "bin/rustc_driver-58995fd3f1c8ecc6.dll",
       "sha256": "49372ce03e58bc7556d228c3a9e0d92d6643ba881a5563c76aa610646196d495"
+    },
+    {
+      "root": "C:/Users/runneradmin/.rustup/toolchains/stable-x86_64-pc-windows-msvc",
+      "path": "libexec/rust-analyzer-proc-macro-srv.exe",
+      "bytes": 1377792,
+      "sha256": "ec5a8f7a4d98e244c12778c511bd2dd1ddcc0d51dacb6f63ea0153ee76befa41",
+      "pe": true
     }
   ],
-  "scope": "Four synthetic first-party libraries only; not application, third-party package execution, signing or release. Same vendor source/native correspondence limitations as recorded; Windows-native platform variant.",
+  "scope": "Reviewed toolchain for isolated first-party fixture and actual application-source CodeQL analysis. No app launch, signing or release. Preserve vendor source/native correspondence limitations, offline Cargo, exact source/build-script graph and bounded process execution.",
   "authorization": "User approved all required reviewed task tests on 15 November 2026; retain hash gates, isolated env, offline Cargo and resource bounds.",
   "packages": {
     "CodeQL": "2.27.4",
     "Temurin": "25.0.5+8",
     "Rust": "1.99.1"
+  },
+  "implicit_rust_helper_review": {
+    "path": "libexec/rust-analyzer-proc-macro-srv.exe",
+    "inventory_run": 43763959023,
+    "purpose": "Rust toolchain proc-macro helper started by the already scoped CodeQL extractor; now independently hash-bound before further analysis.",
+    "source_native_correspondence_complete": false,
+    "new_download_or_install": false,
+    "release_approved": false
   }
 }

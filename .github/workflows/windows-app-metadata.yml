@@ -29,9 +29,9 @@ jobs:
               'scripts/windows-app-metadata.py': ('34eae3af81a3d2d3c894f2f65dbe8a2e08f77753b0e937a9be8b5554d2046039', 524288),
               'scripts/windows-codeql-source.ps1': ('9482bf246b971803556f584a0d2d19b108f13310c0bbf78b0735c9e44f6d2894', 524288),
               'scripts/windows-codeql-probe.py': ('f3a792800c5cb12c913e847c93bd72cb59921a38c56710e59451b33ce1282212', 524288),
-              'native/codeql/windows-codeql-probe-plan.json': ('b01261fdfef54b1e59f83973f0f2b61d3c38b2c0f4ca14e9ef9e9a869e4c5f49', 524288),
+              'native/codeql/windows-codeql-probe-plan.json': ('ec6220c54a86ab0139682b09b213d77e455564a8a8d414acd96628a7bf37be14', 524288),
               'native/codeql/windows-app-source-inputs.json': ('d867ca1414b3d6db0e809d0fe3ba0b2c8291955dde4e17122862a20bcbe8764e', 524288),
-              'native/codeql/windows-app-metadata-plan.json': ('82c492879af0d86df3035757a49e9ae80d8542c2dc177789857c29fe275beb98', 524288),
+              'native/codeql/windows-app-metadata-plan.json': ('47976ce5dd8aec58d6315dceb34eeb266932c85e070ec1c30ee94fb4c5092413', 524288),
           }
           with tempfile.TemporaryDirectory(prefix='stellar-app-metadata-') as folder:
               root = pathlib.Path(folder)
