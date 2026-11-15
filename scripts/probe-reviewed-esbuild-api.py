@@ -75,7 +75,7 @@ assert.throws(() => api.transformSync('const =', {loader: 'js', logLevel: 'silen
 })().catch(error => { api.stop(); console.error(error); process.exitCode = 1; });
 """)
     env = dict(PATH='/usr/bin:/bin', TMPDIR=str(runtime), LANG='C.UTF-8', TZ='UTC',
-               ESBUILD_BINARY_PATH=str(target))
+               ESBUILD_BINARY_PATH=str(target), ESBUILD_WORKER_THREADS='0')
     command = [str(executable), '--permission', '--allow-fs-read=' + str(work),
                '--allow-fs-write=' + str(work), '--allow-child-process', '--no-addons',
                '--disable-sigusr1', '--max-old-space-size=256', str(fixture)]
@@ -91,4 +91,5 @@ assert.throws(() => api.transformSync('const =', {loader: 'js', logLevel: 'silen
     return dict(result=result, source_identity=identity, tool_sources_unchanged=len(records),
                 child_execution_scope='Exact rebuilt Linux x64 esbuild; invalid copies are never executed.',
                 isolation='Ephemeral CI VM; Node permission model is not a malicious-code OS sandbox.',
+                worker_threads_enabled=False,
                 hooks_executed=False, npm_cli_executed=False, application_executed=False, release_approved=False)
