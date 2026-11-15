@@ -12,12 +12,11 @@ SOURCES = ('src-tauri/src/commands.rs', 'src-tauri/src/updates/mod.rs')
 MODEL_NAME = 'stellar/tauri-ipc-models'
 MODEL_VERSION = '0.1.0'
 PROBE = '''import rust
-import codeql.rust.dataflow.DataFlow
 import codeql.rust.dataflow.FlowSource as Sources
 
-from Function f, DataFlow::ParameterNode node, int position
-where node.asParameter() = f.getParamList().getParam(position) and
-  Sources::sourceNode(node, "remote") and
+from Sources::FlowSource f, int position
+where exists(f.getParamList().getParam(position)) and
+  f.isSource("Parameter[" + position.toString() + "]", "remote", _, _, _) and
   f.getCanonicalPath().matches("stellar_vpn_desktop::commands::%")
 select f.getCanonicalPath(), position
 '''
