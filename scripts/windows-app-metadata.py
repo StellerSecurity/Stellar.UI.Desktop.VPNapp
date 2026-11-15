@@ -251,7 +251,7 @@ def native_resource_path_budget(stage):
     return dict(projected_native_resource_path_chars=len(projected), limit_chars=240)
 
 
-def security_suite(stage, env, guard, runtime, database):
+def security_suite(stage, env, guard, runtime, database, source):
     """Run the unmodified official suite from verified source-only local packs."""
     helper_path = Path(__file__).with_name('stage-reviewed-rust-queries.py')
     spec = importlib.util.spec_from_file_location('firstparty_query_source', helper_path)
@@ -260,7 +260,13 @@ def security_suite(stage, env, guard, runtime, database):
     profile = json.loads(Path(__file__).with_name('rust-query-source-inputs.json').read_bytes())
     destination = stage / 'reviewed-query-source'
     copied = helper.stage_source(Path(runtime['codeql_root']) / 'qlpacks/codeql', destination, profile)
-    before = copied.pop('snapshot')
+    copied.pop('snapshot')
+    model_spec = importlib.util.spec_from_file_location('firstparty_ipc_models', Path(__file__).with_name('stage-tauri-ipc-models.py'))
+    models = importlib.util.module_from_spec(model_spec)
+    model_spec.loader.exec_module(models)
+    app_profile = json.loads(Path(__file__).with_name('windows-app-source-inputs.json').read_bytes())
+    application_models = models.stage(source, destination, app_profile)
+    before = helper.snapshot(destination)
     codeql = str(Path(runtime['codeql_root']) / 'codeql.exe')
     caches = stage / 'query-caches'
     common = ['--additional-packs=' + str(destination), '--common-caches=' + str(caches)]
@@ -278,6 +284,11 @@ def security_suite(stage, env, guard, runtime, database):
         print(json.dumps(dict(query_pack_resolution_output=output)))
         raise ValueError('expected exact source query-pack resolution JSON')
     helper.validate_resolution(mapping, destination, profile['manifests'])
+    for name, folder in (('stellar/tauri-ipc-models', 'stellar-tauri-ipc-models'),
+                         ('stellar/tauri-ipc-probe', 'stellar-tauri-ipc-probe')):
+        paths = mapping.get(name)
+        if not paths or Path(paths[0]).resolve() != (destination / folder).resolve():
+            raise ValueError('application model resolution drift')
     suite = destination / 'rust-queries/codeql-suites/rust-security-and-quality.qls'
     query_resolution = guard.run([codeql, 'resolve', 'queries', '--format=json', str(suite)] + common,
                                 stage, env, 60, capture=True)
@@ -290,12 +301,29 @@ def security_suite(stage, env, guard, runtime, database):
     selected = helper.validate_queries(query_paths, destination, profile)
     if not any('/security/' in path for path in selected):
         raise ValueError('official suite selected no security queries')
+    model_flags = ['--model-packs=' + application_models['model_pack']]
+    bindings_path = stage / 'tauri-ipc-bindings.bqrs'
+    binding_query = guard.run([codeql, 'query', 'run', '--database=' + str(database),
+                               '--output=' + str(bindings_path), '--threads=2', '--ram=3072',
+                               '--no-default-compilation-cache',
+                               '--compilation-cache=' + str(stage / 'model-compilation'),
+                               application_models.pop('query')] + common + model_flags,
+                              stage, env, 300)
+    bindings_json = stage / 'tauri-ipc-bindings.json'
+    binding_decode = guard.run([codeql, 'bqrs', 'decode', '--format=json',
+                                '--output=' + str(bindings_json), str(bindings_path)], stage, env, 30)
+    if not bindings_json.is_file() or bindings_json.stat().st_size > 256 * 1024:
+        raise ValueError('IPC model binding output bounds')
+    observed = json.loads(bindings_json.read_bytes())
+    print(json.dumps(dict(ipc_model_binding_observed=observed, application_models=application_models,
+                          release_approved=False)), flush=True)
+    application_models['verified_parameter_bindings'] = models.validate_bindings(observed, application_models['data'])
     sarif_path = stage / 'rust-security-and-quality.sarif'
     command = [codeql, 'database', 'analyze', str(database), str(suite), '--no-download',
                '--threat-model=all',
                '--format=sarifv2.1.0', '--output=' + str(sarif_path), '--threads=2', '--ram=3072',
                '--no-default-compilation-cache', '--compilation-cache=' + str(stage / 'query-compilation'),
-               '--no-sarif-add-file-contents', '--no-sarif-add-snippets', '--no-sarif-add-query-help'] + common
+               '--no-sarif-add-file-contents', '--no-sarif-add-snippets', '--no-sarif-add-query-help'] + common + model_flags
     print(json.dumps(dict(security_suite_started=True, source_projection=copied,
                           resolved_exact_packs=len(profile['manifests']), suite=suite.name)), flush=True)
     analyzed = guard.run(command, stage, env, 1500, capture=True)
@@ -323,7 +351,7 @@ def security_suite(stage, env, guard, runtime, database):
             notifications.extend(invocation.get('toolConfigurationNotifications', []))
     if len(findings) > 10000 or len(notifications) > 10000:
         raise ValueError('security suite result count bounds')
-    return dict(suite='rust-security-and-quality', threat_models='all', source_projection=copied, commands=[resolved, query_resolution, analyzed], selected_query_files=selected,
+    return dict(suite='rust-security-and-quality', threat_models='all', source_projection=copied, commands=[resolved, query_resolution, binding_query, binding_decode, analyzed], application_models=application_models, selected_query_files=selected,
                 query_rule_ids=sorted(set(rules)), findings=findings, notifications=notifications,
                 analysis_properties=analysis_properties,
                 resolution_diagnostics=resolution_diagnostics, diagnostics=diagnostics, source_files_unchanged=len(before),
@@ -419,7 +447,7 @@ def body_probe(source, stage, env, guard, runtime):
                           security_query_suite_executed=False, release_approved=False)), flush=True)
     if any('macro expansion failed' in line.casefold() for line in diagnostics):
         raise ValueError('actual application macro extraction remains incomplete')
-    security = security_suite(stage, env, guard, runtime, database)
+    security = security_suite(stage, env, guard, runtime, database, source)
     verify_source_snapshot(source, generated_snapshot, 'security suite')
     return dict(commands=commands, generated_output_binding=generated_outputs, sysroot_analysis_inputs=sysroot, reviewed_compiler_preparation=native, native_build_approval_layout=native_approval, native_path_budget=path_budget, extraction_diagnostics=diagnostics, analysis_source_files_unchanged=len(before), function_bodies=bodies, security_analysis=security,
                 windows_scope_only=True, coverage_diagnostics_status='requires-review' if diagnostics else 'no-diagnostics',

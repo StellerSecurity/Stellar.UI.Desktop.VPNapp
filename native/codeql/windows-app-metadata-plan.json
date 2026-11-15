@@ -11,7 +11,8 @@
     "rust-sysroot-source-inputs.json": "002ff08b64041193a2991dfd6438263645bdb4c07b7ae6e96520f614ad722ef8",
     "windows-codeql-toolchain.ps1": "583313a8db4d59507ce06580e80a72304a0f66fa40f80b9e671ca8644383cdde",
     "stage-reviewed-rust-queries.py": "cc7561508d8fddf5c5f8cb15961b1a5878591c267f9a626607f0031881298134",
-    "rust-query-source-inputs.json": "fe87f7bca97ceed18061370646aeb9ab1db649b56c11e6dc30ea2c4b0dfe9a4f"
+    "rust-query-source-inputs.json": "fe87f7bca97ceed18061370646aeb9ab1db649b56c11e6dc30ea2c4b0dfe9a4f",
+    "stage-tauri-ipc-models.py": "6efec2519fdb026e97f1de54c80625e27abf7741d8ee58b9e320b37e7005d72c"
   },
   "exported_environment": [
     "RUSTC",
