@@ -59,7 +59,16 @@ for root in roots:
                              executable=bool(info.st_mode & 0o111)))
 go_cache = Path('/opt/hostedtoolcache/go')
 go_versions = sorted(p.name for p in go_cache.iterdir() if p.is_dir()) if go_cache.is_dir() else []
-report = dict(schema=1, available_go_version_directories=go_versions, codeql_version_directory='2.27.4', rust_version_directory='1.99.1',
+static_text = {}
+codeql_root = roots[0]
+for relative in ('rust/codeql-extractor.yml', 'rust/tools/autobuild.sh',
+                 'rust/tools/index-files.sh'):
+    candidate = codeql_root / relative
+    if candidate.is_file() and not candidate.is_symlink() and candidate.stat().st_size <= 32768:
+        static_text[relative] = candidate.read_text(encoding='utf-8')
+rustup_root = Path.home() / '.rustup/toolchains'
+rustup_versions = sorted(p.name for p in rustup_root.iterdir() if p.is_dir()) if rustup_root.is_dir() else []
+report = dict(schema=1, selected_configuration_text=static_text, available_rust_version_directories=rustup_versions, available_go_version_directories=go_versions, codeql_version_directory='2.27.4', rust_version_directory='1.99.1',
               files=rows, bytes_hashed=scanned, missing_roots=missing,
               package_code_executed=False, tool_binaries_executed=False,
               installation=False, downloads=False, private_credentials_read=False,
