@@ -49,7 +49,7 @@ def fixture(work):
     for name, content in files.items():
         target = work / name
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(content)
+        target.write_bytes(content.encode())
     return {name: hashlib.sha256(content.encode()).hexdigest() for name, content in files.items()}
 
 

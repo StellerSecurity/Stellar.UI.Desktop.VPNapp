@@ -72,7 +72,7 @@ def main():
                 or hashlib.sha256(path.read_bytes()).hexdigest() != row['sha256']):
             raise ValueError('reviewed Windows runtime file changed: ' + row['path'])
     fixture_path = root / 'codeql-layout-probe.py'
-    if hashlib.sha256(fixture_path.read_bytes()).hexdigest() != '7a14561d1a88b96d84cb9ae8b9f5328ff7ef32e048745c1d5b534a3c91a3907a':
+    if hashlib.sha256(fixture_path.read_bytes()).hexdigest() != 'caa01ad8ba40a5455ba046b273956a37d3c8fe78ea3d7c5cbd44ca1b26aa8224':
         raise ValueError('first-party synthetic fixture changed')
     spec = importlib.util.spec_from_file_location('firstparty_fixture', fixture_path)
     fixture = importlib.util.module_from_spec(spec)

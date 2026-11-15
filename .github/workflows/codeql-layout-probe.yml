@@ -27,9 +27,9 @@ jobs:
           if not re.fullmatch('[a-f0-9]{40}', commit):
               raise ValueError('exact first-party commit required')
           files = {
-              'scripts/codeql-layout-probe.py': ('7a14561d1a88b96d84cb9ae8b9f5328ff7ef32e048745c1d5b534a3c91a3907a', 65536),
+              'scripts/codeql-layout-probe.py': ('caa01ad8ba40a5455ba046b273956a37d3c8fe78ea3d7c5cbd44ca1b26aa8224', 65536),
               'scripts/codeql-rust-probe.py': ('51992ff68b94b0fd1f45b8187e93753a149cabfdadb429ae301a3968ecc3062e', 65536),
-              'native/codeql/layout-probe-plan.json': ('a2287743da0ab8b39a4b3fad9a3e85019085042f851f669ed56ca077e681685e', 65536),
+              'native/codeql/layout-probe-plan.json': ('0a4e00495067e53a0d20e07f8cdf1f6cd8fdffe8b778ccd97800aed03c19b396', 65536),
               'native/codeql/runtime-review.json': ('c8965ee984ca699e87fead31b46c68330c645759f85bd63711c77ebe64eaf0db', 262144),
           }
           class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -50,7 +50,7 @@ jobs:
               command = [sys.executable, str(root / 'codeql-layout-probe.py'),
                          '--plan', str(root / 'layout-probe-plan.json')]
               if os.environ['EXECUTE_USER_APPROVED_LAYOUT_PROBE'] == 'true':
-                  command += ['--approved-plan-sha256', 'a2287743da0ab8b39a4b3fad9a3e85019085042f851f669ed56ca077e681685e']
+                  command += ['--approved-plan-sha256', '0a4e00495067e53a0d20e07f8cdf1f6cd8fdffe8b778ccd97800aed03c19b396']
               elif os.environ['EXECUTE_USER_APPROVED_LAYOUT_PROBE'] != 'false':
                   raise ValueError('unknown layout execution mode')
               subprocess.run(command, check=True, timeout=540)

@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "purpose": "Synthetic Cargo manifest sidecars with unchanged Rust source locations; assert real function-body rows using one first-party raw-schema query. No application analysis or package execution.",
-  "harness_sha256": "7a14561d1a88b96d84cb9ae8b9f5328ff7ef32e048745c1d5b534a3c91a3907a",
+  "harness_sha256": "caa01ad8ba40a5455ba046b273956a37d3c8fe78ea3d7c5cbd44ca1b26aa8224",
   "query_sha256": "65652b570d540a9d5293206f81c7e66a7a25d860e22b68088af464b86e25d4ff",
   "runtime_plan_sha256": "c8965ee984ca699e87fead31b46c68330c645759f85bd63711c77ebe64eaf0db",
   "rust_schema_sha256": "f412b260f76bdaad67d06973b8edc65e057ba723bd206d9fd12e653fa0aaf900",
