@@ -96,6 +96,76 @@ def source_snapshot(source):
     return snapshot
 
 
+def validate_tauri_generated_outputs(source, expected):
+    """Account for only Tauri's four generated Windows JSON data outputs.
+
+    Original source bytes are still immutable. Generated permissions must match
+    the source permissions, and generated data is frozen for the query phase.
+    This does not grant security or release clearance to generated contents.
+    """
+    import tomllib
+
+    actual = source_snapshot(source)
+    generated = {f'src-tauri/gen/schemas/{name}' for name in (
+        'acl-manifests.json', 'capabilities.json', 'desktop-schema.json', 'windows-schema.json')}
+    if any(actual.get(name) != digest for name, digest in expected.items()):
+        raise ValueError('generated outputs changed original source inputs')
+    if set(actual) - set(expected) != generated or set(expected) & generated:
+        raise ValueError('unexpected generated output inventory')
+
+    def unique_object(pairs):
+        value = {}
+        for key, item in pairs:
+            if key in value:
+                raise ValueError('duplicate generated JSON key')
+            value[key] = item
+        return value
+
+    def reject_constant(value):
+        raise ValueError('nonfinite generated JSON constant: ' + value)
+
+    def read_json(path):
+        if path.stat().st_size > 2 * 1024**2:
+            raise ValueError('generated JSON byte limit')
+        value = json.loads(path.read_bytes(), object_pairs_hook=unique_object,
+                           parse_constant=reject_constant)
+        if not isinstance(value, dict):
+            raise ValueError('generated JSON object required')
+        return value
+
+    folder = source / 'src-tauri/gen/schemas'
+    data = {name: read_json(folder / name) for name in (
+        'acl-manifests.json', 'capabilities.json', 'desktop-schema.json', 'windows-schema.json')}
+    if (folder / 'desktop-schema.json').read_bytes() != (folder / 'windows-schema.json').read_bytes():
+        raise ValueError('generated Windows schema copies differ')
+    if data['windows-schema.json'].get('title') != 'CapabilityFile':
+        raise ValueError('unexpected generated schema kind')
+    capabilities = {}
+    for path in sorted((source / 'src-tauri/capabilities').glob('*.json')):
+        value = read_json(path)
+        value.pop('$schema', None)
+        identifier = value['identifier']
+        if identifier in capabilities:
+            raise ValueError('duplicate source capability')
+        capabilities[identifier] = value
+    if data['capabilities.json'] != capabilities:
+        raise ValueError('generated capabilities differ from source')
+    permissions = {}
+    for path in sorted((source / 'src-tauri/permissions').glob('*.toml')):
+        for permission in tomllib.loads(path.read_text())['permission']:
+            permission.setdefault('commands', {}).setdefault('deny', [])
+            identifier = permission['identifier']
+            if identifier in permissions:
+                raise ValueError('duplicate source permission')
+            permissions[identifier] = permission
+    app = data['acl-manifests.json'].get('__app-acl__')
+    if app != dict(default_permission=None, permissions=permissions,
+                   permission_sets={}, global_scope_schema=None):
+        raise ValueError('generated application ACL differs from source')
+    return dict(snapshot=actual, generated_json_sha256={name: actual[name] for name in sorted(generated)},
+                original_source_files_unchanged=len(expected), generated_outputs_security_cleared=False)
+
+
 def verify_source_snapshot(source, expected, phase):
     actual = source_snapshot(source)
     if actual != expected:
@@ -337,19 +407,21 @@ def body_probe(source, stage, env, guard, runtime):
     commands.append(guard.run([str(codeql), 'bqrs', 'decode', '--format=json', '--output=' + str(decoded), str(output)], stage, env, 30))
     if not decoded.is_file() or decoded.stat().st_size > 1024**2:
         raise ValueError('application query output bounds')
-    verify_source_snapshot(source, before, 'analysis')
+    generated_outputs = validate_tauri_generated_outputs(source, before)
+    generated_snapshot = generated_outputs.pop('snapshot')
     bodies = validate_bodies(json.loads(decoded.read_bytes()))
     # Preserve the coverage evidence even if later suite resolution/compilation
     # fails. A completed body query is never a release/security-suite pass.
     print(json.dumps(dict(actual_authentication_body_coverage=bodies,
                           extraction_diagnostics=diagnostics,
                           analysis_source_files_unchanged=len(before),
+                          generated_output_binding=generated_outputs,
                           security_query_suite_executed=False, release_approved=False)), flush=True)
     if any('macro expansion failed' in line.casefold() for line in diagnostics):
         raise ValueError('actual application macro extraction remains incomplete')
     security = security_suite(stage, env, guard, runtime, database)
-    verify_source_snapshot(source, before, 'security suite')
-    return dict(commands=commands, sysroot_analysis_inputs=sysroot, reviewed_compiler_preparation=native, native_build_approval_layout=native_approval, native_path_budget=path_budget, extraction_diagnostics=diagnostics, analysis_source_files_unchanged=len(before), function_bodies=bodies, security_analysis=security,
+    verify_source_snapshot(source, generated_snapshot, 'security suite')
+    return dict(commands=commands, generated_output_binding=generated_outputs, sysroot_analysis_inputs=sysroot, reviewed_compiler_preparation=native, native_build_approval_layout=native_approval, native_path_budget=path_budget, extraction_diagnostics=diagnostics, analysis_source_files_unchanged=len(before), function_bodies=bodies, security_analysis=security,
                 windows_scope_only=True, coverage_diagnostics_status='requires-review' if diagnostics else 'no-diagnostics',
                 security_query_suite_executed=True, release_approved=False)
 

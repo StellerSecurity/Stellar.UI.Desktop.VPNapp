@@ -48,6 +48,96 @@ class LayoutTests(unittest.TestCase):
             added=['generated.json'], removed=['removed.rs'], changed=['changed.rs']))
         self.assertFalse(report['release_approved'])
 
+    def generated_output_fixture(self):
+        import json
+        import tomllib
+        for name in ('capabilities', 'permissions'):
+            shutil.copytree(ROOT / 'src-tauri' / name, self.source / 'src-tauri' / name)
+        before = layout.source_snapshot(self.source)
+        folder = self.source / 'src-tauri/gen/schemas'
+        folder.mkdir(parents=True)
+        capabilities = {}
+        for path in (self.source / 'src-tauri/capabilities').glob('*.json'):
+            value = json.loads(path.read_bytes())
+            value.pop('$schema', None)
+            capabilities[value['identifier']] = value
+        permissions = {}
+        for path in (self.source / 'src-tauri/permissions').glob('*.toml'):
+            for value in tomllib.loads(path.read_text())['permission']:
+                value['commands'].setdefault('deny', [])
+                permissions[value['identifier']] = value
+        data = {
+            'capabilities.json': capabilities,
+            'acl-manifests.json': {'__app-acl__': dict(default_permission=None,
+                permissions=permissions, permission_sets={}, global_scope_schema=None)},
+            'desktop-schema.json': {'title': 'CapabilityFile'},
+            'windows-schema.json': {'title': 'CapabilityFile'},
+        }
+        for name, value in data.items():
+            (folder / name).write_text(json.dumps(value))
+        return before, folder
+
+    def test_generated_outputs_preserve_original_sources_and_are_frozen(self):
+        before, folder = self.generated_output_fixture()
+        result = layout.validate_tauri_generated_outputs(self.source, before)
+        self.assertEqual(result['original_source_files_unchanged'], len(before))
+        self.assertEqual(len(result['generated_json_sha256']), 4)
+        self.assertFalse(result['generated_outputs_security_cleared'])
+        layout.verify_source_snapshot(self.source, result['snapshot'], 'security suite')
+        (folder / 'capabilities.json').write_text('{}')
+        with self.assertRaisesRegex(ValueError, 'security suite modified'):
+            layout.verify_source_snapshot(self.source, result['snapshot'], 'security suite')
+
+    def test_generated_outputs_never_allow_original_input_changes(self):
+        before, folder = self.generated_output_fixture()
+        (self.source / 'Cargo.lock').write_text('changed')
+        with self.assertRaisesRegex(ValueError, 'changed original source'):
+            layout.validate_tauri_generated_outputs(self.source, before)
+
+    def test_generated_outputs_never_allow_additional_files(self):
+        before, folder = self.generated_output_fixture()
+        (folder / 'unreviewed.rs').write_text('fn main() {}')
+        with self.assertRaisesRegex(ValueError, 'output inventory'):
+            layout.validate_tauri_generated_outputs(self.source, before)
+
+    def test_generated_outputs_require_all_four_expected_files(self):
+        before, folder = self.generated_output_fixture()
+        (folder / 'windows-schema.json').unlink()
+        with self.assertRaisesRegex(ValueError, 'output inventory'):
+            layout.validate_tauri_generated_outputs(self.source, before)
+
+    def test_generated_capabilities_cannot_broaden_permissions(self):
+        import json
+        before, folder = self.generated_output_fixture()
+        path = folder / 'capabilities.json'
+        data = json.loads(path.read_bytes())
+        data['main']['permissions'].append('shell:allow-execute')
+        path.write_text(json.dumps(data))
+        with self.assertRaisesRegex(ValueError, 'capabilities differ'):
+            layout.validate_tauri_generated_outputs(self.source, before)
+
+    def test_generated_application_acl_cannot_broaden_commands(self):
+        import json
+        before, folder = self.generated_output_fixture()
+        path = folder / 'acl-manifests.json'
+        data = json.loads(path.read_bytes())
+        data['__app-acl__']['permissions']['allow-desktop-preview']['commands']['allow'].append('unreviewed')
+        path.write_text(json.dumps(data))
+        with self.assertRaisesRegex(ValueError, 'ACL differs'):
+            layout.validate_tauri_generated_outputs(self.source, before)
+
+    def test_generated_json_duplicate_keys_are_rejected(self):
+        before, folder = self.generated_output_fixture()
+        (folder / 'capabilities.json').write_text('{"main":{},"main":{}}')
+        with self.assertRaisesRegex(ValueError, 'duplicate generated JSON'):
+            layout.validate_tauri_generated_outputs(self.source, before)
+
+    def test_generated_schema_copies_must_match(self):
+        before, folder = self.generated_output_fixture()
+        (folder / 'windows-schema.json').write_text('{}')
+        with self.assertRaisesRegex(ValueError, 'schema copies differ'):
+            layout.validate_tauri_generated_outputs(self.source, before)
+
     def test_targets_sources_and_lock_are_preserved(self):
         rust = {str(p.relative_to(self.source)): hashlib.sha256(p.read_bytes()).hexdigest()
                 for p in self.source.rglob('*.rs')}
