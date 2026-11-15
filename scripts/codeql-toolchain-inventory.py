@@ -86,7 +86,7 @@ for relative in ('rust/tools/linux64/autobuild', 'rust/tools/linux64/extractor')
     if candidate.is_file() and not candidate.is_symlink() and candidate.stat().st_size <= 48 * 1024**2:
         data = candidate.read_bytes()
         hits = set()
-        for match in re.finditer(rb'CODEQL_[A-Z_0-9]{3,160}|(?:manifest_path|linked_projects|run_build_scripts|build_scripts|cargo_manifest|project_manifest|cargo_metadata)', data):
+        for match in re.finditer(rb'CODEQL_EXTRACTOR_RUST[A-Z_0-9]{0,120}|(?:linked_projects|run_build_scripts|cargo_manifest|project_manifest)', data):
             lo = max(0, match.start() - 64)
             hi = min(len(data), match.end() + 128)
             hits.add(data[lo:hi].decode('utf-8', errors='backslashreplace'))
