@@ -7,7 +7,7 @@ on:
 permissions: {}
 jobs:
   verify:
-    runs-on: windows-2025
+    runs-on: windows-2022
     timeout-minutes: 15
     steps:
       - name: Prepare reviewed sources and verify offline analysis graph
