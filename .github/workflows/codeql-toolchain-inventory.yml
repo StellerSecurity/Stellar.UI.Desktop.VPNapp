@@ -27,6 +27,6 @@ jobs:
           url = 'https://raw.githubusercontent.com/StellerSecurity/Stellar.UI.Desktop.VPNapp/' + commit + '/scripts/codeql-toolchain-inventory.py'
           with urllib.request.urlopen(url, timeout=30) as response:
               source = response.read(65537)
-          if len(source) > 65536 or hashlib.sha256(source).hexdigest() != '4076c61273717c63ef6329aa015ad3bc4b0590b172def4f19b7dd4f252601745':
+          if len(source) > 65536 or hashlib.sha256(source).hexdigest() != '90400b7a58430605770085ca04af2016619e867d2907f8c68ce1e8ef402d4d3b':
               raise ValueError('first-party inventory script changed')
           exec(compile(source, 'reviewed-first-party-inventory.py', 'exec'), {'__name__': '__main__'})

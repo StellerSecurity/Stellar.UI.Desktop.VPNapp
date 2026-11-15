@@ -14,7 +14,7 @@ scanned = 0
 roots = [Path('/opt/hostedtoolcache/CodeQL/2.27.4/x64/codeql'),
          Path.home() / '.rustup/toolchains/1.99.1-x86_64-unknown-linux-gnu',
          Path.home() / '.rustup/toolchains/stable-x86_64-unknown-linux-gnu',
-         Path('/opt/hostedtoolcache/go/1.26.4/x64'),
+         Path('/opt/hostedtoolcache/go/1.26.11/x64'),
          Path('/usr/lib/jvm/temurin-25-jdk-amd64')]
 missing = []
 for root in roots:
@@ -37,8 +37,9 @@ for root in roots:
                          (relative.startswith(('bin/', 'libexec/',
                                                'lib/rustlib/x86_64-unknown-linux-gnu/lib/'))
                           or relative.startswith(('lib/librustc_', 'lib/libLLVM'))))
-            go_tool = ('/go/1.26.4/' in str(root) and
-                       (relative == 'VERSION' or relative.startswith(('bin/', 'pkg/tool/linux_amd64/'))))
+            go_tool = ('/go/1.26.11/' in str(root) and
+                       (relative in ('VERSION', 'go.env', 'src/go.mod', 'src/net/url/url.go')
+                        or relative.startswith(('bin/', 'pkg/tool/linux_amd64/', 'src/cmd/go/'))))
             codeql_tool = (root.name == 'codeql' and
                            (relative == 'codeql' or relative.startswith(('rust/', 'tools/linux64/', 'tools/codeql'))))
             jdk_tool = (str(root) == '/usr/lib/jvm/temurin-25-jdk-amd64' and
@@ -110,7 +111,7 @@ for java_root in java_roots:
             release = Path(folder) / 'release'
             if not release.is_symlink() and release.stat().st_size <= 32768:
                 installed_java.append(dict(root=folder, release=release.read_text(encoding='utf-8')))
-report = dict(schema=1, installed_jdk_release_metadata=installed_java, static_binary_option_fragments=binary_option_strings, installed_rust_metadata=rust_metadata, selected_configuration_text=static_text, available_rust_version_directories=rustup_versions, available_go_version_directories=go_versions, codeql_version_directory='2.27.4', rust_version_directory='1.99.1',
+report = dict(schema=1, installed_jdk_release_metadata=installed_java, static_binary_option_fragments=binary_option_strings, installed_rust_metadata=rust_metadata, selected_configuration_text=static_text, available_rust_version_directories=rustup_versions, available_go_version_directories=go_versions, codeql_version_directory='2.27.4', rust_version_directory='1.99.1', go_version_directory='1.26.11',
               files=rows, bytes_hashed=scanned, missing_roots=missing,
               package_code_executed=False, tool_binaries_executed=False,
               installation=False, downloads=False, private_credentials_read=False,
