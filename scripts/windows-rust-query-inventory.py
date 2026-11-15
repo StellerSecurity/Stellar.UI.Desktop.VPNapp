@@ -58,7 +58,7 @@ while queue:
                 raw = path.read_bytes()
                 bytes_read += len(raw)
                 file_count += 1
-                row = dict(path=path.relative_to(version).as_posix(), bytes=len(raw), sha256=hashlib.sha256(raw).hexdigest())
+                row = dict(path=path.relative_to(version).as_posix(), bytes=len(raw), sha256=hashlib.sha256(raw).hexdigest(), git_blob_sha1=hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest())
                 try:
                     raw.decode('utf-8')
                     text = path.suffix in ('.ql', '.qll', '.yml', '.yaml', '.json', '.dbscheme', '.stats', '.csv', '.txt') or filename in ('LICENSE', 'NOTICE')
