@@ -19,7 +19,7 @@ jobs:
       - name: Read actual Cargo manifests without build scripts
         env:
           SOURCE_COMMIT: ${{ github.sha }}
-          EXECUTE_USER_APPROVED_METADATA: 'false'
+          EXECUTE_USER_APPROVED_METADATA: 'true'
         shell: python
         run: |
           import hashlib, os, pathlib, re, subprocess, sys, tempfile, urllib.request
