@@ -1,6 +1,9 @@
 name: Windows actual Rust source metadata
 on:
   workflow_dispatch:
+  push:
+    branches: ['stellar/codeql-vendor-workspace-20261115']
+    paths: ['.github/workflows/windows-app-metadata.yml', 'scripts/windows-app-metadata.py', 'scripts/windows-codeql-source.ps1', 'native/codeql/windows-app-metadata-plan.json', 'native/codeql/windows-app-source-inputs.json']
 permissions: {}
 jobs:
   verify:
