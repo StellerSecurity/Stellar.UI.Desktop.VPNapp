@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "script_sha256": "913e389de4de016aaa070edf4ef93cf9b06a8e61a8e6bbe0e204efacd8fde8d3",
+  "script_sha256": "d4d270d9dbc899e60c0c6acb80e692e5c27d194418f046f5d78c89f54f56f5f5",
   "sdk": "Go 1.26.11 linux/amd64",
   "sdk_tool_sha256": {
     "bin/go": "95499375c24b610cdc9e3684cec920174ec4c4f3f66d35b4332107f0f7d3d27d",
@@ -69,5 +69,6 @@
     "windows/amd64": "ef7c56fdd6e105da11c59b669eec487512261d50c0b549775df47fc9b64e6192",
     "windows/arm64": "41b1ef9793e27c48631fb4a17d0231e70ae0850c30c581421acd94ecc5ed2505"
   },
-  "new_build_only_targets": []
+  "new_build_only_targets": [],
+  "source_fork_api_execution_scope": "Fourteen fixed JavaScript API assertions in fresh Linux CI only, exact independently rebuilt Linux amd64 binary; no app, hooks, npm CLI, secrets or publish."
 }

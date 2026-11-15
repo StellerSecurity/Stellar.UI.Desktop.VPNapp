@@ -8,6 +8,7 @@ on:
       - '.github/workflows/esbuild-patched-source-build.yml'
       - 'scripts/build-reviewed-esbuild.py'
       - 'native/codeql/esbuild-rebuild-plan.json'
+      - 'scripts/probe-reviewed-esbuild-api.py'
 
 permissions: {}
 
@@ -26,8 +27,16 @@ jobs:
           if not re.fullmatch('[a-f0-9]{40}', commit):
               raise ValueError('exact first-party commit required')
           files = {
-              'scripts/build-reviewed-esbuild.py': ('913e389de4de016aaa070edf4ef93cf9b06a8e61a8e6bbe0e204efacd8fde8d3', 65536),
-              'native/codeql/esbuild-rebuild-plan.json': ('611f7f1c6bd12156996d484e3aa52e6c22a02ab86848503ca30a734eaa397e92', 65536),
+              'scripts/build-reviewed-esbuild.py': ('d4d270d9dbc899e60c0c6acb80e692e5c27d194418f046f5d78c89f54f56f5f5', 65536),
+              'native/codeql/esbuild-rebuild-plan.json': ('4e72a0eda4521c3f5c3647c2a130323d0e0f96bc6678d1ee61791d98c273edc4', 65536),
+              'scripts/probe-reviewed-esbuild-api.py': ('e8f7aefe1782660c186afe4ec0d8d344d8cd28dd428438674d80c41369affdc3', 65536),
+              'scripts/linux-npm-backport-probe.py': ('aaccee6c9eec318efdd5c3cebf1d8986f6758eeb3990dc171760f07c0a820556', 65536),
+              'scripts/patch-reviewed-npm-tool.py': ('b256f3844d01e55da6ac8fd38f48985ec6dae7bb9ecb1953d53ddc603d964fa3', 65536),
+              'scripts/stage-reviewed-esbuild-fork.py': ('de9268edf1dc7266fc66bf653d07b43134926d62981bdff0763e0b5e489bf8bf', 65536),
+              'scripts/reviewed-esbuild-binary.cjs': ('f5c8a3aa6b92772a5d1d21eebf2e5796fc27571c12df252e12bd751cb5238ce7', 65536),
+              'native/esbuild-source-fork/package-template.json': ('e5fc4c4c3e6ec0f59df33a2187fcfc43042685e5224903356208fac4d9be1711', 65536),
+              'native/esbuild-source-fork/binary-review.json': ('6e3b77348fd273ec25b783187fc4d0c92ce2392eb334a0f95b4bbff0fd615f93', 65536),
+              'native/esbuild-source-fork/stellar-patch.json': ('67c0da9a3f17b0a5bfae58918a04264db0ba167e8ff8786fab177aa10f5a240c', 65536),
           }
           with tempfile.TemporaryDirectory(prefix='stellar-esbuild-review-') as folder:
               root = pathlib.Path(folder)

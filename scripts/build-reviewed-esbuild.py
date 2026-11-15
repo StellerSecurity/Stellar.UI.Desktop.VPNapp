@@ -1,5 +1,6 @@
 """Isolated source rebuild and exact Linux-only synthetic probes after hash checks."""
 import hashlib
+import importlib.util
 import io
 import json
 import os
@@ -149,13 +150,13 @@ def main():
         (source / 'go.mod').write_text('module github.com/evanw/esbuild\n\ngo 1.25.0\n\nrequire golang.org/x/sys v0.44.0\n')
         (source / 'go.sum').write_text('golang.org/x/sys v0.44.0 h1:ildZl3J4uzeKP07r2F++Op7E9B29JRUy+a27EibtBTQ=\ngolang.org/x/sys v0.44.0/go.mod h1:4GL1E5IUh+htKOUEOaiffhrAeqysfVGipDYzABqnCmw=\n')
         (source / 'vendor/modules.txt').write_text('# golang.org/x/sys v0.44.0\n## explicit; go 1.25.0\ngolang.org/x/sys/unix\n')
-        for name in ('home', 'cache', 'modules', 'temp', 'output'):
+        for name in ('cache', 'modules', 'temp', 'output'):
             (work / name).mkdir()
         pins = {str(SDK / name): value for name, value in plan['sdk_tool_sha256'].items() if name.endswith(('/compile', '/asm', '/link'))}
         wrapper = work / 'tool-guard.py'
         wrapper.write_text('#!/usr/bin/python3\nimport hashlib,os,sys\npins=' + repr(pins) + '\np=sys.argv[1]\nif p not in pins or hashlib.sha256(open(p,"rb").read()).hexdigest()!=pins[p]: raise SystemExit("unreviewed compiler tool")\nos.execve(p,sys.argv[1:],os.environ)\n')
         wrapper.chmod(0o700)
-        env = dict(PATH='/usr/bin:/bin', HOME=str(work/'home'), TMPDIR=str(work/'temp'),
+        env = dict(PATH='/usr/bin:/bin', TMPDIR=str(work/'temp'),
                    GOROOT=str(SDK), GOPATH=str(work/'modules'), GOCACHE=str(work/'cache'),
                    GOMODCACHE=str(work/'modules'), GOENV='off', GOTOOLCHAIN='local',
                    GOTELEMETRY='off', GOPROXY='off', GOSUMDB='off', GOVCS='*:off',
@@ -166,6 +167,7 @@ def main():
             raise ValueError('unexpected reviewed SDK version')
         outputs = []
         synthetic_tests = []
+        api_probe = None
         for target_os, target_arch in plan['targets']:
             target = work / 'output' / ('esbuild-' + target_os + '-' + target_arch)
             target_env = dict(env, GOOS=target_os, GOARCH=target_arch)
@@ -188,6 +190,10 @@ def main():
                 if transformed != 'console.log(3);\n':
                     raise ValueError('reviewed synthetic transformation failed')
                 synthetic_tests = ['exact-version', 'stdin-javascript-minification']
+                spec = importlib.util.spec_from_file_location('reviewed_esbuild_api_probe', ROOT / 'probe-reviewed-esbuild-api.py')
+                probe_module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(probe_module)
+                api_probe = probe_module.probe(target, work)
             outputs.append(dict(os=target_os, arch=target_arch, bytes=target.stat().st_size,
                                 sha256=identity, build_metadata=metadata,
                                 independent_rebuild_matches_previous=target_os + '/' + target_arch in plan['expected_target_sha256'],
@@ -195,6 +201,7 @@ def main():
         print(json.dumps(dict(sdk_source_files_verified=verified, sdk_version=version,
                               outputs=outputs, source_patch='Go directive 1.25.0 and x/sys v0.44.0; application Rust and JS unchanged',
                               synthetic_tests=synthetic_tests,
+                              source_fork_api_probe=api_probe,
                               independently_reproduced_targets=sorted(plan['expected_target_sha256']),
                               new_build_only_targets=plan.get('new_build_only_targets', []),
                               target_execution_scope='Linux amd64 only: --version and fixed 20-byte stdin expression; no target app or Mac execution',
