@@ -1,0 +1,43 @@
+name: Reviewed esbuild source rebuild
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['stellar/codeql-vendor-workspace-20261115']
+    paths:
+      - '.github/workflows/esbuild-patched-source-build.yml'
+      - 'scripts/build-reviewed-esbuild.py'
+      - 'native/codeql/esbuild-rebuild-plan.json'
+
+permissions: {}
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Build only the reviewed isolated source inputs
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        shell: python
+        run: |
+          import hashlib, os, pathlib, re, subprocess, sys, tempfile, urllib.request
+          commit = os.environ['SOURCE_COMMIT']
+          if not re.fullmatch('[a-f0-9]{40}', commit):
+              raise ValueError('exact first-party commit required')
+          files = {
+              'scripts/build-reviewed-esbuild.py': ('5d704ee8c7a4abfb9c126320432546ec9d8beafb728fc4236c1c3bcfb831658f', 65536),
+              'native/codeql/esbuild-rebuild-plan.json': ('7476bcb26a19dde2ffe16ffe7dbde086a29bf3ae2d4bb4a6ca100922ed64f00d', 65536),
+          }
+          with tempfile.TemporaryDirectory(prefix='stellar-esbuild-review-') as folder:
+              root = pathlib.Path(folder)
+              for name, (expected, limit) in files.items():
+                  url = 'https://raw.githubusercontent.com/StellerSecurity/Stellar.UI.Desktop.VPNapp/' + commit + '/' + name
+                  with urllib.request.urlopen(url, timeout=30) as response:
+                      if response.geturl() != url:
+                          raise ValueError('unexpected first-party response')
+                      raw = response.read(limit + 1)
+                  if len(raw) > limit or hashlib.sha256(raw).hexdigest() != expected:
+                      raise ValueError('first-party build guard drift')
+                  (root / pathlib.Path(name).name).write_bytes(raw)
+              subprocess.run([sys.executable, str(root / 'build-reviewed-esbuild.py')], check=True, timeout=840)

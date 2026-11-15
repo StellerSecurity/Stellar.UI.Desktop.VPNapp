@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "script_sha256": "5d704ee8c7a4abfb9c126320432546ec9d8beafb728fc4236c1c3bcfb831658f",
+  "sdk": "Go 1.26.11 linux/amd64",
+  "sdk_tool_sha256": {
+    "bin/go": "95499375c24b610cdc9e3684cec920174ec4c4f3f66d35b4332107f0f7d3d27d",
+    "bin/gofmt": "cae643e8d7891e50a4088102d84e157010d789b5292b89e87be488ccbcc0f2e5",
+    "pkg/tool/linux_amd64/asm": "ce3e213b451ce7f84d6fece8c1229c05f7cdd007a72a03167a201f72143f6b9a",
+    "pkg/tool/linux_amd64/cgo": "b876cc06cf5d4b194a8c5afd4e0ec03344409eced5fbda1afa3370e3b84dcc87",
+    "pkg/tool/linux_amd64/compile": "896a17923b901c9581505c08e8ed1c5a2a6b1b519beb457ceb106f1b59373329",
+    "pkg/tool/linux_amd64/cover": "4f839a5f1d39d8e8b57ee13c792bb6166f93e54865dab7e014243cceae7fcd2d",
+    "pkg/tool/linux_amd64/fix": "855bf149ed22c3337f6f37f4576007defc454ef5d410eff01e7419a990226270",
+    "pkg/tool/linux_amd64/link": "f2e750ca33de93eae493abef851eec050e368c6840f18d1fb03a73b7a696e928",
+    "pkg/tool/linux_amd64/preprofile": "254842f95704c6d72ff63f88956067a7c6d250997f91fd30a42ff75b0ccd7495",
+    "pkg/tool/linux_amd64/vet": "5eb1c6a4b47d6c8ffda1cc23ef2506ad9811e6daea4d0c8a1c07691895e195ff"
+  },
+  "targets": [
+    [
+      "darwin",
+      "arm64"
+    ],
+    [
+      "linux",
+      "amd64"
+    ]
+  ],
+  "authorization": "User approved all necessary reviewed task downloads/tool executions and fixes on 15 November 2026; no secrets or signing upload. This is an isolated build, not application/release approval.",
+  "artifact_source_only_review_reports": [
+    "go-12611-source-static-result.json",
+    "go-12611-source-git-identity.json",
+    "x-sys-044-source-static-result.json"
+  ],
+  "execute_generated_targets": false
+}
