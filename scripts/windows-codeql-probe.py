@@ -11,7 +11,7 @@ import tempfile
 import time
 
 
-def run(command, cwd, env, seconds):
+def run(command, cwd, env, seconds, capture=False):
     # The job object kills remaining descendants when closed. It is a resource
     # boundary, not a network/filesystem security sandbox.
     class Basic(ctypes.Structure):
@@ -55,7 +55,10 @@ def run(command, cwd, env, seconds):
             if process.returncode != 0 or len(raw) > 8 * 1024**2:
                 print(raw[-16000:].decode(errors='replace'))
                 raise ValueError('reviewed Windows probe operation failed')
-            return dict(exit_code=0, output_bytes=len(raw), log_sha256=hashlib.sha256(raw).hexdigest())
+            result = dict(exit_code=0, output_bytes=len(raw), log_sha256=hashlib.sha256(raw).hexdigest())
+            if capture:
+                result['output'] = raw.decode('utf-8')
+            return result
     finally:
         kernel.CloseHandle(job)
 

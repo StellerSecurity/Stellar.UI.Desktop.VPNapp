@@ -1,0 +1,36 @@
+name: Windows actual Rust source metadata
+on:
+  workflow_dispatch:
+permissions: {}
+jobs:
+  verify:
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - name: Prepare reviewed sources and verify offline analysis graph
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        shell: python
+        run: |
+          import hashlib, os, pathlib, re, subprocess, sys, tempfile, urllib.request
+          commit = os.environ['SOURCE_COMMIT']
+          if not re.fullmatch('[a-f0-9]{40}', commit):
+              raise ValueError('exact first-party commit required')
+          files = {
+              'scripts/windows-app-metadata.py': ('9c48623c05e1f991f243b7cc0ef85a6c862ae06ccd889e051f8bfc7a72d72c2c', 524288),
+              'scripts/windows-codeql-source.ps1': ('31a06144a2ccb25f3c3c63b996da55f33c3557b17c82ee5469fc2879cb320981', 524288),
+              'scripts/windows-codeql-probe.py': ('8fb75ed68c0e584a10c8fdc6b5f8309ab623ec447c67c19ee2abfc5c7e021897', 524288),
+              'native/codeql/windows-codeql-probe-plan.json': ('08871742b13a69733201ed9464d6c6ef51fe39e54642ffacb9c14afb95e5f144', 524288),
+              'native/codeql/windows-app-source-inputs.json': ('d867ca1414b3d6db0e809d0fe3ba0b2c8291955dde4e17122862a20bcbe8764e', 524288),
+              'native/codeql/windows-app-metadata-plan.json': ('5904ff1c34a770fb72d08a3454710244a1a325b085b6b0d86f25272c6ccd40e3', 524288),
+          }
+          with tempfile.TemporaryDirectory(prefix='stellar-app-metadata-') as folder:
+              root = pathlib.Path(folder)
+              for name, (expected, limit) in files.items():
+                  url = 'https://raw.githubusercontent.com/StellerSecurity/Stellar.UI.Desktop.VPNapp/' + commit + '/' + name
+                  with urllib.request.urlopen(url, timeout=30) as response:
+                      raw = response.read(limit + 1)
+                      if response.geturl() != url or len(raw) > limit or hashlib.sha256(raw).hexdigest() != expected:
+                          raise ValueError('reviewed analysis helper drift')
+                  (root / pathlib.Path(name).name).write_bytes(raw)
+              subprocess.run([sys.executable, str(root / 'windows-app-metadata.py')], check=True, timeout=780)

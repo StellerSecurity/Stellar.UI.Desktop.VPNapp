@@ -1,0 +1,1058 @@
+{
+  "schema": 1,
+  "source_reference": "a96d5a58029b316cce4cab9d3c4daeabc24d2312",
+  "reviewed_windows_tool_source": "bc40d8933e7e73ce1d5d613de30718445be4eaa2",
+  "purpose": "Complete Rust sources plus existing reviewed Windows build prerequisites; no Markdown or private files.",
+  "files": [
+    {
+      "path": "Cargo.lock",
+      "sha256": "192bf14cc9c1772501a36a0ef7493e019e5d4ba954324bc9dd9aa71ddd100029",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "Cargo.toml",
+      "sha256": "2cadf77f657cad5f07824a40e93998a72fad6394643409733b7c1eae52d329c5",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "crates/stellar-core/Cargo.toml",
+      "sha256": "a17a9b020a34cd42d09ffb93cc190d592369adc1fd0584a806767388858df781",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "crates/stellar-core/src/application.rs",
+      "sha256": "9685fbf81a0e279b85f09ddf13c4531bb0484196f0e1ad240ed66e8ead94e7ab",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "crates/stellar-core/src/domain.rs",
+      "sha256": "4c88e2f3700b9a7c357f913c88a92ee00c08ea6b9972ea003091ca8e6a08d1c5",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "crates/stellar-core/src/helper_protocol.rs",
+      "sha256": "1018c352904ec128fb3afeecea5ba8b697561a76c882d75e6b4a32797660f1bb",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "crates/stellar-core/src/lib.rs",
+      "sha256": "ce334de0cc1897d3ab003748e4d1c180c73d82550f277d220d8f97524df442fd",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "crates/stellar-core/src/notifications.rs",
+      "sha256": "dc0c44670f8d0f5c865bfe9bcb283af7e162caac6eb5d4423ebc4b5905cb31c0",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "crates/stellar-core/src/openvpn.rs",
+      "sha256": "37d2a3e1d7dfa9f0179c78c5e2c805bc8b8965cf38c9aa27fe6a4e538cb5447c",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "crates/stellar-core/src/ports.rs",
+      "sha256": "427ec88ff3f8afeee9eddba414d426dea31fe4afed146cfaae82adafe8d7462f",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "crates/stellar-core/src/recovery.rs",
+      "sha256": "08c3c34178f70f53a454bb987826f7c737432ecf851a516322c7e5c79797b662",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "crates/stellar-core/src/rotation.rs",
+      "sha256": "b8759e1a9b9df7258633ab8723d23817409de9d77e9ccd60d30734be2946561e",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "crates/stellar-vpn-helper/Cargo.toml",
+      "sha256": "0e576bd08d89d3a588f09b6f760fba1866d56b8d63c429f74944a1cc9f7dc37d",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "crates/stellar-vpn-helper/src/firewall.rs",
+      "sha256": "7789dfec82200f9ed1eadf587fec375615919a1bf2c350350f8d4297ade930c9",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "crates/stellar-vpn-helper/src/macos.rs",
+      "sha256": "30bd3fa3175b84def66b332caf59245b3afa129aa8a7cdf7796569bcd8e04d47",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "crates/stellar-vpn-helper/src/macos_client.rs",
+      "sha256": "10dab2472b52bf30ee924bfd83e0ceaf50fa726c19404fd5173e150ff92eff51",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "crates/stellar-vpn-helper/src/macos_firewall.rs",
+      "sha256": "2ee079680c0fffe1c7628db716cd4fdb9b8cedd3879b22d7ca5f56dd5d8bab00",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "crates/stellar-vpn-helper/src/macos_probe.rs",
+      "sha256": "85e8c27f0b6710d0f3d9ba3e1f3024ecb6639af478e80f1ccc2698c43553d388",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "crates/stellar-vpn-helper/src/main.rs",
+      "sha256": "f88405b8bd0803d2336a7911d797d3e999d07258e3a5ee960b0b3ca6846f93ff",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "native/windows/bridge-link-test.cpp",
+      "sha256": "d7ef6820a2804c12bbda5900037f99c14a9a5ca6311d3bc9e234019c4983fed2",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "native/windows/bridge.cpp",
+      "sha256": "1576f107b32c2f0cc0accc30f282a70166e5afc1c986995bbec4ea132a4a2f79",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "native/windows/common.hpp",
+      "sha256": "92937e9fe7461ef33fa5e4f7ace913ddf3ec21ef1254ae30902c1167e1a35c2a",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "native/windows/compile-approval.json",
+      "sha256": "88200df590a36a5329ef38921085679905bdd827f5a50cf76304efbc2e28956d",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "native/windows/firewall.hpp",
+      "sha256": "1e979937afd0eec239215ef0bb7a938549070ded169679945f68ab944b66fb3a",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "native/windows/installer.nsh",
+      "sha256": "59c932def2adfa9295f3ebb4e137055252ee0a2635ebed6fb472a803f599effc",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "native/windows/lifecycle.hpp",
+      "sha256": "6c364913604a97d0836303b5417986446c28dea0095794c547d2dec4c98d360c",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "native/windows/native-tests.cpp",
+      "sha256": "e30a7d4b0c8f8b408d4a7c76f3bdfa1892dbc0ce4674bdd71f8be687e2aa07a7",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "native/windows/preview-ui/assets/app-icon-CXXrWLgr.png",
+      "sha256": "46da88c5724492c5f3a49a73ff1937e38cd6ad1dffd2f70433c36fa193b5f34e",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "native/windows/preview-ui/assets/index-B2WNdMPG.css",
+      "sha256": "9eef281cbca3d6c79b9c240fa1a55897cc1da03a6a623a10649613e86227136f",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "native/windows/preview-ui/assets/index-BpioyA79.js",
+      "sha256": "414577e50c17402b276c9a1abbd350542bd956f9621507f212cd42433a033322",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "native/windows/preview-ui/assets/stellar-vpn-logo-DlzHSNow.png",
+      "sha256": "010a384eeaf7254ade811c77c8f8ad854a6c80b49c1ca41526c17b64cdf6cb8d",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "native/windows/preview-ui/assets/world-countries-Bwle1vj3.geojson",
+      "sha256": "a4d67eac9c75d5b6f20170d2b07bb53ea791536b0c8e5ebae3ba94df093f76e0",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "native/windows/preview-ui/index.html",
+      "sha256": "0ee80a8d42be540ef23ad081658c4ff580aca37426b4c940d68c3914ba8d7853",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "native/windows/release-policy.json",
+      "sha256": "5fd5dd736a75925cd453e5b67d8835bc8a0fa47d1c6b19b560fbc7314dcbadf6",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "native/windows/rust-build-approval.json",
+      "sha256": "190eaca55aadc20e9ebf1e4798ab050a2682b3085279bad399639381abc43dd5",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "native/windows/service.cpp",
+      "sha256": "e661c40341da631aaa48158cd013e9ec3f75a674212f6bc48088361f84e9ff9e",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "scripts/windows-native-compile.ps1",
+      "sha256": "0010373606b1bc92280501ceb9e6d47406fadfa4cfb53e79c8b9241543271ffd",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "src-tauri/Cargo.toml",
+      "sha256": "6888ae247c5bcee879cd33f6c855b5b33e2c90412b17830b0dce5ceb9452c819",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "src-tauri/build.rs",
+      "sha256": "ab9e3aa14616cb0f61f4dfadd4a3350120688f09b59db8ca7747de295931d0aa",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "src-tauri/capabilities/main.json",
+      "sha256": "07c1a515e8f11341b8a6c56702cd3767efd2781fe8c5acb3143b1f9a17dfcc32",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "src-tauri/capabilities/updates.json",
+      "sha256": "189ae2bb21b50215195ff8af912d1230a93837f34e7d0e242ed14ada24980a5f",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "src-tauri/icons/128x128.png",
+      "sha256": "c742c270194ecfe5583bf4623eaff762ebd4e0dda5aef10080bbb89fcf63c34f",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "src-tauri/icons/128x128@2x.png",
+      "sha256": "cb073469d0b2d7a69bc38f48f96194bbb0c4b5e5a0e2a3a0829189018b3dd488",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "src-tauri/icons/32x32.png",
+      "sha256": "25ce1191a58529de6a9496eb4f660d4109ce67fce517e842bba807e6870611d6",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "src-tauri/icons/64x64.png",
+      "sha256": "56f1d657dacb5ea77004894ca0d9e3b8970a45f4506da541757b54dab195ee94",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "src-tauri/icons/Square107x107Logo.png",
+      "sha256": "d11aaf826ef19969cf81503bbd0482566f6f3304968be3972e0977ce7633ad0c",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "src-tauri/icons/Square142x142Logo.png",
+      "sha256": "584b670e7923a2457d9044926da366de57ee6b63155d9d78bcc863131a7e8cc6",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "src-tauri/icons/Square150x150Logo.png",
+      "sha256": "b46fe1473856b654c4b72cbc40c34efc59e8d1372a17133289a20570b1c2abc5",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "src-tauri/icons/Square284x284Logo.png",
+      "sha256": "e3c6edb7e17d27ebf545e1dbc7bf5be325be4192637510f9af499f037b163a20",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "src-tauri/icons/Square30x30Logo.png",
+      "sha256": "557850eaa266bb1016d61201da698880a701ae47f245fa98ba52a3bb63864501",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "src-tauri/icons/Square310x310Logo.png",
+      "sha256": "1c60534319a0840dab251cdf9140a654e899393bbfe4f3c038856032b1ac47bf",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "src-tauri/icons/Square44x44Logo.png",
+      "sha256": "d145f5469f1936beeada564d4301feb064d468d7a4ee9146d20746aa98278ad7",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "src-tauri/icons/Square71x71Logo.png",
+      "sha256": "0857c8079cc14c5f7d8cd168a7e48401959eb81f68c6e123add0b841c6a4a061",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "src-tauri/icons/Square89x89Logo.png",
+      "sha256": "fec5d6181078975e3b66bd608ad63a276b611b8c3ee989787e8ae2043fb1a2e1",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "src-tauri/icons/StoreLogo.png",
+      "sha256": "9ca15d6e162673cd8d7d7787cadd17877aef8dbb6aec1d91c4fb13986177eb16",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "src-tauri/icons/icon.icns",
+      "sha256": "abe2bfcc78bddb23b861c3313d74c8b0b16ec81e954a1f49eae72ad812a40c9c",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "src-tauri/icons/icon.ico",
+      "sha256": "2e171ce63930b1368098ea5cbf62a64e2d1b05bc06c86e4fb0572b86d4a58bbc",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "src-tauri/icons/icon.png",
+      "sha256": "93cd9aa76c2f11bc570a232092ae659ad3afdab1b49aea38153aa5e29b434613",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "src-tauri/icons/tray.rgba",
+      "sha256": "0fb6bceefdffb9c79c5f0331e037eef0c28ab29307dad367d3136385bcef181c",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "src-tauri/legacy-migration.json",
+      "sha256": "f0d0f568d80852e1915cd1e529d3053190f11a86cf5a59bb38bf41cb1810e192",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "src-tauri/permissions/desktop.toml",
+      "sha256": "89311c662f013002ce9efb354cff521f5da86d594d1c519b002d879b8aa814c0",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "src-tauri/permissions/updates.toml",
+      "sha256": "b415961544a04a8de946af03da917273a590463caf0378c2abf39de8310ec3b2",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "src-tauri/src/Info.plist",
+      "sha256": "972a4327230c39a0b99cf88006cf2e3dfd811590a7af203c474d1c8b08a76a4f",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "src-tauri/src/commands.rs",
+      "sha256": "2b62a7b0371b0da615ce998681f5e8f814bb3da5b5f3eadb54d025689097446a",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "src-tauri/src/infrastructure/legacy_login.rs",
+      "sha256": "d37eefb961363948399b2ddd9fdeda49f302abc4739d0463634d9d6960ae5d21",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "src-tauri/src/infrastructure/links.rs",
+      "sha256": "bc7ac6d62e06fdd795aa07a5148f38afc0547ec6496c719f72f5f110071dfd74",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "src-tauri/src/infrastructure/mod.rs",
+      "sha256": "b6eabcfa264eb304998af982f6558961412281b32d4ed170f858d57fc6b770d9",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "src-tauri/src/infrastructure/network.rs",
+      "sha256": "cacc8b09fa6041b36d29a92c661defd458e601959c306cb86a3b95bf637aa1fd",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "src-tauri/src/infrastructure/preferences.rs",
+      "sha256": "0fc2d46a24150dbb74ade0ecf416e032eec9a318526fd00a823715668efd1a77",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "src-tauri/src/infrastructure/server_ids.rs",
+      "sha256": "dc05277153bf7a51563e2351097b103b813769ff4a4dc0149f31efbe6fcea7ee",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "src-tauri/src/infrastructure/session.rs",
+      "sha256": "317cf3be29d7092b3c06b38539ae7521b20a9b30ab3b5fdd957d393c1c370fc3",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "src-tauri/src/infrastructure/session_windows.rs",
+      "sha256": "ab368f8e5e6f821172fc4980e903c538ef649547258f2919ac4c87d6b3c8b5a3",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "src-tauri/src/infrastructure/startup.rs",
+      "sha256": "b254fde9be901e1a54b9b5199cd61f78664e9d60d331528a6e0c1083e9dc0683",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "src-tauri/src/infrastructure/vpn.rs",
+      "sha256": "1fd629fe5391a2886da55954bf55957b168ab1b069d96fd5c17214965f9d0066",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "src-tauri/src/infrastructure/windows.rs",
+      "sha256": "6509a7be03cd9caa87c5082fc297296036a4b59d39df276fb4948262e5a405f2",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "src-tauri/src/infrastructure/windows_engine_tests.rs",
+      "sha256": "978d52a66e4250fd68ae9404ebc72a89b304cbc94ded0a83b252db8883330880",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "src-tauri/src/infrastructure/windows_vpn.rs",
+      "sha256": "ea645735036ab0df16f6df73f8cdbbf7d73c73720ed750e2d9fd1bf88cf8e723",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "src-tauri/src/lib.rs",
+      "sha256": "e9bdd82859242cd71b69059a85fb0d9ca470c2775f565d5a077d57268db369f1",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "src-tauri/src/main.rs",
+      "sha256": "ae22d2575fdbb31052d6981a541edf03081e1b6f95096df029bda7d389d838e4",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "src-tauri/src/notifications.rs",
+      "sha256": "6fc82fcb04e01fa53dc8f73f201accdcdf5a34cb52f8254e5b626760daad25a2",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "src-tauri/src/tray.rs",
+      "sha256": "2726c3b3ce3fed6bb33026ae9665d973b12eb92119b7017df1a5df2e88499f18",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "src-tauri/src/updates/macos.rs",
+      "sha256": "ca4b14124cd78f73e5597468f1182145187afdfc4dbd9d1fde7851842a8320c4",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "src-tauri/src/updates/mod.rs",
+      "sha256": "f118cce3e1e75c79647466dcc77d09f2b807d8767fa841ad2222f14c93a0ccc2",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "src-tauri/src/updates/process.rs",
+      "sha256": "e806e7ce6e13307d3e85a00defbc70e3d2ee6549b66dc7a278104d8e3b0c7f9f",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "src-tauri/src/updates/tests.rs",
+      "sha256": "5b602b1dbbd1251631abb56ba9031fa668a8de3d6cc11e7a3fef9ca1229d0afe",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "src-tauri/src/updates/trust.rs",
+      "sha256": "81a60b34fd670842351aa8e46c90a2e026775d1d6c7d844ce9e52c6f062dbc37",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "src-tauri/src/updates/windows.rs",
+      "sha256": "249e3985bebc934fd5238246ba5adeb63b8d12446fd4aa8edc542227952e30fe",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "src-tauri/tauri.conf.json",
+      "sha256": "5fdc9742bafee867175f6d2ee72f1e37a082468939579f78b9f955c9da1f2eb2",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "src-tauri/tests/linux_glib_backport.rs",
+      "sha256": "970eb14c1b9e90c5df3ae4db1f385755172ace33315470bdb4b5568124f4cab1",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "src/shared/i18n/notices.ts",
+      "sha256": "09a3bddf84221681cdafe3a87cd9e71f97f0853e2488d93799ba8830b0e0ae39",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "vendor/embed-resource-3.0.12/Cargo.toml",
+      "sha256": "213d31f389a7e6cce3286c133ce7fb72281296f1e4bd045a3ce838f2e4a9fffe",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/embed-resource-3.0.12/LICENSE",
+      "sha256": "1abdbbd4e3f95e56c79d4a8af190254c23ddb14db34aadadfafef9c3af041113",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "vendor/embed-resource-3.0.12/src/lib.rs",
+      "sha256": "70b477c14b4705a5d8e738e00388641a8ff73f76d53f1843e1178309ea14fc6a",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/embed-resource-3.0.12/src/non_windows.rs",
+      "sha256": "e6deeb3ffd53378675d06bc60fab16a621ff946cf88dae149419517bac1010da",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/embed-resource-3.0.12/src/windows_msvc.rs",
+      "sha256": "b65e81f174a92fc42eaefeee27bba0346add7f252a353bbe1c33bcba9d523a46",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/embed-resource-3.0.12/src/windows_not_msvc.rs",
+      "sha256": "496b73be5b72d8906cb88cf3b412a880599d6eb663ccbf6017d40dc790fdfd85",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/embed-resource-3.0.12/stellar-patch.json",
+      "sha256": "49bd57112a147e13a3eea9fd8ddc9f1f1342774a21c0dcdd67cf0948dce829a9",
+      "sourceCommit": "bc40d8933e7e73ce1d5d613de30718445be4eaa2"
+    },
+    {
+      "path": "vendor/glib-0.18.5/COPYRIGHT",
+      "sha256": "dae402989de65164815b7e2b6bc2b9576285434c3785934c8b6ece0fa055960d",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/Cargo.toml",
+      "sha256": "57e94ee91ef5a7489bae40cb16b98c11b8ecff15a39316a9b328536447df9bbd",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/LICENSE",
+      "sha256": "8cf56d10131ce201cf69ab74b111d3ebac1acca3833d7efb39ae357224b70edb",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/benches/gstring.rs",
+      "sha256": "17387e7dab0bd4002cc8b4bac315e60a171a271b152acaebe709551f4d494589",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/auto/alias.rs",
+      "sha256": "55c23867766bc1f570c9d51dd165eb0f96ba606eae6ee4c15d9f3c7a8ccd19e5",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/auto/checksum.rs",
+      "sha256": "2c7f7d139aff5a28ba1672f633e0f76a79e4527e5abed0d9d588d823a3002646",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/auto/constants.rs",
+      "sha256": "c2fa5757279dcc2a357daa56cef643c622b2c387ddc48f88024f67bb72a4cd00",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/auto/date_time.rs",
+      "sha256": "fc05d7c90e522d5ef1cb7cef6d41de49b8357a8349c48745dff3f769b42d0fda",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/auto/enums.rs",
+      "sha256": "70685084d7462df9cf4f9a1a5254b298f0de8ea587cbd7f8ff28e468c306386a",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/auto/flags.rs",
+      "sha256": "c2f77a0bdeeea8af3d0a39d7afeb2b75affae58905522b5fa65922d460052d4e",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/auto/functions.rs",
+      "sha256": "e9b0cd6ddde7a2fcb157221e712d9f33f419aeae1aa3d206987ebce526152e7e",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/auto/key_file.rs",
+      "sha256": "263c41a0df370671ef65dbf77f4a1311c349ebbb2a7b6d0a4a19525d57788e9d",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/auto/main_context.rs",
+      "sha256": "6c8d3b897b821e73e1653aeff2ddfcffcfd7dd3805bb1d850656c1b8100cab84",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/auto/main_loop.rs",
+      "sha256": "79d3273a2e8357b7d1cf2e3d53ed98e85f3260ae9780a7a559234c0d2d797b57",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/auto/markup_parse_context.rs",
+      "sha256": "979a1e49c8cd5cbca751d40cb37defe20c2f0a72dd9e4b65838c527d0ae0d291",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/auto/mod.rs",
+      "sha256": "74aa2e241ebca146a4843974b2c83087bc93fb71e70d86d2011172cbc5616ce4",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/auto/source.rs",
+      "sha256": "b2360784363f49c9a2e63e2e7873bc478d93eb09dda22f0018ee69b84a5f92b8",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/auto/time_zone.rs",
+      "sha256": "62a86aac66665ec0843bb0ad0d202d72b03224b4b072895034c7daf1f09aba81",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/auto/uri.rs",
+      "sha256": "dd30e5981df044c95a3900c983da28c06fd8fa399b03c76acb45ec2f6c59fcae",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/boxed.rs",
+      "sha256": "1bb1a003c82fc5903b398aef6f07d8f828446eff0a793e4aa94abbadff79f3fa",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/boxed_any_object.rs",
+      "sha256": "bd11c46e03dea925ae9b15ba6c2c70f38e207aa70530f30c4a1e7b7322f19404",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/boxed_inline.rs",
+      "sha256": "9dd644d5be6a11e8a56dbb16f70c1570affdeceaaf2622f88d661fa5769b487d",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/bridged_logging.rs",
+      "sha256": "a74ff5afc558ac072d083703d234bb79d77362d56c6a2b50934c49a7abfe0eb1",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/byte_array.rs",
+      "sha256": "b859699a50b69878cbf4d7d83c25a3e34402147bc7febe481e92c6d01e31898c",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/bytes.rs",
+      "sha256": "2c4d37050af422a475380fdc05dda58a5179b7a54ac67d14e8ab1131833f5619",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/char.rs",
+      "sha256": "edb208444ce0760c6b52a86e90db0fe2b18472c2436f75b2d241acfaeb89c3f6",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/checksum.rs",
+      "sha256": "fc98c34788d878d2461a394b442a4d8797602b3d380d96260c71160c552faa6f",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/clone.rs",
+      "sha256": "87ff5bf8fca591fb8236d61c8b1bee0db54c645b0af1c1f97dd36298c4f0f79b",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/closure.rs",
+      "sha256": "2008243add8ac242fad14e79626ba4fcf3eac2eed72666ae9f9936bad163714a",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/collections/list.rs",
+      "sha256": "53887e634a8dc22fd79ad7d38f9e914d06a013061831f5e4bd2ba9095c668220",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/collections/mod.rs",
+      "sha256": "0a6967d4d9f22bcfa6dcc35b2ce4f26ce1cc82f83111812ab0815f4b33e2c81f",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/collections/ptr_slice.rs",
+      "sha256": "6fcb10ac7d9b4ba58cdbed9dc0ad40a4f4d4f608a3572403f8a7c77fc99c2221",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/collections/slice.rs",
+      "sha256": "64d450ea2799db681a2d8d505bcac94c9f3a9ab0e52deb8c7ad0eada7d9b15a8",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/collections/slist.rs",
+      "sha256": "15b7ae76a09001e2df9c43feed8f28e06385d6032d53010358e58eb4a693e54b",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/collections/strv.rs",
+      "sha256": "e519528d5006592cf682be0ddca09a7eb2b5997115df28184b19e81881c03f03",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/control_flow.rs",
+      "sha256": "9610f16228f2f57a426fbb0c8a9513cb22631d0dc52fa65dfdc5f5372757a40e",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/convert.rs",
+      "sha256": "78fb8fa4fcc6d4c42be9eacb782f456daa35fdab20698dbcc1b67c11e66cb05a",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/date.rs",
+      "sha256": "bed49f44abb204d94c062f137f7a39e3ad722adf90b11b833aaae12733871650",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/date_time.rs",
+      "sha256": "99cff4cd4e19d57bf81187bc6e74fe7f6936cbb6575728027bfe16595ec478d4",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/enums.rs",
+      "sha256": "a436d253d4f03bffacb488a890784304f231297607460c49ceab64bef21e5338",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/error.rs",
+      "sha256": "7350aca6f26e415d3fe653c6ec94e1e6b735d3f2cefbdae7131cb1342762b29a",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/exit_code.rs",
+      "sha256": "a3de4048a143860c2d38dd1067b91bc52da9c3994491d5f8ca5187100739ff48",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/future_with_timeout.rs",
+      "sha256": "59c508f47dd247b680ed4a31f05124ae753845a5416c8fec0e31f6218849972c",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/gobject/auto/binding.rs",
+      "sha256": "9fcf34d5a4e30234890ecf00af8c7b73362597d12007483d630c6fa94099106b",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/gobject/auto/binding_group.rs",
+      "sha256": "fa4186b216f273ad2d7d531018d60a4b2a68243e1c1526f20d11bc10dc45b662",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/gobject/auto/flags.rs",
+      "sha256": "9a900bdfccfa61f6b222df9cc2bd1859438f72fc17cbe807a268a17079599af3",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/gobject/auto/mod.rs",
+      "sha256": "71208f4ba80a250bd47ea5216e17da250b344f6e5c8cbd2fc154771bab0f1124",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/gobject/auto/signal_group.rs",
+      "sha256": "5ccbc1ee15564464d8107baf2631daa5dd426f8649d9710679f49f1407797a2b",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/gobject/binding.rs",
+      "sha256": "ff7537c94681056aba4cdb603653e1d781ae2d2c6728d55fc5b8b9786b13758a",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/gobject/binding_group.rs",
+      "sha256": "79705410a96508115ab8a601e13251a27a62507e93b1c88f9c90c590ed6f302b",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/gobject/flags.rs",
+      "sha256": "6c2bb2afff339f54225ebbe9d4ab7ef06e8f783612e1e079bc18a3be6ef0ba1d",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/gobject/mod.rs",
+      "sha256": "ad5a8530e2bb7e3a4e49d9d78f66451b0aa8c5b16b88e7185c4a8759d5aa3329",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/gobject/signal_group.rs",
+      "sha256": "17eb4995d8f13d37d25d3a0465ca135d69fc4e548db712c2bd80c5419d8812e6",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/gstring.rs",
+      "sha256": "f3fe8d70bd1e58b070d4ed9d34cdd3e39f511f341424a632b9d8acdf2aec8741",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/gstring_builder.rs",
+      "sha256": "bfb1b131433531af2efa8765853ef35bbe02dc86120a04b55e6ec97e60cc8fac",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/key_file.rs",
+      "sha256": "018b398bc1bd50fd0f9925408d6898d2974c7f510d79575cb655dad7e17243de",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/lib.rs",
+      "sha256": "5b71def7d15f146270681e5b163d6da463fe45e8a6e6c579b2e1666e8a9efd2c",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/log.rs",
+      "sha256": "d5458fa20083efdd1f46bc1464d46fcd32fb1af926f3151881f0c0ec37e330e1",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/main_context.rs",
+      "sha256": "a1dc45489f318659f0c4a94d3143807270e6cce6a8d127afa25944838ce66b25",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/main_context_channel.rs",
+      "sha256": "e619173fc993bb1ffa350ef692b50b3b268ed5b294208caede8271ae742d80e8",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/main_context_futures.rs",
+      "sha256": "49a56a433d4f57929d7ced0d438b8dcdbe05b78d097e28d27ead09821cb802be",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/manual_functions.rs",
+      "sha256": "8e9bea0686535b5a464c82fe8b0356734e82c6aafe8bec9c717d208a6fb76059",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/object.rs",
+      "sha256": "61304201fc2dd2ec7d0e8db7343bc62db6e9c81be07b2b16ad3f530a8972f017",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/param_spec.rs",
+      "sha256": "3ffc0efc67226b180ae4f625d6579749c1d74e58fc8790d4ad837697a65ea3ff",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/prelude.rs",
+      "sha256": "75479bc1c16d719f472d44f08450b6972af5b4b18a77bcba381fa34428b0a567",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/property.rs",
+      "sha256": "c35ba9d518b0866f4bd07de5b2433fd70ef0ed38a1fb68839d2e481ab77bd887",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/quark.rs",
+      "sha256": "edfba293a1a4fcce1d057f961a182fd6aa5bfe142ecf03a692593d6951a1af5c",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/shared.rs",
+      "sha256": "24678285b9553298767c5a866aa9005dd84e0b3dae4760fcbbc6d3bf32adab8a",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/signal.rs",
+      "sha256": "09af50bf7e406b7c36f0fcbcfdb2855d6db259ca14fd4922c25c13b62db45b1d",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/source.rs",
+      "sha256": "2b5ed41c030a532be71b8525f73e6097d43380899e352dc2b1db07e4ff2d4cc5",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/source_futures.rs",
+      "sha256": "7d2fde280f9830916e3392eb7cdb69e1dd731084089699a2ad1bc0ddcb7dbcd6",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/subclass/basic.rs",
+      "sha256": "e671bd06f057c34b0b0b1dbb8c2b49c1d088b8697a0143d592969162744601ae",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/subclass/boxed.rs",
+      "sha256": "77825d5f8f7c6a2c78e10a696bbcd379984c1174ab9e3ce5a67d0942c38c4d16",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/subclass/interface.rs",
+      "sha256": "7ce87736717fdba007b649501e6cd4121c69e18a6cf0bcaf79a5512b4864ca53",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/subclass/mod.rs",
+      "sha256": "c3b6cb807d4e5ba7bd88153fedff76de11bcd53797905fc94d1dfadc51caa3c9",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/subclass/object.rs",
+      "sha256": "77da557b5e346ae3cde5ddfe525eeba22054b5beeb8335ae4a54a95cafab8701",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/subclass/object_impl_ref.rs",
+      "sha256": "7395e7e9bd5f8e6221883daaf2918758171bd75a002c5ec45b3099449a088c5d",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/subclass/shared.rs",
+      "sha256": "d60b0164b5d71412d9e7ef7a405cf730eecc3825dea2889810512124f50aae80",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/subclass/signal.rs",
+      "sha256": "006c9ad5a763fa2922b933f18b19b253d771f4a89e3115acca9c445c26c361b2",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/subclass/types.rs",
+      "sha256": "a2ad0aa5a551d95e73eb31d0339007bc615ebcbdf72953a92ddcc66ba09f4e4e",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/thread_guard.rs",
+      "sha256": "33995f6ba5bb78698ce049be3129579b9d7cc7d101b64bc8252e2d46150369a8",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/thread_pool.rs",
+      "sha256": "82766026df3d2f06fc4917eab56c4c205d95eaebd46b06f3c53ec4b406b2b050",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/time_span.rs",
+      "sha256": "7c0ca119e080a460d2e2f4d92d0e4b2909e215b52126351a74d2c4f2a0d94857",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/time_zone.rs",
+      "sha256": "8f54373db83b228a3459d71c18b3229fe37646fe3deeba23ad5592f6f5aad9d9",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/translate.rs",
+      "sha256": "f7b8c4b8a778e02d9ab18a1e018c27504e79e77b78353805bce156c694a0e85f",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/types.rs",
+      "sha256": "37137fe328dd321ceb4c9bfb439b40c630204711d4b24cc78c31800f539be4af",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/unichar.rs",
+      "sha256": "b489b849e3d7fbfd6563f43526d07647c5344e25f3a0a27803294f2695b7b9ce",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/unicollate.rs",
+      "sha256": "0bf8fe3d5aca3dc7f9ebba97984b775f0bcbf3b158cdfac03fc71c5b2a11f77d",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/utils.rs",
+      "sha256": "3c05a182c7e19409198d560e04de9136d3dbbb6beba166def08a76c181be75df",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/value.rs",
+      "sha256": "37eb2396c22f6eec372da9561d2c1651e4a9aff1f5fc634ac6db78f885f8be80",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/value_array.rs",
+      "sha256": "61b40654fe0771b5fafde9b54f2fba8db9c81cb27f114376024b66b775a785e7",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/variant.rs",
+      "sha256": "b48295eca732e862b2c5347ee431c2f800c7b0c6b30f6a0f0879cd16fe13eb9b",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/variant_dict.rs",
+      "sha256": "7b22eeb2804a2ec07d32612b712374559f23ed1e2cc59f0d05b7f28e168d706b",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/variant_iter.rs",
+      "sha256": "a0f5ee8acb8faa089bcdfbc9a57372609fce7654026ccef7d9a224d05a654ccc",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/variant_type.rs",
+      "sha256": "3e0ed2dd6119876bac19599b3aa729d5252d5449fe7f40329fb702c8f224c6b8",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/win32.rs",
+      "sha256": "a221643d9be5f9cee911fad60890d3727fdd700f70da6dcf947b2631be2fcee6",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/wrapper.rs",
+      "sha256": "1356b5423ac469b1778a6f06d3855251f5f8f5246bbbe05812502deeadadca54",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/stellar-backport.json",
+      "sha256": "539ff6fb4b4b2b0f4e3e02c9aa17bb3119d6ee4148d4d793760bd30154daa261",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/tests/check_gir.rs",
+      "sha256": "8984c8e380221bb61475e329b6206eaa5702efe7e3501ec14e56e0e7773e0101",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/tests/clone.rs",
+      "sha256": "2aee80da279e7072e853bcf15088e56748aebad3c9e15d1c3c62db0c0541f3d5",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/tests/derive.rs",
+      "sha256": "59ec971ff0de81728ddd8c528f590e962090a0eadda276b75951745b0aaf6b40",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/tests/log.rs",
+      "sha256": "04bb3d80acd39e8f58660ec590087e8a3f414794be97fcbe86535f6356182204",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/tests/print.rs",
+      "sha256": "07baf16c95976c35723a9e0ba4fe1b5d1916f22887a358a76b1010ade6aa4d87",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/tests/stellar_variant_str_regression.rs",
+      "sha256": "043fed543297695bae7d59a2616f464dfe68db96e1803863f8cff4ec664beec2",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/tests/structured_log.rs",
+      "sha256": "023503c632375ce1f3196fa1249e1b7a79aedfa28b458036657ea0b389064b05",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/tests/subclass_compiletest.rs",
+      "sha256": "06fd13974d96c0a21ce9a906010f82db1fdf1b17c192716510cc93ed2ef79547",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/tests/subclass_compiletest/01-auto-send-sync.rs",
+      "sha256": "8ff975b8f4b5c94c4cb823f27668446e3f8da5c0cf359e1bd8ac6a86334d1aa4",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/tests/subclass_compiletest/02-no-auto-send-sync.rs",
+      "sha256": "39d1a1dd156bc2eaaf6a5ca57525b1f9c5b069ac6ee70ecea9455138c2eebe13",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/tests/subclass_compiletest/03-object-no-auto-send-sync.rs",
+      "sha256": "f7d3ae563cbb02b07253b396bb9af5fa31394e4d64ee9b6d4ffa1641e1a50b52",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/tests/subclass_compiletest/04-auto-send-sync-with-send-sync-parent.rs",
+      "sha256": "6832dc8851d0fdabc906acc1af8234d8ae1143a1fe8f7d7f2134e706538b6dbe",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/tests/subclass_compiletest/05-no-auto-send-sync-with-non-send-sync-parent.rs",
+      "sha256": "2b05fad36e3311bd1f6bef737431b96bbbb579b3071aef685debaaa16b95cbda",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/tests/subclass_compiletest/06-no-auto-send-sync-with-non-send-sync-ffi-parent.rs",
+      "sha256": "a37119bff708de5c84e8a82affa6cc9abe73595b08c9e0539d9cbe33af5e9f7a",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    },
+    {
+      "path": "vendor/glib-0.18.5/tests/value.rs",
+      "sha256": "c796ea2b30559e9c8ab6ebbb6c59c575d365a27b461c20f9ca0b1989dbe01d79",
+      "sourceCommit": "a96d5a58029b316cce4cab9d3c4daeabc24d2312"
+    }
+  ]
+}

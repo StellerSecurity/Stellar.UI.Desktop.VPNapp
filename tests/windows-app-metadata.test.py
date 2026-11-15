@@ -1,0 +1,70 @@
+"""Verify the analysis-only layout preserves Rust bytes and Cargo targets."""
+import hashlib
+import importlib.util
+from pathlib import Path
+import shutil
+import tempfile
+import tomllib
+import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
+spec = importlib.util.spec_from_file_location('metadata_layout', ROOT / 'scripts/windows-app-metadata.py')
+layout = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(layout)
+
+
+class LayoutTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(prefix='stellar-layout-test-')
+        self.addCleanup(self.temp.cleanup)
+        self.stage = Path(self.temp.name)
+        self.source = self.stage / 'source'
+        self.source.mkdir()
+        for name in ('Cargo.toml', 'Cargo.lock'):
+            shutil.copyfile(ROOT / name, self.source / name)
+        for name in ('glib-0.18.5', 'embed-resource-3.0.12'):
+            shutil.copytree(ROOT / 'vendor' / name, self.source / 'vendor' / name,
+                            ignore=shutil.ignore_patterns('*.md', '*.MD', '__pycache__'))
+
+    def test_targets_sources_and_lock_are_preserved(self):
+        rust = {str(p.relative_to(self.source)): hashlib.sha256(p.read_bytes()).hexdigest()
+                for p in self.source.rglob('*.rs')}
+        lock = (self.source / 'Cargo.lock').read_bytes()
+        original = tomllib.loads((self.source / 'vendor/glib-0.18.5/Cargo.toml').read_text())
+        metadata = self.stage / 'analysis-manifests'
+        self.assertEqual(len(layout.relocate(self.source, metadata)), 2)
+        self.assertEqual((self.source / 'Cargo.lock').read_bytes(), lock)
+        self.assertEqual(rust, {str(p.relative_to(self.source)): hashlib.sha256(p.read_bytes()).hexdigest()
+                               for p in self.source.rglob('*.rs')})
+        root = tomllib.loads((self.source / 'Cargo.toml').read_text())
+        for package in ('glib', 'embed-resource'):
+            path = Path(root['patch']['crates-io'][package]['path'])
+            self.assertFalse(path.is_relative_to(self.source))
+            manifest = tomllib.loads((path / 'Cargo.toml').read_text())
+            self.assertTrue(Path(manifest['lib']['path']).is_file())
+            self.assertEqual(manifest['dependencies'], tomllib.loads((ROOT / 'vendor' / path.name / 'Cargo.toml').read_text())['dependencies'])
+        glib = tomllib.loads((metadata / 'glib-0.18.5/Cargo.toml').read_text())
+        expected = {p.stem for p in (self.source / 'vendor/glib-0.18.5/tests').glob('*.rs')}
+        self.assertEqual({row['name'] for row in glib['test']}, expected)
+        self.assertEqual(next(row for row in glib['test'] if row['name'] == 'subclass_compiletest')['required-features'],
+                         original['test'][0]['required-features'])
+        for row in glib['test'] + glib['bench']:
+            self.assertTrue(Path(row['path']).is_file())
+        self.assertFalse((self.source / 'vendor/glib-0.18.5/Cargo.toml').exists())
+        self.assertFalse((self.source / 'vendor/embed-resource-3.0.12/Cargo.toml').exists())
+
+    def test_changed_root_override_is_rejected(self):
+        path = self.source / 'Cargo.toml'
+        path.write_text(path.read_text().replace('vendor/glib-0.18.5', 'unexpected/glib'))
+        with self.assertRaisesRegex(ValueError, 'root path override'):
+            layout.relocate(self.source, self.stage / 'analysis-manifests')
+
+    def test_changed_vendor_target_is_rejected(self):
+        path = self.source / 'vendor/glib-0.18.5/Cargo.toml'
+        path.write_text(path.read_text().replace('name = "glib"', 'name = "changed"'))
+        with self.assertRaisesRegex(ValueError, 'GLib library target'):
+            layout.relocate(self.source, self.stage / 'analysis-manifests')
+
+
+if __name__ == '__main__':
+    unittest.main()
