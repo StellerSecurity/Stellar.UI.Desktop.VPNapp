@@ -180,6 +180,13 @@ def body_probe(source, stage, env, guard, runtime):
     spec.loader.exec_module(helper)
     sysroot = helper.stage_source(stage / 'reviewed-sysroot-source', profile)
     env['RUST_SRC_PATH'] = sysroot['source_root']
+    # Official extractor Config::sysroot supports both explicit paths. Its
+    # get_extra_env enables Rustup auto-install before applying cargo_extra_env;
+    # override that default so analysis can only use the reviewed offline SDK.
+    env['CODEQL_EXTRACTOR_RUST_OPTION_SYSROOT'] = runtime['rust_root']
+    env['CODEQL_EXTRACTOR_RUST_OPTION_SYSROOT_SRC'] = sysroot['source_root']
+    env['CODEQL_EXTRACTOR_RUST_OPTION_CARGO_EXTRA_ENV'] = 'RUSTUP_AUTO_INSTALL=0,CARGO_NET_OFFLINE=true'
+    env['RUSTUP_AUTO_INSTALL'] = '0'
     env['PATH'] += ';C:/Windows/System32/WindowsPowerShell/v1.0'
     state_file = stage / 'reviewed-toolchain-environment.json'
     toolchain = Path(__file__).with_name('windows-codeql-toolchain.ps1')
