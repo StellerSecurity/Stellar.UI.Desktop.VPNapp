@@ -1,21 +1,14 @@
 {
   "schema": 1,
-  "scope": "Exact reviewed source preparation and full offline Cargo metadata; no application extraction, execution, signing or release.",
+  "scope": "Exact reviewed source preparation and full offline Cargo metadata only. No C++/SDK compilation, application extraction, app execution, signing or release.",
   "app_reference": "a96d5a58029b316cce4cab9d3c4daeabc24d2312",
   "runtime_plan_sha256": "08871742b13a69733201ed9464d6c6ef51fe39e54642ffacb9c14afb95e5f144",
   "first_party_inputs": {
-    "windows-codeql-source.ps1": "31a06144a2ccb25f3c3c63b996da55f33c3557b17c82ee5469fc2879cb320981",
+    "windows-codeql-source.ps1": "9482bf246b971803556f584a0d2d19b108f13310c0bbf78b0735c9e44f6d2894",
     "windows-codeql-probe.py": "8fb75ed68c0e584a10c8fdc6b5f8309ab623ec447c67c19ee2abfc5c7e021897",
     "windows-app-source-inputs.json": "d867ca1414b3d6db0e809d0fe3ba0b2c8291955dde4e17122862a20bcbe8764e"
   },
   "exported_environment": [
-    "PATH",
-    "INCLUDE",
-    "LIB",
-    "LIBPATH",
-    "RC",
-    "RC_x86_64_pc_windows_msvc",
-    "CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER",
     "RUSTC",
     "CARGO_HOME",
     "CARGO_TARGET_DIR",

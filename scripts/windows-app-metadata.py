@@ -74,6 +74,9 @@ def main():
                    ProgramFiles='C:\\Program Files', USERPROFILE='C:\\Users\\runneradmin',
                    HOME=str(work/'home'), TEMP=str(work/'temp'), TMP=str(work/'temp'), RUNNER_TEMP=str(work),
                    PATH=str(rust) + ';C:\\Windows\\System32;C:\\Windows\\System32\\WindowsPowerShell\\v1.0')
+        env['PATHEXT'] = '.COM;.EXE;.BAT;.CMD'
+        env['SystemDrive'] = 'C:'
+        env['OS'] = 'Windows_NT'
         env['ProgramFiles(x86)'] = 'C:\\Program Files (x86)'
         prepare = root / 'windows-codeql-source.ps1'
         guard.run(['C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe', '-NoProfile', '-NonInteractive',

@@ -81,29 +81,8 @@ foreach ($pin in $review.rust) {
     if ((Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant() -ne $pin.sha256) { throw 'Rust tool hash changed; re-review required.' }
 }
 if ((Get-Item -LiteralPath (Join-Path $rustBin 'rustc.exe')).VersionInfo.ProductVersion -ne $review.rustVersion) { throw 'Rust compiler version changed.' }
-$sdkBin = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin\10.0.26100.0\x64'
-$stagedSdk = Join-Path $stage 'reviewed-sdk'
-[IO.Directory]::CreateDirectory($stagedSdk) | Out-Null
-if ($review.sdk.Count -ne 3 -or
-    @($review.sdk.name | Sort-Object -Unique).Count -ne 3) { throw 'Exact three-file SDK bundle required.' }
-foreach ($pin in $review.sdk) {
-    if ($pin.name -notin @('rc.exe', 'rcdll.dll', 'ServicingCommon.dll')) { throw 'Unexpected SDK tool.' }
-    $file = Get-Item -LiteralPath (Join-Path $sdkBin $pin.name)
-    if ($file.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'SDK tool reparse point rejected.' }
-    if ((Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant() -ne $pin.sha256 -or $file.VersionInfo.ProductVersion -ne $review.sdkVersion) { throw 'SDK tool changed.' }
-    $signature = Get-AuthenticodeSignature -LiteralPath $file.FullName
-    if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -ne $pin.signer) { throw 'Pinned Microsoft SDK signature required.' }
-    [IO.File]::Copy($file.FullName, (Join-Path $stagedSdk $pin.name))
-}
-$security = Join-Path $root '.security-review'
-[IO.Directory]::CreateDirectory($security) | Out-Null
-[IO.File]::Copy((Join-Path $root 'native/windows/compile-approval.json'), (Join-Path $security 'windows-native-compile-approval.json'))
-# The shared script stages only signed/hash-pinned MSVC and sets INCLUDE/LIB.
-& (Join-Path $root 'scripts/windows-native-compile.ps1') -OutputDirectory (Join-Path $stage 'native-preflight')
-$env:PATH = $stagedSdk + ';' + $env:PATH
-$env:RC = Join-Path $stagedSdk 'rc.exe'
-$env:RC_x86_64_pc_windows_msvc = $env:RC
-$env:CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER = Join-Path $stage 'native-preflight\tools\link.exe'
+# Cargo metadata does not need a C++ compiler, SDK resource tool or linker.
+# Keep this source-only stage free of unnecessary native compilation.
 $env:RUSTC = Join-Path $rustBin 'rustc.exe'
 $cargo = Join-Path $rustBin 'cargo.exe'
 $env:CARGO_HOME = Join-Path $stage 'cargo-home'
@@ -128,10 +107,10 @@ try {
     }
     $env:CARGO_NET_OFFLINE = 'true'
     $exported = @{}
-    foreach ($name in @('PATH', 'INCLUDE', 'LIB', 'LIBPATH', 'RC', 'RC_x86_64_pc_windows_msvc', 'CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER', 'RUSTC', 'CARGO_HOME', 'CARGO_TARGET_DIR', 'CARGO_NET_OFFLINE')) {
+    foreach ($name in @('RUSTC', 'CARGO_HOME', 'CARGO_TARGET_DIR', 'CARGO_NET_OFFLINE')) {
         $exported[$name] = [string][Environment]::GetEnvironmentVariable($name)
     }
-    $state = [ordered]@{ scope = 'reviewed-source-and-build-prerequisites'; sourceRoot = $root; stageRoot = $stage; lockedArchivesVerified = $archives.Count; environment = $exported; appExecuted = $false; signed = $false }
+    $state = [ordered]@{ scope = 'reviewed-source-and-offline-metadata'; sourceRoot = $root; stageRoot = $stage; lockedArchivesVerified = $archives.Count; environment = $exported; appExecuted = $false; signed = $false }
     [IO.File]::WriteAllText((Join-Path $env:RUNNER_TEMP 'source-preparation.json'), ($state | ConvertTo-Json -Depth 5 -Compress), $utf8)
     [ordered]@{ prepared = $true; lockedArchivesVerified = $archives.Count; appExecuted = $false; signed = $false } | ConvertTo-Json -Compress
 } finally { Pop-Location }
