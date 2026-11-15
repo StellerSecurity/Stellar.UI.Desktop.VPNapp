@@ -106,7 +106,7 @@ def main():
         commands = [run([str(rust/'cargo.exe'), 'metadata', '--format-version', '1', '--no-deps', '--locked', '--offline'], source, env, 30)]
         database = work / 'database'
         commands.append(run([str(codeql), 'database', 'create', str(database), '--language=rust', '--build-mode=none',
-                             '--source-root=' + str(source), '--extractor-option=rust.extract_dependencies_as_source=true',
+                             '--source-root=' + str(source), '--extractor-option=rust.extract_dependencies_as_source=false',
                              '--threads=2', '--ram=3072'], source, env, 300))
         query = work / 'queries/coverage.ql'
         query.write_text(fixture.QUERY)

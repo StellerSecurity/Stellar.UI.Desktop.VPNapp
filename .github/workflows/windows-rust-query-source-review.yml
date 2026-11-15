@@ -1,0 +1,40 @@
+name: Windows Rust query source static review
+on:
+  push:
+    branches: ['stellar/codeql-vendor-workspace-20261115']
+    paths: ['scripts/windows-rust-query-source-review.py', 'native/codeql/rust-query-source-inputs.json', 'native/codeql/rust-query-source-review-plan.json', '.github/workflows/windows-rust-query-source-review.yml']
+permissions: {}
+jobs:
+  review:
+    runs-on: windows-2022
+    timeout-minutes: 8
+    steps:
+      - name: Scan installed official source text without executing QL
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        shell: python
+        run: |
+          import hashlib, os, pathlib, re, subprocess, sys, tempfile, urllib.request
+          commit = os.environ['SOURCE_COMMIT']
+          if not re.fullmatch('[a-f0-9]{40}', commit):
+              raise ValueError('exact first-party source commit required')
+          files = {
+              'scripts/windows-rust-query-source-review.py': ('717de420e4695b74b9a84a1bc02226990244251f340167d8e20464aaccefd77a', 524288),
+              'native/codeql/rust-query-source-inputs.json': ('fe87f7bca97ceed18061370646aeb9ab1db649b56c11e6dc30ea2c4b0dfe9a4f', 2097152),
+              'native/codeql/rust-query-source-review-plan.json': ('2860fdbee1bdfb86e5c84b91f6dd8eff99c37188e642d70d57bdf4b8f43a5ac7', 524288),
+          }
+          scanner = {
+              'scanner/content_guard.py': ('fd5ef86dba7c87cde86b1cff0a991c8862b21a22cd61df64c59f5da41623adfa', 2097152),
+              'scanner/source_guard_v2.py': ('065e9b91bda86fa63ee2e5c9ae3a5754e5a1d49c914670cab24f3598f1a65481', 2097152),
+          }
+          with tempfile.TemporaryDirectory(prefix='stellar-ql-source-review-') as folder:
+              root = pathlib.Path(folder)
+              for repository, reference, entries in [('Stellar.UI.Desktop.VPNapp', commit, files), ('stellar-security-scanner', '164e84ba278abceebbbca33eff54920ae408b4e0', scanner)]:
+                  for name, (expected, limit) in entries.items():
+                      url = 'https://raw.githubusercontent.com/StellerSecurity/' + repository + '/' + reference + '/' + name
+                      with urllib.request.urlopen(url, timeout=30) as response:
+                          raw = response.read(limit + 1)
+                          if response.geturl() != url or len(raw) > limit or hashlib.sha256(raw).hexdigest() != expected:
+                              raise ValueError('reviewed first-party static scanner source drift')
+                      (root / pathlib.Path(name).name).write_bytes(raw)
+              subprocess.run([sys.executable, str(root/'windows-rust-query-source-review.py')], check=True, timeout=240)

@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "scope": "Static, read-only comparison and content scanning of 1211 official QL source files; no query pack execution or download.",
+  "first_party_inputs": {
+    "windows-rust-query-source-review.py": "717de420e4695b74b9a84a1bc02226990244251f340167d8e20464aaccefd77a",
+    "rust-query-source-inputs.json": "fe87f7bca97ceed18061370646aeb9ab1db649b56c11e6dc30ea2c4b0dfe9a4f",
+    "content_guard.py": "fd5ef86dba7c87cde86b1cff0a991c8862b21a22cd61df64c59f5da41623adfa",
+    "source_guard_v2.py": "065e9b91bda86fa63ee2e5c9ae3a5754e5a1d49c914670cab24f3598f1a65481"
+  },
+  "first_party_scanner_commit": "164e84ba278abceebbbca33eff54920ae408b4e0",
+  "risk": "LOW for this read-only source-data inspection"
+}

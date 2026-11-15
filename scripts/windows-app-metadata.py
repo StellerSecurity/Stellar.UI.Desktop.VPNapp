@@ -112,7 +112,7 @@ def body_probe(source, stage, env, guard, runtime):
     env['RUST_SRC_PATH'] = sysroot['source_root']
     before = source_snapshot(source)
     commands = [guard.run([str(codeql), 'database', 'create', str(database), '--language=rust', '--build-mode=none', '--no-calculate-baseline',
-                          '--source-root=' + str(source), '--extractor-option=rust.extract_dependencies_as_source=true',
+                          '--source-root=' + str(source), '--extractor-option=rust.extract_dependencies_as_source=false',
                           '--extractor-option=rust.cargo_features=default', '--threads=2', '--ram=3072'], source, env, 900, capture=True)]
     creation_output = commands[0].pop('output')
     diagnostics = [line for line in creation_output.splitlines() if 'error' in line.casefold() or 'warning' in line.casefold() or 'failed' in line.casefold()]

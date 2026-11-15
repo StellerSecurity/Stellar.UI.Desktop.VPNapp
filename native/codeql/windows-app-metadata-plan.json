@@ -2,10 +2,10 @@
   "schema": 1,
   "scope": "Exact Windows app-source CodeQL extraction and first-party function-body coverage only; not the Rust security query suite, release clearance or app execution.",
   "app_reference": "a96d5a58029b316cce4cab9d3c4daeabc24d2312",
-  "runtime_plan_sha256": "21f0e631884a873028a5b8d9f875bb233ed0ca4a82029a8cbf4397e52e67cf08",
+  "runtime_plan_sha256": "b01261fdfef54b1e59f83973f0f2b61d3c38b2c0f4ca14e9ef9e9a869e4c5f49",
   "first_party_inputs": {
     "windows-codeql-source.ps1": "9482bf246b971803556f584a0d2d19b108f13310c0bbf78b0735c9e44f6d2894",
-    "windows-codeql-probe.py": "e31b5cc2b344e86b26d6dff8a2847062ca482c94ce47b550bdbf712b7c20697c",
+    "windows-codeql-probe.py": "f3a792800c5cb12c913e847c93bd72cb59921a38c56710e59451b33ce1282212",
     "windows-app-source-inputs.json": "d867ca1414b3d6db0e809d0fe3ba0b2c8291955dde4e17122862a20bcbe8764e",
     "stage-reviewed-rust-sysroot.py": "39cee2a4fd131e0f8910fe53d15f34b5df1791eb9e02b735e31be39a4516c9af",
     "rust-sysroot-source-inputs.json": "002ff08b64041193a2991dfd6438263645bdb4c07b7ae6e96520f614ad722ef8"
