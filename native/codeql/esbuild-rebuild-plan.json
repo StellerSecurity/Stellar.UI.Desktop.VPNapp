@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "script_sha256": "ee0e281266f7d1f8e6796fd03a8050f464366d253be8370d2f6ab7c80498112e",
+  "script_sha256": "913e389de4de016aaa070edf4ef93cf9b06a8e61a8e6bbe0e204efacd8fde8d3",
   "sdk": "Go 1.26.11 linux/amd64",
   "sdk_tool_sha256": {
     "bin/go": "95499375c24b610cdc9e3684cec920174ec4c4f3f66d35b4332107f0f7d3d27d",
@@ -20,8 +20,24 @@
       "arm64"
     ],
     [
+      "darwin",
+      "amd64"
+    ],
+    [
       "linux",
       "amd64"
+    ],
+    [
+      "linux",
+      "arm64"
+    ],
+    [
+      "windows",
+      "amd64"
+    ],
+    [
+      "windows",
+      "arm64"
     ]
   ],
   "authorization": "User approved all necessary reviewed task downloads/tool executions and fixes on 15 November 2026; no secrets or signing upload. This is an isolated build, not application/release approval.",
@@ -48,5 +64,11 @@
   "expected_target_sha256": {
     "darwin/arm64": "e1909408bf8cd939548394b9fafe3a99b0e5243bb97e976bf4f4b05f02a193f0",
     "linux/amd64": "0ec4b4dc642d8786c75ea26419100ac291af95ab1b831e559d1ed62fa6b7cd96"
-  }
+  },
+  "new_build_only_targets": [
+    "darwin/amd64",
+    "linux/arm64",
+    "windows/amd64",
+    "windows/arm64"
+  ]
 }

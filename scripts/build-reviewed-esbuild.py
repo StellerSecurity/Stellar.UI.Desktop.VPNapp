@@ -175,9 +175,12 @@ def main():
             if 'go1.26.11' not in metadata or 'golang.org/x/sys\tv0.44.0' not in metadata and target_os != 'windows':
                 raise ValueError('patched build component identity mismatch')
             identity = digest(target.read_bytes())
-            if identity != plan['expected_target_sha256'][target_os + '/' + target_arch]:
+            if (target_os + '/' + target_arch in plan['expected_target_sha256']
+                    and identity != plan['expected_target_sha256'][target_os + '/' + target_arch]):
                 raise ValueError('independent rebuild bytes differ; target execution blocked')
             if (target_os, target_arch) == ('linux', 'amd64'):
+                if target_os + '/' + target_arch not in plan['expected_target_sha256']:
+                    raise ValueError('target execution requires the previously reviewed output hash')
                 if run([str(target), '--version'], source, env, 30).strip() != '0.28.1':
                     raise ValueError('reviewed esbuild version probe failed')
                 transformed = run([str(target), '--loader=js', '--minify', '--log-level=error'], source, env, 30,
@@ -187,10 +190,13 @@ def main():
                 synthetic_tests = ['exact-version', 'stdin-javascript-minification']
             outputs.append(dict(os=target_os, arch=target_arch, bytes=target.stat().st_size,
                                 sha256=identity, build_metadata=metadata,
+                                independent_rebuild_matches_previous=target_os + '/' + target_arch in plan['expected_target_sha256'],
                                 target_executed=(target_os, target_arch) == ('linux', 'amd64')))
         print(json.dumps(dict(sdk_source_files_verified=verified, sdk_version=version,
                               outputs=outputs, source_patch='Go directive 1.25.0 and x/sys v0.44.0; application Rust and JS unchanged',
-                              synthetic_tests=synthetic_tests, independent_rebuild_hashes_match=True,
+                              synthetic_tests=synthetic_tests,
+                              independently_reproduced_targets=sorted(plan['expected_target_sha256']),
+                              new_build_only_targets=plan.get('new_build_only_targets', []),
                               target_execution_scope='Linux amd64 only: --version and fixed 20-byte stdin expression; no target app or Mac execution',
                               module_downloads_enabled=False,
                               cgo_enabled=False, installed=False, published=False,
