@@ -258,6 +258,7 @@ def body_probe(source, stage, env, guard, runtime):
     env['CODEQL_EXTRACTOR_RUST_OPTION_SYSROOT_SRC'] = sysroot['source_root']
     env['CODEQL_EXTRACTOR_RUST_OPTION_CARGO_EXTRA_ENV'] = 'RUSTUP_AUTO_INSTALL=0,CARGO_NET_OFFLINE=true'
     env['RUSTUP_AUTO_INSTALL'] = '0'
+    env['RUST_LOG'] = 'warn,ra_ap_project_model=debug,ra_ap_load_cargo=debug'
     env['PATH'] += ';C:/Windows/System32/WindowsPowerShell/v1.0'
     state_file = stage / 'reviewed-toolchain-environment.json'
     toolchain = Path(__file__).with_name('windows-codeql-toolchain.ps1')
@@ -284,6 +285,11 @@ def body_probe(source, stage, env, guard, runtime):
                           '--extractor-option=rust.cargo_features=default', '--threads=2', '--ram=3072'], source, env, 900, capture=True)]
     creation_output = commands[0].pop('output')
     diagnostics = [line for line in creation_output.splitlines() if 'error' in line.casefold() or 'warning' in line.casefold() or 'failed' in line.casefold()]
+    environment_diagnostics = [line for line in creation_output.splitlines()
+                               if any(word in line.casefold() for word in ('cargo', 'build script', 'out_dir', 'proc-macro', 'sysroot'))]
+    print(json.dumps(dict(semantic_environment_diagnostics=environment_diagnostics,
+                          creation_log_sha256=commands[0]['log_sha256'],
+                          release_approved=False)), flush=True)
     if any('[error]' in line.casefold() or 'extraction failed' in line.casefold() for line in diagnostics):
         print(json.dumps(dict(extraction_diagnostics=diagnostics, release_approved=False)))
         raise ValueError('actual application extraction reported fatal errors')
