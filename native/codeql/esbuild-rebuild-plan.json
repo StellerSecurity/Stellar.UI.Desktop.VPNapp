@@ -63,12 +63,11 @@
   },
   "expected_target_sha256": {
     "darwin/arm64": "e1909408bf8cd939548394b9fafe3a99b0e5243bb97e976bf4f4b05f02a193f0",
-    "linux/amd64": "0ec4b4dc642d8786c75ea26419100ac291af95ab1b831e559d1ed62fa6b7cd96"
+    "darwin/amd64": "daf459299ec172f189f3c13c8175f801ab5a9165c3b8b5b977fb6a4c299a711c",
+    "linux/amd64": "0ec4b4dc642d8786c75ea26419100ac291af95ab1b831e559d1ed62fa6b7cd96",
+    "linux/arm64": "8d6e5c08be0095413a2e2f68b216eb4fd054c4764d73991867e6a71e4479e0ee",
+    "windows/amd64": "ef7c56fdd6e105da11c59b669eec487512261d50c0b549775df47fc9b64e6192",
+    "windows/arm64": "41b1ef9793e27c48631fb4a17d0231e70ae0850c30c581421acd94ecc5ed2505"
   },
-  "new_build_only_targets": [
-    "darwin/amd64",
-    "linux/arm64",
-    "windows/amd64",
-    "windows/arm64"
-  ]
+  "new_build_only_targets": []
 }

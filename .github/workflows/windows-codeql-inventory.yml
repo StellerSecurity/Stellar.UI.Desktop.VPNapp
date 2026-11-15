@@ -1,0 +1,30 @@
+name: Windows CodeQL static metadata
+on:
+  workflow_dispatch:
+  push:
+    branches: ['stellar/codeql-vendor-workspace-20261115']
+    paths: ['.github/workflows/windows-codeql-inventory.yml', 'scripts/windows-codeql-inventory.py']
+permissions: {}
+jobs:
+  inventory:
+    runs-on: windows-2025
+    timeout-minutes: 5
+    steps:
+      - name: Read CodeQL and patched Java metadata only
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        shell: python
+        run: |
+          import hashlib, os, pathlib, re, subprocess, sys, tempfile, urllib.request
+          commit = os.environ['SOURCE_COMMIT']
+          if not re.fullmatch('[a-f0-9]{40}', commit):
+              raise ValueError('exact source commit required')
+          url = 'https://raw.githubusercontent.com/StellerSecurity/Stellar.UI.Desktop.VPNapp/' + commit + '/scripts/windows-codeql-inventory.py'
+          with urllib.request.urlopen(url, timeout=30) as response:
+              raw = response.read(32769)
+              if response.geturl() != url or len(raw) > 32768 or hashlib.sha256(raw).hexdigest() != '1290e97fb6a7c6b32becc6a9de6e29c64036b472e615818f6f828020532b3f9c':
+                  raise ValueError('first-party metadata reader drift')
+          with tempfile.TemporaryDirectory(prefix='stellar-system-metadata-') as folder:
+              script = pathlib.Path(folder) / 'inventory.py'
+              script.write_bytes(raw)
+              subprocess.run([sys.executable, str(script)], check=True, timeout=180)
