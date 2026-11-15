@@ -1,0 +1,30 @@
+name: Linux GLib native test prerequisites static metadata
+on:
+  workflow_dispatch:
+  push:
+    branches: ['stellar/codeql-vendor-workspace-20261115']
+    paths: ['.github/workflows/linux-native-static.yml', 'scripts/linux-native-static.py']
+permissions: {}
+jobs:
+  inventory:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Read installed prerequisite files without executing them
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        shell: python
+        run: |
+          import hashlib, os, pathlib, re, subprocess, sys, tempfile, urllib.request
+          commit = os.environ['SOURCE_COMMIT']
+          if not re.fullmatch('[a-f0-9]{40}', commit):
+              raise ValueError('exact first-party commit required')
+          url = 'https://raw.githubusercontent.com/StellerSecurity/Stellar.UI.Desktop.VPNapp/' + commit + '/scripts/linux-native-static.py'
+          with urllib.request.urlopen(url, timeout=30) as response:
+              raw = response.read(65537)
+              if response.geturl() != url or len(raw) > 65536 or hashlib.sha256(raw).hexdigest() != 'd0f526a541215cafc37a5881036be4e4e7d14eca8f66f09a3570e086b177d81f':
+                  raise ValueError('first-party static metadata reader drift')
+          with tempfile.TemporaryDirectory(prefix='stellar-linux-static-') as folder:
+              script = pathlib.Path(folder) / 'reader.py'
+              script.write_bytes(raw)
+              subprocess.run([sys.executable, str(script)], check=True, timeout=90)
