@@ -93,7 +93,21 @@ for relative in ('rust/tools/linux64/autobuild', 'rust/tools/linux64/extractor')
             if len(hits) > 256:
                 raise ValueError('static option string budget')
         binary_option_strings[relative] = dict(sha256=hashlib.sha256(data).hexdigest(), fragments=sorted(hits), purpose='configuration discovery only; not full native code review')
-report = dict(schema=1, static_binary_option_fragments=binary_option_strings, installed_rust_metadata=rust_metadata, selected_configuration_text=static_text, available_rust_version_directories=rustup_versions, available_go_version_directories=go_versions, codeql_version_directory='2.27.4', rust_version_directory='1.99.1',
+installed_java = []
+java_roots = [Path('/usr/lib/jvm'), Path('/opt/hostedtoolcache/Java_Temurin-Hotspot_jdk')]
+for java_root in java_roots:
+    if not java_root.is_dir() or java_root.is_symlink():
+        continue
+    for folder, dirs, names in os.walk(java_root, followlinks=False):
+        depth = len(Path(folder).relative_to(java_root).parts)
+        dirs[:] = sorted(d for d in dirs if depth < 3 and not (Path(folder) / d).is_symlink())
+        if len(installed_java) > 64:
+            raise ValueError('JDK identity inventory budget')
+        if 'release' in names:
+            release = Path(folder) / 'release'
+            if not release.is_symlink() and release.stat().st_size <= 32768:
+                installed_java.append(dict(root=folder, release=release.read_text(encoding='utf-8')))
+report = dict(schema=1, installed_jdk_release_metadata=installed_java, static_binary_option_fragments=binary_option_strings, installed_rust_metadata=rust_metadata, selected_configuration_text=static_text, available_rust_version_directories=rustup_versions, available_go_version_directories=go_versions, codeql_version_directory='2.27.4', rust_version_directory='1.99.1',
               files=rows, bytes_hashed=scanned, missing_roots=missing,
               package_code_executed=False, tool_binaries_executed=False,
               installation=False, downloads=False, private_credentials_read=False,
