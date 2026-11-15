@@ -30,6 +30,9 @@ def probe(target, work):
     records, patches, executable = tool.materialize_runtime(runtime, npm, node, patcher)
     source = runtime / 'esbuild-reviewed'
     identity = fork.stage(archive, ROOT, source)
+    # First-party fixture setup creates this owned alias. The Node process keeps
+    # its scoped filesystem permissions and is not allowed to create symlinks.
+    (runtime / 'runtime-alias').symlink_to(target)
     fixture = runtime / 'probe.cjs'
     fixture.write_text("""'use strict';
 const assert = require('node:assert/strict');
@@ -48,7 +51,6 @@ fs.writeFileSync(changed, bytes);
 process.env.ESBUILD_BINARY_PATH = changed;
 assert.throws(guard, /does not match/);
 const alias = path.join(__dirname, 'runtime-alias');
-fs.symlinkSync(original, alias);
 process.env.ESBUILD_BINARY_PATH = alias;
 assert.throws(guard, /regular file/);
 process.env.ESBUILD_BINARY_PATH = original;

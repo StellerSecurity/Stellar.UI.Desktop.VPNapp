@@ -29,7 +29,7 @@ jobs:
           files = {
               'scripts/build-reviewed-esbuild.py': ('d4d270d9dbc899e60c0c6acb80e692e5c27d194418f046f5d78c89f54f56f5f5', 65536),
               'native/codeql/esbuild-rebuild-plan.json': ('4e72a0eda4521c3f5c3647c2a130323d0e0f96bc6678d1ee61791d98c273edc4', 65536),
-              'scripts/probe-reviewed-esbuild-api.py': ('e8f7aefe1782660c186afe4ec0d8d344d8cd28dd428438674d80c41369affdc3', 65536),
+              'scripts/probe-reviewed-esbuild-api.py': ('2afde97633a19b3a34fc06753f1f606270ad07eb252058da69a5376bf957d917', 65536),
               'scripts/linux-npm-backport-probe.py': ('aaccee6c9eec318efdd5c3cebf1d8986f6758eeb3990dc171760f07c0a820556', 65536),
               'scripts/patch-reviewed-npm-tool.py': ('b256f3844d01e55da6ac8fd38f48985ec6dae7bb9ecb1953d53ddc603d964fa3', 65536),
               'scripts/stage-reviewed-esbuild-fork.py': ('de9268edf1dc7266fc66bf653d07b43134926d62981bdff0763e0b5e489bf8bf', 65536),
