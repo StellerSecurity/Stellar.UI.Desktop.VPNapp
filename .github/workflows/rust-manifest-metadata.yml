@@ -1,0 +1,49 @@
+name: Rust manifest metadata diagnostic
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['stellar/codeql-vendor-workspace-20261115']
+    paths:
+      - '.github/workflows/rust-manifest-metadata.yml'
+      - 'scripts/rust-manifest-metadata.py'
+      - 'native/codeql/app-metadata-inputs.json'
+
+permissions: {}
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Read actual Cargo manifests without build scripts
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        shell: python
+        run: |
+          import hashlib, os, pathlib, re, subprocess, sys, tempfile, urllib.request
+          commit = os.environ['SOURCE_COMMIT']
+          if not re.fullmatch('[a-f0-9]{40}', commit):
+              raise ValueError('exact first-party commit required')
+          files = {
+              'scripts/rust-manifest-metadata.py': ('80add078c845793d7f51e4cf22ce04c3ddedd8a7beff289e023e82645b00e870', 65536),
+              'scripts/codeql-rust-probe.py': ('51992ff68b94b0fd1f45b8187e93753a149cabfdadb429ae301a3968ecc3062e', 65536),
+              'native/codeql/app-metadata-inputs.json': ('a9738f4c3e98c02edbe4b8a9e74bab3d6e53aff29936a4ec39f870c9f0b55a4d', 65536),
+              'native/codeql/runtime-review.json': ('c8965ee984ca699e87fead31b46c68330c645759f85bd63711c77ebe64eaf0db', 262144),
+          }
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, *args, **kwargs):
+                  return None
+          opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
+          with tempfile.TemporaryDirectory(prefix='stellar-rust-metadata-') as folder:
+              root = pathlib.Path(folder)
+              for name, (expected, limit) in files.items():
+                  url = 'https://raw.githubusercontent.com/StellerSecurity/Stellar.UI.Desktop.VPNapp/' + commit + '/' + name
+                  with opener.open(url, timeout=30) as response:
+                      if response.geturl() != url:
+                          raise ValueError('unexpected source response')
+                      raw = response.read(limit + 1)
+                  if len(raw) > limit or hashlib.sha256(raw).hexdigest() != expected:
+                      raise ValueError('first-party metadata helper drift')
+                  (root / pathlib.Path(name).name).write_bytes(raw)
+              subprocess.run([sys.executable, str(root / 'rust-manifest-metadata.py')], check=True, timeout=480)
