@@ -95,5 +95,26 @@ class BodyCoverageTests(unittest.TestCase):
             layout.validate_bodies(result)
 
 
+class SourceSnapshotTests(unittest.TestCase):
+    def test_changes_and_added_files_are_observable(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / 'Cargo.toml').write_text('[workspace]\n')
+            before = layout.source_snapshot(root)
+            (root / 'Cargo.toml').write_text('[package]\n')
+            self.assertNotEqual(layout.source_snapshot(root), before)
+            (root / 'Cargo.toml').write_text('[workspace]\n')
+            (root / 'injected.rs').write_text('fn injected() {}\n')
+            self.assertNotEqual(layout.source_snapshot(root), before)
+
+    def test_source_symlink_is_rejected(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / 'source.rs').write_text('fn original() {}\n')
+            (root / 'alias.rs').symlink_to(root / 'source.rs')
+            with self.assertRaisesRegex(ValueError, 'source symlink'):
+                layout.source_snapshot(root)
+
+
 if __name__ == '__main__':
     unittest.main()

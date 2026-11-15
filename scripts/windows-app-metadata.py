@@ -79,6 +79,22 @@ def validate_bodies(result):
     return sorted(observed)
 
 
+
+def source_snapshot(source):
+    snapshot = {}
+    total = 0
+    for path in sorted(source.rglob('*')):
+        if path.is_symlink():
+            raise ValueError('analysis source symlink')
+        if not path.is_file():
+            continue
+        size = path.stat().st_size
+        if size > 8 * 1024**2 or total + size > 32 * 1024**2 or len(snapshot) >= 512:
+            raise ValueError('analysis source snapshot bounds')
+        total += size
+        snapshot[path.relative_to(source).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
+    return snapshot
+
 def body_probe(source, stage, env, guard, runtime):
     codeql = Path(runtime['codeql_root']) / 'codeql.exe'
     schema = Path(runtime['codeql_root']) / 'rust/rust.dbscheme'
@@ -87,9 +103,15 @@ def body_probe(source, stage, env, guard, runtime):
     env.update(CODEQL_JAVA_HOME=runtime['java_root'], CODEQL_DIST=runtime['codeql_root'], CODEQL_PLATFORM='win64')
     env['PATH'] = str(Path(runtime['rust_root']) / 'bin') + ';' + str(Path(runtime['java_root']) / 'bin') + ';C:/Windows/System32'
     database = stage / 'database'
-    commands = [guard.run([str(codeql), 'database', 'create', str(database), '--language=rust', '--build-mode=none',
+    before = source_snapshot(source)
+    commands = [guard.run([str(codeql), 'database', 'create', str(database), '--language=rust', '--build-mode=none', '--no-calculate-baseline',
                           '--source-root=' + str(source), '--extractor-option=rust.extract_dependencies_as_source=true',
-                          '--extractor-option=rust.cargo_features=default', '--threads=2', '--ram=3072'], source, env, 900)]
+                          '--extractor-option=rust.cargo_features=default', '--threads=2', '--ram=3072'], source, env, 900, capture=True)]
+    creation_output = commands[0].pop('output')
+    diagnostics = [line for line in creation_output.splitlines() if 'error' in line.casefold() or 'warning' in line.casefold() or 'failed' in line.casefold()]
+    if len(diagnostics) > 100 or any('[error]' in line.casefold() or 'extraction failed' in line.casefold() for line in diagnostics):
+        print(json.dumps(dict(extraction_diagnostics=diagnostics[:100])))
+        raise ValueError('actual application extraction reported errors')
     queries = stage / 'queries'
     queries.mkdir()
     query = queries / 'application-bodies.ql'
@@ -105,7 +127,9 @@ def body_probe(source, stage, env, guard, runtime):
     commands.append(guard.run([str(codeql), 'bqrs', 'decode', '--format=json', '--output=' + str(decoded), str(output)], stage, env, 30))
     if not decoded.is_file() or decoded.stat().st_size > 1024**2:
         raise ValueError('application query output bounds')
-    return dict(commands=commands, function_bodies=validate_bodies(json.loads(decoded.read_bytes())),
+    if source_snapshot(source) != before:
+        raise ValueError('analysis modified actual source inputs')
+    return dict(commands=commands, extraction_diagnostics=diagnostics, analysis_source_files_unchanged=len(before), function_bodies=validate_bodies(json.loads(decoded.read_bytes())),
                 windows_scope_only=True, security_query_suite_executed=False, release_approved=False)
 
 

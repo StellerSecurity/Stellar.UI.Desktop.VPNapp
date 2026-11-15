@@ -20,9 +20,9 @@ jobs:
           if not re.fullmatch('[a-f0-9]{40}', commit):
               raise ValueError('exact first-party commit required')
           files = {
-              'scripts/windows-codeql-probe.py': ('8fb75ed68c0e584a10c8fdc6b5f8309ab623ec447c67c19ee2abfc5c7e021897', 65536),
+              'scripts/windows-codeql-probe.py': ('e31b5cc2b344e86b26d6dff8a2847062ca482c94ce47b550bdbf712b7c20697c', 65536),
               'scripts/codeql-layout-probe.py': ('caa01ad8ba40a5455ba046b273956a37d3c8fe78ea3d7c5cbd44ca1b26aa8224', 65536),
-              'native/codeql/windows-codeql-probe-plan.json': ('08871742b13a69733201ed9464d6c6ef51fe39e54642ffacb9c14afb95e5f144', 524288),
+              'native/codeql/windows-codeql-probe-plan.json': ('21f0e631884a873028a5b8d9f875bb233ed0ca4a82029a8cbf4397e52e67cf08', 524288),
           }
           with tempfile.TemporaryDirectory(prefix='stellar-windows-codeql-') as folder:
               root = pathlib.Path(folder)

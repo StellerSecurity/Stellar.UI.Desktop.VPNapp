@@ -47,8 +47,12 @@ def run(command, cwd, env, seconds, capture=False):
                 raise OSError(ctypes.get_last_error(), 'process job assignment failed')
             started = time.monotonic()
             while process.poll() is None:
-                if time.monotonic() - started > seconds or os.fstat(log.fileno()).st_size > 8 * 1024**2:
-                    raise ValueError('probe time/output limit')
+                elapsed = time.monotonic() - started
+                size = os.fstat(log.fileno()).st_size
+                if elapsed > seconds or size > 8 * 1024**2:
+                    log.seek(max(0, size - 16000))
+                    print(log.read(16000).decode(errors='replace'))
+                    raise ValueError('probe limit: elapsed=' + str(round(elapsed, 1)) + ', bytes=' + str(size))
                 time.sleep(0.1)
             log.seek(0)
             raw = log.read(8 * 1024**2 + 1)
