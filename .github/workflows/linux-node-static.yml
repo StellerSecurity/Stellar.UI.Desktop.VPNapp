@@ -1,0 +1,30 @@
+name: Linux Node official artifact static review
+on:
+  workflow_dispatch:
+  push:
+    branches: ['stellar/codeql-vendor-workspace-20261115']
+    paths: ['.github/workflows/linux-node-static.yml', 'scripts/linux-node-static.py']
+permissions: {}
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - name: Inspect immutable official runtime bytes without execution
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        shell: python
+        run: |
+          import hashlib, os, pathlib, re, subprocess, sys, tempfile, urllib.request
+          commit = os.environ['SOURCE_COMMIT']
+          if not re.fullmatch('[a-f0-9]{40}', commit):
+              raise ValueError('exact first-party source commit required')
+          url = 'https://raw.githubusercontent.com/StellerSecurity/Stellar.UI.Desktop.VPNapp/' + commit + '/scripts/linux-node-static.py'
+          with urllib.request.urlopen(url, timeout=30) as response:
+              data = response.read(65537)
+              if response.geturl() != url or len(data) > 65536 or hashlib.sha256(data).hexdigest() != 'e48fe1a837c83361b468296edf67544e9e46f367697241d654d1ae98aab15c4c':
+                  raise ValueError('static reader source drift')
+          with tempfile.TemporaryDirectory(prefix='stellar-node-static-') as directory:
+              reader = pathlib.Path(directory) / 'reader.py'
+              reader.write_bytes(data)
+              subprocess.run([sys.executable, str(reader)], check=True, timeout=150)
