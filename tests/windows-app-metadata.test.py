@@ -174,5 +174,17 @@ class StitchedSysrootTests(unittest.TestCase):
             layout.prepare_stitched_sysroot(self.root, self.root / 'retained.toml')
 
 
+class CompilerResourcePathTests(unittest.TestCase):
+    def test_original_long_layout_is_rejected_before_compiler_execution(self):
+        path = r'C:\Users\runneradmin\AppData\Local\Temp\stellar-app-analysis-lyti2coz\stellar-codeql-stage-f6e8b06913664e8e9710fa27f9d070e8'
+        with self.assertRaisesRegex(ValueError, 'resource-loader budget'):
+            layout.native_resource_path_budget(path)
+
+    def test_short_owned_layout_retains_headroom_for_compiler_resources(self):
+        path = r'C:\Users\runneradmin\AppData\Local\Temp\s-abcdefgh\q-0123456789ab'
+        result = layout.native_resource_path_budget(path)
+        self.assertLess(result['projected_native_resource_path_chars'], result['limit_chars'])
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -26,12 +26,12 @@ jobs:
               'scripts/windows-codeql-toolchain.ps1': ('583313a8db4d59507ce06580e80a72304a0f66fa40f80b9e671ca8644383cdde', 524288),
               'native/codeql/rust-sysroot-source-inputs.json': ('002ff08b64041193a2991dfd6438263645bdb4c07b7ae6e96520f614ad722ef8', 2097152),
               'scripts/stage-reviewed-rust-sysroot.py': ('39cee2a4fd131e0f8910fe53d15f34b5df1791eb9e02b735e31be39a4516c9af', 2097152),
-              'scripts/windows-app-metadata.py': ('361b770c9aff964bd0c91fa8b7795a8a3e981d914c49ff08f9ab83ca0372ac2c', 524288),
-              'scripts/windows-codeql-source.ps1': ('9482bf246b971803556f584a0d2d19b108f13310c0bbf78b0735c9e44f6d2894', 524288),
+              'scripts/windows-app-metadata.py': ('e940be38abd678d94a3e7e571943310af3303986b024a4cc0ec661cd099cb874', 524288),
+              'scripts/windows-codeql-source.ps1': ('c8c0db3048059567f0678949530923079b00aa617bc0c93baa5c20ef34f6d766', 524288),
               'scripts/windows-codeql-probe.py': ('f3a792800c5cb12c913e847c93bd72cb59921a38c56710e59451b33ce1282212', 524288),
               'native/codeql/windows-codeql-probe-plan.json': ('ec6220c54a86ab0139682b09b213d77e455564a8a8d414acd96628a7bf37be14', 524288),
               'native/codeql/windows-app-source-inputs.json': ('d867ca1414b3d6db0e809d0fe3ba0b2c8291955dde4e17122862a20bcbe8764e', 524288),
-              'native/codeql/windows-app-metadata-plan.json': ('47976ce5dd8aec58d6315dceb34eeb266932c85e070ec1c30ee94fb4c5092413', 524288),
+              'native/codeql/windows-app-metadata-plan.json': ('511ae7ac981fc083ad53c24230dd4c5fe57c53c48787fb0951c9befd1eaf74f7', 524288),
           }
           with tempfile.TemporaryDirectory(prefix='stellar-app-metadata-') as folder:
               root = pathlib.Path(folder)

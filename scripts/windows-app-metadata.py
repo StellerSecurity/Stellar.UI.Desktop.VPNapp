@@ -156,6 +156,17 @@ def prepare_stitched_sysroot(root, retained_manifest):
                 full_standard_library_dependency_graph=False)
 
 
+def native_resource_path_budget(stage):
+    # The exact reviewed compiler copies clui.dll below the root crate's OUT_DIR.
+    # Its language-resource loader still fails at MAX_PATH even when Python and
+    # Rust accept the longer path. Reserve worst-case PID/nonce lengths up front.
+    projected = str(stage) + '/database/working/target/debug/build/stellar-vpn-desktop-' + 'f' * 16
+    projected += '/out/stellar-native-' + '9' * 10 + '-' + '9' * 20 + '/tools/1033/clui.dll'
+    if len(projected) >= 240:
+        raise ValueError('analysis path exceeds reviewed compiler resource-loader budget')
+    return dict(projected_native_resource_path_chars=len(projected), limit_chars=240)
+
+
 def security_suite(stage, env, guard, runtime, database):
     """Run the unmodified official suite from verified source-only local packs."""
     helper_path = Path(__file__).with_name('stage-reviewed-rust-queries.py')
@@ -235,6 +246,7 @@ def security_suite(stage, env, guard, runtime, database):
                 security_query_suite_executed=True, release_approved=False)
 
 def body_probe(source, stage, env, guard, runtime):
+    path_budget = native_resource_path_budget(stage)
     codeql = Path(runtime['codeql_root']) / 'codeql.exe'
     schema = Path(runtime['codeql_root']) / 'rust/rust.dbscheme'
     if hashlib.sha256(schema.read_bytes()).hexdigest() != 'f412b260f76bdaad67d06973b8edc65e057ba723bd206d9fd12e653fa0aaf900':
@@ -324,7 +336,7 @@ def body_probe(source, stage, env, guard, runtime):
     security = security_suite(stage, env, guard, runtime, database)
     if source_snapshot(source) != before:
         raise ValueError('security suite modified actual source inputs')
-    return dict(commands=commands, sysroot_analysis_inputs=sysroot, reviewed_compiler_preparation=native, native_build_approval_layout=native_approval, extraction_diagnostics=diagnostics, analysis_source_files_unchanged=len(before), function_bodies=bodies, security_analysis=security,
+    return dict(commands=commands, sysroot_analysis_inputs=sysroot, reviewed_compiler_preparation=native, native_build_approval_layout=native_approval, native_path_budget=path_budget, extraction_diagnostics=diagnostics, analysis_source_files_unchanged=len(before), function_bodies=bodies, security_analysis=security,
                 windows_scope_only=True, coverage_diagnostics_status='requires-review' if diagnostics else 'no-diagnostics',
                 security_query_suite_executed=True, release_approved=False)
 
@@ -349,7 +361,7 @@ def main():
     spec = importlib.util.spec_from_file_location('firstparty_windows_guard', helper)
     guard = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(guard)
-    with tempfile.TemporaryDirectory(prefix='stellar-app-analysis-') as folder:
+    with tempfile.TemporaryDirectory(prefix='s-') as folder:
         work = Path(folder).resolve(strict=True)
         for name in ('home', 'temp', 'rustup'):
             (work / name).mkdir()

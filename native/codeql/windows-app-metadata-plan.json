@@ -4,7 +4,7 @@
   "app_reference": "a96d5a58029b316cce4cab9d3c4daeabc24d2312",
   "runtime_plan_sha256": "ec6220c54a86ab0139682b09b213d77e455564a8a8d414acd96628a7bf37be14",
   "first_party_inputs": {
-    "windows-codeql-source.ps1": "9482bf246b971803556f584a0d2d19b108f13310c0bbf78b0735c9e44f6d2894",
+    "windows-codeql-source.ps1": "c8c0db3048059567f0678949530923079b00aa617bc0c93baa5c20ef34f6d766",
     "windows-codeql-probe.py": "f3a792800c5cb12c913e847c93bd72cb59921a38c56710e59451b33ce1282212",
     "windows-app-source-inputs.json": "d867ca1414b3d6db0e809d0fe3ba0b2c8291955dde4e17122862a20bcbe8764e",
     "stage-reviewed-rust-sysroot.py": "39cee2a4fd131e0f8910fe53d15f34b5df1791eb9e02b735e31be39a4516c9af",

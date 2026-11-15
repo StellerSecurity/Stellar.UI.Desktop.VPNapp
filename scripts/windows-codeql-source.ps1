@@ -5,7 +5,8 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 if ($SourceCommit -notmatch '^[a-f0-9]{40}$') { throw 'Exact first-party source commit required.' }
 $manifest = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'windows-app-source-inputs.json') -Raw | ConvertFrom-Json
-$stage = Join-Path $env:RUNNER_TEMP ('stellar-codeql-stage-' + [Guid]::NewGuid().ToString('N'))
+$stage = Join-Path $env:RUNNER_TEMP ('q-' + [Guid]::NewGuid().ToString('N').Substring(0, 12))
+if (Test-Path -LiteralPath $stage) { throw 'Fresh analysis staging directory required.' }
 $root = Join-Path $stage 'source'
 [IO.Directory]::CreateDirectory($root) | Out-Null
 $utf8 = New-Object Text.UTF8Encoding($false)
