@@ -1,0 +1,47 @@
+name: Rust CodeQL isolated first-party probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['stellar/codeql-vendor-workspace-20261115']
+    paths:
+      - '.github/workflows/codeql-rust-probe.yml'
+      - 'scripts/codeql-rust-probe.py'
+      - 'native/codeql/runtime-review.json'
+
+permissions: {}
+
+jobs:
+  verify-runtime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Verify pinned runtime and first-party probe
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+          EXECUTE_USER_APPROVED_PROBE: 'false'
+        shell: python
+        run: |
+          import hashlib, os, pathlib, re, subprocess, sys, tempfile, urllib.request
+          commit = os.environ['SOURCE_COMMIT']
+          if not re.fullmatch('[a-f0-9]{40}', commit):
+              raise ValueError('exact first-party commit required')
+          files = {
+              'scripts/codeql-rust-probe.py': ('51992ff68b94b0fd1f45b8187e93753a149cabfdadb429ae301a3968ecc3062e', 65536),
+              'native/codeql/runtime-review.json': ('c8965ee984ca699e87fead31b46c68330c645759f85bd63711c77ebe64eaf0db', 262144),
+          }
+          with tempfile.TemporaryDirectory(prefix='stellar-codeql-preflight-') as folder:
+              root = pathlib.Path(folder)
+              for name, (expected, limit) in files.items():
+                  url = 'https://raw.githubusercontent.com/StellerSecurity/Stellar.UI.Desktop.VPNapp/' + commit + '/' + name
+                  with urllib.request.urlopen(url, timeout=30) as response:
+                      data = response.read(limit + 1)
+                  if len(data) > limit or hashlib.sha256(data).hexdigest() != expected:
+                      raise ValueError('first-party harness/plan changed')
+                  (root / pathlib.Path(name).name).write_bytes(data)
+              command = [sys.executable, str(root / 'codeql-rust-probe.py'), '--manifest', str(root / 'runtime-review.json')]
+              if os.environ['EXECUTE_USER_APPROVED_PROBE'] == 'true':
+                  command += ['--approved-plan-sha256', 'c8965ee984ca699e87fead31b46c68330c645759f85bd63711c77ebe64eaf0db']
+              elif os.environ['EXECUTE_USER_APPROVED_PROBE'] != 'false':
+                  raise ValueError('unknown execution mode')
+              subprocess.run(command, check=True, timeout=420)
