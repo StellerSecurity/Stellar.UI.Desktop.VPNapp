@@ -110,6 +110,25 @@ def body_probe(source, stage, env, guard, runtime):
     spec.loader.exec_module(helper)
     sysroot = helper.stage_source(stage / 'reviewed-sysroot-source', profile)
     env['RUST_SRC_PATH'] = sysroot['source_root']
+    env['PATH'] += ';C:/Windows/System32/WindowsPowerShell/v1.0'
+    state_file = stage / 'reviewed-toolchain-environment.json'
+    toolchain = Path(__file__).with_name('windows-codeql-toolchain.ps1')
+    guard.run(['C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe', '-NoProfile', '-NonInteractive',
+               '-File', str(toolchain), '-SourceRoot', str(source), '-OutputDirectory', str(stage / 'reviewed-toolchain'),
+               '-StateFile', str(state_file)], stage, env, 120)
+    if not state_file.is_file() or state_file.stat().st_size > 65536:
+        raise ValueError('reviewed compiler preparation state bounds')
+    native = json.loads(state_file.read_bytes())
+    allowed = {'PATH', 'INCLUDE', 'LIB', 'LIBPATH', 'RC', 'RC_x86_64_pc_windows_msvc',
+               'CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER', 'CC_x86_64_pc_windows_msvc',
+               'CXX_x86_64_pc_windows_msvc', 'AR_x86_64_pc_windows_msvc'}
+    if set(native['environment']) != allowed or native['nativeProgramsExecuted'] is not False:
+        raise ValueError('unexpected compiler preparation scope')
+    for name, value in native.pop('environment').items():
+        if not isinstance(value, str):
+            raise ValueError('invalid compiler environment data')
+        env[name] = value
+    print(json.dumps(dict(reviewed_compiler_preparation=native)))
     before = source_snapshot(source)
     commands = [guard.run([str(codeql), 'database', 'create', str(database), '--language=rust', '--build-mode=none', '--no-calculate-baseline',
                           '--source-root=' + str(source), '--extractor-option=rust.extract_dependencies_as_source=false',
@@ -138,7 +157,7 @@ def body_probe(source, stage, env, guard, runtime):
         raise ValueError('application query output bounds')
     if source_snapshot(source) != before:
         raise ValueError('analysis modified actual source inputs')
-    return dict(commands=commands, sysroot_analysis_inputs=sysroot, extraction_diagnostics=diagnostics, analysis_source_files_unchanged=len(before), function_bodies=validate_bodies(json.loads(decoded.read_bytes())),
+    return dict(commands=commands, sysroot_analysis_inputs=sysroot, reviewed_compiler_preparation=native, extraction_diagnostics=diagnostics, analysis_source_files_unchanged=len(before), function_bodies=validate_bodies(json.loads(decoded.read_bytes())),
                 windows_scope_only=True, coverage_diagnostics_status='requires-review' if diagnostics else 'no-diagnostics',
                 security_query_suite_executed=False, release_approved=False)
 
