@@ -1,0 +1,29 @@
+name: Windows Rust query pack static inventory
+on:
+  push:
+    branches: ['stellar/codeql-vendor-workspace-20261115']
+    paths: ['scripts/windows-rust-query-inventory.py', '.github/workflows/windows-rust-query-inventory.yml']
+permissions: {}
+jobs:
+  inventory:
+    runs-on: windows-2022
+    timeout-minutes: 5
+    steps:
+      - name: Read installed query-pack metadata without execution
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        shell: python
+        run: |
+          import hashlib, os, pathlib, re, subprocess, sys, tempfile, urllib.request
+          commit = os.environ['SOURCE_COMMIT']
+          if not re.fullmatch('[a-f0-9]{40}', commit):
+              raise ValueError('exact first-party source required')
+          url = 'https://raw.githubusercontent.com/StellerSecurity/Stellar.UI.Desktop.VPNapp/' + commit + '/scripts/windows-rust-query-inventory.py'
+          with urllib.request.urlopen(url, timeout=30) as response:
+              raw = response.read(65537)
+              if response.geturl() != url or len(raw) > 65536 or hashlib.sha256(raw).hexdigest() != '9a75fd71b7e0050132531103ce1374541f22a8f22f799cba008b98d3f071ae1e':
+                  raise ValueError('static inventory helper drift')
+          with tempfile.TemporaryDirectory(prefix='stellar-query-inventory-') as folder:
+              script = pathlib.Path(folder) / 'inventory.py'
+              script.write_bytes(raw)
+              subprocess.run([sys.executable, str(script)], check=True, timeout=120)
