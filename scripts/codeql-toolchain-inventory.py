@@ -79,7 +79,21 @@ for toolchain in rustup_versions:
         decoded = tomllib.loads(metadata.read_text(encoding='utf-8'))
         rust_metadata[toolchain] = dict(rust_version=decoded['pkg']['rust']['version'],
                                         cargo_version=decoded['pkg']['cargo']['version'])
-report = dict(schema=1, installed_rust_metadata=rust_metadata, selected_configuration_text=static_text, available_rust_version_directories=rustup_versions, available_go_version_directories=go_versions, codeql_version_directory='2.27.4', rust_version_directory='1.99.1',
+binary_option_strings = {}
+import re
+for relative in ('rust/tools/linux64/autobuild', 'rust/tools/linux64/extractor'):
+    candidate = codeql_root / relative
+    if candidate.is_file() and not candidate.is_symlink() and candidate.stat().st_size <= 48 * 1024**2:
+        data = candidate.read_bytes()
+        hits = set()
+        for match in re.finditer(rb'CODEQL_[A-Z_0-9]{3,160}|(?:manifest_path|linked_projects|run_build_scripts|build_scripts|cargo_manifest|project_manifest|cargo_metadata)', data):
+            lo = max(0, match.start() - 64)
+            hi = min(len(data), match.end() + 128)
+            hits.add(data[lo:hi].decode('utf-8', errors='backslashreplace'))
+            if len(hits) > 256:
+                raise ValueError('static option string budget')
+        binary_option_strings[relative] = dict(sha256=hashlib.sha256(data).hexdigest(), fragments=sorted(hits), purpose='configuration discovery only; not full native code review')
+report = dict(schema=1, static_binary_option_fragments=binary_option_strings, installed_rust_metadata=rust_metadata, selected_configuration_text=static_text, available_rust_version_directories=rustup_versions, available_go_version_directories=go_versions, codeql_version_directory='2.27.4', rust_version_directory='1.99.1',
               files=rows, bytes_hashed=scanned, missing_roots=missing,
               package_code_executed=False, tool_binaries_executed=False,
               installation=False, downloads=False, private_credentials_read=False,
