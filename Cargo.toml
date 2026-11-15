@@ -1,6 +1,8 @@
 [workspace]
 members = ["src-tauri", "crates/stellar-core", "crates/stellar-vpn-helper"]
 resolver = "2"
+# Path patches stay dependencies; they are not independent workspace members.
+exclude = ["vendor/glib-0.18.5", "vendor/embed-resource-3.0.12"]
 
 [workspace.package]
 edition = "2021"

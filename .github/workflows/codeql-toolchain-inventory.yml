@@ -1,0 +1,27 @@
+name: CodeQL toolchain static inventory
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Inspect preinstalled files without executing tools
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        shell: python
+        run: |
+          import hashlib, os, re, urllib.request
+          commit = os.environ['SOURCE_COMMIT']
+          if not re.fullmatch('[a-f0-9]{40}', commit):
+              raise ValueError('exact first-party commit required')
+          url = 'https://raw.githubusercontent.com/StellerSecurity/Stellar.UI.Desktop.VPNapp/' + commit + '/scripts/codeql-toolchain-inventory.py'
+          with urllib.request.urlopen(url, timeout=30) as response:
+              source = response.read(65537)
+          if len(source) > 65536 or hashlib.sha256(source).hexdigest() != '1ec6df31c35f0df96298ae7e0ad2864a6be923c969ad38107f2a8cc97c74cdd1':
+              raise ValueError('first-party inventory script changed')
+          exec(compile(source, 'reviewed-first-party-inventory.py', 'exec'), {'__name__': '__main__'})
