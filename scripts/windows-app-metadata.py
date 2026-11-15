@@ -208,6 +208,7 @@ def security_suite(stage, env, guard, runtime, database):
         raise ValueError('official suite selected no security queries')
     sarif_path = stage / 'rust-security-and-quality.sarif'
     command = [codeql, 'database', 'analyze', str(database), str(suite), '--no-download',
+               '--threat-model=all',
                '--format=sarifv2.1.0', '--output=' + str(sarif_path), '--threads=2', '--ram=3072',
                '--no-default-compilation-cache', '--compilation-cache=' + str(stage / 'query-compilation'),
                '--no-sarif-add-file-contents', '--no-sarif-add-snippets', '--no-sarif-add-query-help'] + common
@@ -238,7 +239,7 @@ def security_suite(stage, env, guard, runtime, database):
             notifications.extend(invocation.get('toolConfigurationNotifications', []))
     if len(findings) > 10000 or len(notifications) > 10000:
         raise ValueError('security suite result count bounds')
-    return dict(suite='rust-security-and-quality', source_projection=copied, commands=[resolved, query_resolution, analyzed], selected_query_files=selected,
+    return dict(suite='rust-security-and-quality', threat_models='all', source_projection=copied, commands=[resolved, query_resolution, analyzed], selected_query_files=selected,
                 query_rule_ids=sorted(set(rules)), findings=findings, notifications=notifications,
                 analysis_properties=analysis_properties,
                 resolution_diagnostics=resolution_diagnostics, diagnostics=diagnostics, source_files_unchanged=len(before),
