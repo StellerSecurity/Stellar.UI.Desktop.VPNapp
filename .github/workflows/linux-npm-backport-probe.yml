@@ -1,0 +1,36 @@
+name: Isolated patched tool dependency regressions
+on:
+  workflow_dispatch:
+  push:
+    branches: ['stellar/codeql-vendor-workspace-20261115']
+    paths: ['.github/workflows/linux-npm-backport-probe.yml', 'scripts/linux-npm-backport-probe.py', 'scripts/patch-reviewed-npm-tool.py', 'scripts/npm-backport-regression.cjs']
+permissions: {}
+jobs:
+  regressions:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - name: Test reviewed backports with frozen inputs and runtime permission limits
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        shell: python
+        run: |
+          import hashlib, os, pathlib, re, subprocess, sys, tempfile, urllib.request
+          commit = os.environ['SOURCE_COMMIT']
+          if not re.fullmatch('[a-f0-9]{40}', commit):
+              raise ValueError('exact first-party source commit required')
+          files = {
+              'scripts/linux-npm-backport-probe.py': '8afa1ed843e60f95b1be7b33a2bd344dd08fcc4b5fd088d97415f3467b1fff82',
+              'scripts/patch-reviewed-npm-tool.py': 'b256f3844d01e55da6ac8fd38f48985ec6dae7bb9ecb1953d53ddc603d964fa3',
+              'scripts/npm-backport-regression.cjs': 'd20d668d3d8168aa8ca4603972467702d154c7697ffa4a15a26595a436466a4f',
+          }
+          with tempfile.TemporaryDirectory(prefix='stellar-reviewed-tool-') as directory:
+              root = pathlib.Path(directory)
+              for name, expected in files.items():
+                  url = 'https://raw.githubusercontent.com/StellerSecurity/Stellar.UI.Desktop.VPNapp/' + commit + '/' + name
+                  with urllib.request.urlopen(url, timeout=30) as response:
+                      data = response.read(262145)
+                      if response.geturl() != url or len(data) > 262144 or hashlib.sha256(data).hexdigest() != expected:
+                          raise ValueError('first-party reviewed tool helper drift')
+                  (root / pathlib.Path(name).name).write_bytes(data)
+              subprocess.run([sys.executable, str(root / 'linux-npm-backport-probe.py')], check=True, timeout=180)
