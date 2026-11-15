@@ -13,6 +13,7 @@ rows = []
 scanned = 0
 roots = [Path('/opt/hostedtoolcache/CodeQL/2.27.4/x64/codeql'),
          Path.home() / '.rustup/toolchains/1.99.1-x86_64-unknown-linux-gnu',
+         Path.home() / '.rustup/toolchains/stable-x86_64-unknown-linux-gnu',
          Path('/opt/hostedtoolcache/go/1.26.4/x64')]
 missing = []
 for root in roots:
@@ -31,7 +32,7 @@ for root in roots:
             if time.monotonic() - started > 90 or len(rows) >= LIMIT_FILES:
                 raise ValueError('static inventory budget')
             relative = str(path.relative_to(root))
-            rust_tool = (root.name.startswith('1.99.1-') and
+            rust_tool = (root.name.startswith(('1.99.1-', 'stable-')) and
                          (relative.startswith(('bin/', 'libexec/',
                                                'lib/rustlib/x86_64-unknown-linux-gnu/lib/'))
                           or relative.startswith(('lib/librustc_', 'lib/libLLVM'))))
@@ -62,13 +63,23 @@ go_versions = sorted(p.name for p in go_cache.iterdir() if p.is_dir()) if go_cac
 static_text = {}
 codeql_root = roots[0]
 for relative in ('rust/codeql-extractor.yml', 'rust/tools/autobuild.sh',
-                 'rust/tools/index-files.sh'):
+                 'rust/tools/index-files.sh', 'codeql', 'tools/linux64/java/release'):
     candidate = codeql_root / relative
     if candidate.is_file() and not candidate.is_symlink() and candidate.stat().st_size <= 32768:
         static_text[relative] = candidate.read_text(encoding='utf-8')
 rustup_root = Path.home() / '.rustup/toolchains'
 rustup_versions = sorted(p.name for p in rustup_root.iterdir() if p.is_dir()) if rustup_root.is_dir() else []
-report = dict(schema=1, selected_configuration_text=static_text, available_rust_version_directories=rustup_versions, available_go_version_directories=go_versions, codeql_version_directory='2.27.4', rust_version_directory='1.99.1',
+rust_metadata = {}
+for toolchain in rustup_versions:
+    if toolchain not in ('1.99.1-x86_64-unknown-linux-gnu', 'stable-x86_64-unknown-linux-gnu'):
+        continue
+    metadata = rustup_root / toolchain / 'lib/rustlib/multirust-channel-manifest.toml'
+    if metadata.is_file() and not metadata.is_symlink() and metadata.stat().st_size <= 2 * 1024**2:
+        import tomllib
+        decoded = tomllib.loads(metadata.read_text(encoding='utf-8'))
+        rust_metadata[toolchain] = dict(rust_version=decoded['pkg']['rust']['version'],
+                                        cargo_version=decoded['pkg']['cargo']['version'])
+report = dict(schema=1, installed_rust_metadata=rust_metadata, selected_configuration_text=static_text, available_rust_version_directories=rustup_versions, available_go_version_directories=go_versions, codeql_version_directory='2.27.4', rust_version_directory='1.99.1',
               files=rows, bytes_hashed=scanned, missing_roots=missing,
               package_code_executed=False, tool_binaries_executed=False,
               installation=False, downloads=False, private_credentials_read=False,
