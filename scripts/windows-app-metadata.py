@@ -174,8 +174,11 @@ def security_suite(stage, env, guard, runtime, database):
     runs = sarif.get('runs')
     if sarif.get('version') != '2.1.0' or not isinstance(runs, list) or not runs or len(runs) > 4:
         raise ValueError('unexpected security suite SARIF format')
-    findings, notifications, rules = [], [], []
+    findings, notifications, rules, analysis_properties = [], [], [], []
     for run in runs:
+        # Retain coverage/summary metrics, not just alerts. An empty alert list
+        # cannot demonstrate complete extraction or data-flow coverage.
+        analysis_properties.append(run.get('properties', {}))
         rules.extend(rule['id'] for rule in run.get('tool', {}).get('driver', {}).get('rules', []))
         findings.extend(run.get('results', []))
         for invocation in run.get('invocations', []):
@@ -187,6 +190,7 @@ def security_suite(stage, env, guard, runtime, database):
         raise ValueError('security suite result count bounds')
     return dict(suite='rust-security-and-quality', source_projection=copied, commands=[resolved, query_resolution, analyzed], selected_query_files=selected,
                 query_rule_ids=sorted(set(rules)), findings=findings, notifications=notifications,
+                analysis_properties=analysis_properties,
                 resolution_diagnostics=resolution_diagnostics, diagnostics=diagnostics, source_files_unchanged=len(before),
                 sarif_sha256=hashlib.sha256(sarif_path.read_bytes()).hexdigest(),
                 security_query_suite_executed=True, release_approved=False)
