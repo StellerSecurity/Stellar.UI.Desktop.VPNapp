@@ -1,5 +1,4 @@
 *.[mM][dD]
-!/README.md
 .DS_Store
 build/
 dist/
