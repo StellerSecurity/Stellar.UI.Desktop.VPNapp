@@ -19,7 +19,7 @@ jobs:
       - name: Verify pinned runtime and first-party probe
         env:
           SOURCE_COMMIT: ${{ github.sha }}
-          EXECUTE_USER_APPROVED_PROBE: 'true'
+          EXECUTE_USER_APPROVED_PROBE: 'false'
         shell: python
         run: |
           import hashlib, os, pathlib, re, subprocess, sys, tempfile, urllib.request
