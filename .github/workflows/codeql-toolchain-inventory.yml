@@ -2,6 +2,11 @@ name: CodeQL toolchain static inventory
 
 on:
   workflow_dispatch:
+  push:
+    branches: ['stellar/codeql-vendor-workspace-20261115']
+    paths:
+      - '.github/workflows/codeql-toolchain-inventory.yml'
+      - 'scripts/codeql-toolchain-inventory.py'
 
 permissions: {}
 
