@@ -46,6 +46,12 @@ def tar_files(raw, prefix, maximum):
         for item in archive:
             if item.isdir():
                 continue
+            if (prefix == 'evanw-esbuild-bb9db84/' and item.issym()
+                    and item.name == prefix + 'scripts/browser/esbuild.wasm.bagel'
+                    and item.linkname == '../../npm/esbuild-wasm/esbuild.wasm'):
+                # Exact upstream browser-test alias, unused by the Go build.
+                # Do not create it; all other links remain an error.
+                continue
             path = PurePosixPath(item.name)
             if not item.isfile() or not item.name.startswith(prefix) or path.is_absolute() or '..' in path.parts:
                 raise ValueError('nonregular or escaping source member')

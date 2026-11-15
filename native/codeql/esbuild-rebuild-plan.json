@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "script_sha256": "2c4bde28d12ef775eb4fea73060b31df5cbcafb473a2fe69ccdbcd0692ca31ad",
+  "script_sha256": "721876d972ba4907d94edf32623503b67b4e15cff65cd2727cc6be46c3cc9751",
   "sdk": "Go 1.26.11 linux/amd64",
   "sdk_tool_sha256": {
     "bin/go": "95499375c24b610cdc9e3684cec920174ec4c4f3f66d35b4332107f0f7d3d27d",
@@ -39,5 +39,10 @@
     "src/internal/runtime/sys/zversion.go": "f69c03727973664529c2e6fa2d2c53b2d3440c887938d0d9b22254f7984052f2",
     "src/time/tzdata/zzipdata.go": "b1cd92e2ea67506152ecdfe00958fb50940eb20e74ed64ebf9efa477d00f40df"
   },
-  "official_sdk_distribution_sha256": "9849f4e04ee35303714e34fbc3ac8ab44ea3e448a95aa182f91e3b9b79c710ec"
+  "official_sdk_distribution_sha256": "9849f4e04ee35303714e34fbc3ac8ab44ea3e448a95aa182f91e3b9b79c710ec",
+  "excluded_exact_unmaterialized_test_alias": {
+    "name": "scripts/browser/esbuild.wasm.bagel",
+    "link": "../../npm/esbuild-wasm/esbuild.wasm",
+    "source_archive_sha256": "96a3e9d485f33cefa1200dbed6a29787f7c7161b0bec4d42dd4b017c40cbc6b5"
+  }
 }
