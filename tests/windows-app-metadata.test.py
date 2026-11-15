@@ -116,5 +116,29 @@ class SourceSnapshotTests(unittest.TestCase):
                 layout.source_snapshot(root)
 
 
+class NativeApprovalLayoutTests(unittest.TestCase):
+    def test_existing_review_is_copied_without_expanding_approval(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            original = root / 'native/windows/compile-approval.json'
+            original.parent.mkdir(parents=True)
+            original.write_bytes((ROOT / 'native/windows/compile-approval.json').read_bytes())
+            proof = layout.stage_native_approval(root)
+            self.assertEqual((root / proof['path']).read_bytes(), original.read_bytes())
+            self.assertEqual(proof['sha256'], hashlib.sha256(original.read_bytes()).hexdigest())
+            with self.assertRaisesRegex(ValueError, 'fresh'):
+                layout.stage_native_approval(root)
+
+    def test_changed_review_is_rejected_before_it_can_satisfy_build_guard(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            original = root / 'native/windows/compile-approval.json'
+            original.parent.mkdir(parents=True)
+            original.write_bytes(b'{"approved":true}')
+            with self.assertRaisesRegex(ValueError, 'changed'):
+                layout.stage_native_approval(root)
+            self.assertFalse((root / '.security-review').exists())
+
+
 if __name__ == '__main__':
     unittest.main()

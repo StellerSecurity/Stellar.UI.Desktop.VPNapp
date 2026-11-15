@@ -96,6 +96,27 @@ def source_snapshot(source):
     return snapshot
 
 
+def stage_native_approval(source):
+    # Match the passed Windows build's exact approval-file layout. Copy the
+    # existing reviewed record unchanged; do not manufacture a new approval or
+    # remove the app build script's guard to make semantic extraction succeed.
+    original = source / 'native/windows/compile-approval.json'
+    if original.is_symlink():
+        raise ValueError('native approval source symlink')
+    raw = original.read_bytes()
+    checksum = hashlib.sha256(raw).hexdigest()
+    if checksum != '88200df590a36a5329ef38921085679905bdd827f5a50cf76304efbc2e28956d':
+        raise ValueError('existing reviewed native approval changed')
+    destination = source / '.security-review'
+    if destination.exists() or destination.is_symlink():
+        raise ValueError('fresh analysis approval directory required')
+    destination.mkdir()
+    path = destination / 'windows-native-compile-approval.json'
+    with path.open('xb') as stream:
+        stream.write(raw)
+    return dict(path=path.relative_to(source).as_posix(), sha256=checksum, copied_without_changes=True)
+
+
 def security_suite(stage, env, guard, runtime, database):
     """Run the unmodified official suite from verified source-only local packs."""
     helper_path = Path(__file__).with_name('stage-reviewed-rust-queries.py')
@@ -211,6 +232,7 @@ def body_probe(source, stage, env, guard, runtime):
             raise ValueError('invalid compiler environment data')
         env[name] = value
     print(json.dumps(dict(reviewed_compiler_preparation=native)))
+    native_approval = stage_native_approval(source)
     before = source_snapshot(source)
     commands = [guard.run([str(codeql), 'database', 'create', str(database), '--language=rust', '--build-mode=none', '--no-calculate-baseline',
                           '--source-root=' + str(source), '--extractor-option=rust.extract_dependencies_as_source=false',
@@ -249,7 +271,7 @@ def body_probe(source, stage, env, guard, runtime):
     security = security_suite(stage, env, guard, runtime, database)
     if source_snapshot(source) != before:
         raise ValueError('security suite modified actual source inputs')
-    return dict(commands=commands, sysroot_analysis_inputs=sysroot, reviewed_compiler_preparation=native, extraction_diagnostics=diagnostics, analysis_source_files_unchanged=len(before), function_bodies=bodies, security_analysis=security,
+    return dict(commands=commands, sysroot_analysis_inputs=sysroot, reviewed_compiler_preparation=native, native_build_approval_layout=native_approval, extraction_diagnostics=diagnostics, analysis_source_files_unchanged=len(before), function_bodies=bodies, security_analysis=security,
                 windows_scope_only=True, coverage_diagnostics_status='requires-review' if diagnostics else 'no-diagnostics',
                 security_query_suite_executed=True, release_approved=False)
 
