@@ -1,4 +1,4 @@
-name: Windows actual Rust source metadata
+name: Windows actual Rust source coverage
 on:
   workflow_dispatch:
   push:
@@ -8,7 +8,7 @@ permissions: {}
 jobs:
   verify:
     runs-on: windows-2022
-    timeout-minutes: 15
+    timeout-minutes: 32
     steps:
       - name: Prepare reviewed sources and verify offline analysis graph
         env:
@@ -20,12 +20,12 @@ jobs:
           if not re.fullmatch('[a-f0-9]{40}', commit):
               raise ValueError('exact first-party commit required')
           files = {
-              'scripts/windows-app-metadata.py': ('85752cd813e8c6847caeaaf3f15cc3c5c11049560c63293b28457cf142ec115f', 524288),
+              'scripts/windows-app-metadata.py': ('e5c50027e376a4c7983bb3591ecc8910217ad74c48a7718ae57f2703cf8a7919', 524288),
               'scripts/windows-codeql-source.ps1': ('9482bf246b971803556f584a0d2d19b108f13310c0bbf78b0735c9e44f6d2894', 524288),
               'scripts/windows-codeql-probe.py': ('8fb75ed68c0e584a10c8fdc6b5f8309ab623ec447c67c19ee2abfc5c7e021897', 524288),
               'native/codeql/windows-codeql-probe-plan.json': ('08871742b13a69733201ed9464d6c6ef51fe39e54642ffacb9c14afb95e5f144', 524288),
               'native/codeql/windows-app-source-inputs.json': ('d867ca1414b3d6db0e809d0fe3ba0b2c8291955dde4e17122862a20bcbe8764e', 524288),
-              'native/codeql/windows-app-metadata-plan.json': ('67c5b9d9c6aff2802bda5f3af58f76f7977af3fd3bdd54459e0d06760cd8cad8', 524288),
+              'native/codeql/windows-app-metadata-plan.json': ('b11b507d3013c5535d9147467e9a4b56129ee1ec84146a5dcb594b3f446f6491', 524288),
           }
           with tempfile.TemporaryDirectory(prefix='stellar-app-metadata-') as folder:
               root = pathlib.Path(folder)
@@ -36,4 +36,4 @@ jobs:
                       if response.geturl() != url or len(raw) > limit or hashlib.sha256(raw).hexdigest() != expected:
                           raise ValueError('reviewed analysis helper drift')
                   (root / pathlib.Path(name).name).write_bytes(raw)
-              subprocess.run([sys.executable, str(root / 'windows-app-metadata.py')], check=True, timeout=780)
+              subprocess.run([sys.executable, str(root / 'windows-app-metadata.py')], check=True, timeout=1800)

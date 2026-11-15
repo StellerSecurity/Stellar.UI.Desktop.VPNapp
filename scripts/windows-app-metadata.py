@@ -45,6 +45,70 @@ def relocate(source, metadata):
     return changes
 
 
+
+BODY_EXPECTED = {
+    ('crates/stellar-core/src/application.rs', 'restore_remembered_identity'),
+    ('crates/stellar-core/src/application.rs', 'renew_account_session'),
+    ('src-tauri/src/commands.rs', 'restore_account_session'),
+    ('src-tauri/src/commands.rs', 'renew_account_session'),
+    ('src-tauri/src/commands.rs', 'logout'),
+    ('src-tauri/src/infrastructure/session.rs', 'save_with'),
+    ('src-tauri/src/infrastructure/session.rs', 'load_with'),
+    ('src-tauri/src/infrastructure/session_windows.rs', 'load_for'),
+    ('src-tauri/src/infrastructure/session_windows.rs', 'save_for'),
+}
+
+
+def validate_bodies(result):
+    rows = result.get('#select', {}).get('tuples') if isinstance(result, dict) else None
+    if not isinstance(rows, list) or len(rows) > 4096:
+        raise ValueError('invalid application body query result')
+    observed = set()
+    for row in rows:
+        if not isinstance(row, list) or len(row) != 2 or not all(isinstance(x, str) for x in row):
+            raise ValueError('invalid application body row')
+        path, name = row[0].replace('\\', '/'), row[1]
+        matches = [pair for pair in BODY_EXPECTED if name == pair[1] and
+                   (path == pair[0] or path.endswith('/' + pair[0]))]
+        if len(matches) == 1:
+            if matches[0] in observed:
+                raise ValueError('duplicate application function body')
+            observed.add(matches[0])
+    if observed != BODY_EXPECTED:
+        raise ValueError('missing actual application function bodies: ' + repr(sorted(BODY_EXPECTED - observed)))
+    return sorted(observed)
+
+
+def body_probe(source, stage, env, guard, runtime):
+    codeql = Path(runtime['codeql_root']) / 'codeql.exe'
+    schema = Path(runtime['codeql_root']) / 'rust/rust.dbscheme'
+    if hashlib.sha256(schema.read_bytes()).hexdigest() != 'f412b260f76bdaad67d06973b8edc65e057ba723bd206d9fd12e653fa0aaf900':
+        raise ValueError('actual application query schema changed')
+    env.update(CODEQL_JAVA_HOME=runtime['java_root'], CODEQL_DIST=runtime['codeql_root'], CODEQL_PLATFORM='win64')
+    env['PATH'] = str(Path(runtime['rust_root']) / 'bin') + ';' + str(Path(runtime['java_root']) / 'bin') + ';C:/Windows/System32'
+    database = stage / 'database'
+    commands = [guard.run([str(codeql), 'database', 'create', str(database), '--language=rust', '--build-mode=none',
+                          '--source-root=' + str(source), '--extractor-option=rust.extract_dependencies_as_source=true',
+                          '--extractor-option=rust.cargo_features=default', '--threads=2', '--ram=3072'], source, env, 900)]
+    queries = stage / 'queries'
+    queries.mkdir()
+    query = queries / 'application-bodies.ql'
+    query.write_bytes(('from @function f, @name n, @block_expr body, @location_default loc, @file file, string label, string path\n'
+                       'where functions(f) and function_names(f, n) and name_texts(n, label) and\n'
+                       'function_function_bodies(f, body) and function_has_implementation(f) and\n'
+                       'locatable_locations(f, loc) and locations_default(loc, file, _, _, _, _) and files(file, path) and\n'
+                       'label = ' + json.dumps(sorted({name for _, name in BODY_EXPECTED})) + '\nselect path, label\n').encode())
+    output = stage / 'application-bodies.bqrs'
+    commands.append(guard.run([str(codeql), 'query', 'run', '--database=' + str(database), '--dbscheme=' + str(schema),
+                               '--output=' + str(output), '--threads=2', '--ram=1024', str(query)], queries, env, 120))
+    decoded = stage / 'application-bodies.json'
+    commands.append(guard.run([str(codeql), 'bqrs', 'decode', '--format=json', '--output=' + str(decoded), str(output)], stage, env, 30))
+    if not decoded.is_file() or decoded.stat().st_size > 1024**2:
+        raise ValueError('application query output bounds')
+    return dict(commands=commands, function_bodies=validate_bodies(json.loads(decoded.read_bytes())),
+                windows_scope_only=True, security_query_suite_executed=False, release_approved=False)
+
+
 def main():
     root = Path(__file__).resolve().parent
     plan = json.loads((root / 'windows-app-metadata-plan.json').read_bytes())
@@ -131,6 +195,7 @@ def main():
                 raise ValueError('unexpected registry package')
         if observed != registry | local:
             raise ValueError('incomplete or expanded offline metadata graph')
+        extraction = body_probe(source, stage, env, guard, runtime) if plan.get('application_body_probe') is True else None
         if hashlib.sha256((source/'Cargo.lock').read_bytes()).hexdigest() != lock_before:
             raise ValueError('lock changed in analysis layout')
         for name, expected in rust_sources.items():
@@ -140,7 +205,7 @@ def main():
                               registry_archives_verified=state['lockedArchivesVerified'],
                               offline_metadata_packages=len(metadata['packages']), moved_vendor_manifests=moved,
                               source_root_contains_cargo_cache=False, lock_unchanged=True,
-                              codeql_application_extraction=False, app_executed=False,
+                              codeql_application_extraction=extraction, app_executed=False,
                               signing=False, released=False)))
 
 

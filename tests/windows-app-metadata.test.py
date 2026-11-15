@@ -66,5 +66,34 @@ class LayoutTests(unittest.TestCase):
             layout.relocate(self.source, self.stage / 'analysis-manifests')
 
 
+class BodyCoverageTests(unittest.TestCase):
+    def result(self):
+        return {'#select': {'tuples': [list(pair) for pair in sorted(layout.BODY_EXPECTED)]}}
+
+    def test_actual_source_pairs_and_windows_paths(self):
+        result = self.result()
+        for row in result['#select']['tuples']:
+            row[0] = 'C:\\reviewed\\source\\' + row[0].replace('/', '\\')
+        self.assertEqual(set(layout.validate_bodies(result)), layout.BODY_EXPECTED)
+
+    def test_missing_auth_function_is_not_coverage(self):
+        result = self.result()
+        result['#select']['tuples'].pop()
+        with self.assertRaisesRegex(ValueError, 'missing actual'):
+            layout.validate_bodies(result)
+
+    def test_duplicate_actual_body_rejects(self):
+        result = self.result()
+        result['#select']['tuples'].append(result['#select']['tuples'][0])
+        with self.assertRaisesRegex(ValueError, 'duplicate'):
+            layout.validate_bodies(result)
+
+    def test_same_name_in_other_dependency_is_not_coverage(self):
+        result = self.result()
+        result['#select']['tuples'][0][0] = 'registry/dependency/src/lib.rs'
+        with self.assertRaisesRegex(ValueError, 'missing actual'):
+            layout.validate_bodies(result)
+
+
 if __name__ == '__main__':
     unittest.main()
