@@ -47,7 +47,7 @@ def main():
                    RUST_SRC_PATH=sysroot['source_root'], CODEQL_EXTRACTOR_RUST_OPTION_SYSROOT=plan['rust_root'],
                    CODEQL_EXTRACTOR_RUST_OPTION_SYSROOT_SRC=sysroot['source_root'],
                    CODEQL_EXTRACTOR_RUST_OPTION_CARGO_EXTRA_ENV='RUSTUP_AUTO_INSTALL=0,CARGO_NET_OFFLINE=true',
-                   CODEQL_EXTRACTOR_RUST_OPTION_LOGGING_VERBOSITY='debug',
+                   CODEQL_EXTRACTOR_RUST_OPTION_LOGGING_VERBOSITY='info',
                    HTTP_PROXY='http://127.0.0.1:9', HTTPS_PROXY='http://127.0.0.1:9', ALL_PROXY='http://127.0.0.1:9', NO_PROXY='')
         command = [str(Path(plan['codeql_root']) / 'codeql.exe'), 'database', 'create', str(work / 'database'),
                    '--language=rust', '--build-mode=none', '--no-calculate-baseline',
