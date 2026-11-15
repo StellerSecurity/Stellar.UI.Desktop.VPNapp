@@ -27,11 +27,11 @@
     },
     {
       "path": "Cargo.lock",
-      "sha256": "6dba8e4c7cefb2c8128d6eadd76b26c89d742b169b92dfd1d78dfcfb1675f3f9"
+      "sha256": "192bf14cc9c1772501a36a0ef7493e019e5d4ba954324bc9dd9aa71ddd100029"
     },
     {
       "path": "Cargo.toml",
-      "sha256": "517f342991744bca0efa307c0620c2548ddbe42786d69de849d1bbc7326cce83"
+      "sha256": "a52d18f0e53e0f2f82634239c6078426c1d6d5652b8d0f065cf8c9395c81bfef"
     },
     {
       "path": "crates/stellar-core/Cargo.toml",
@@ -119,7 +119,7 @@
     },
     {
       "path": "native/windows/rust-build-approval.json",
-      "sha256": "3ce39e0eedf73a5ca45059ee999694b357414a5de4c0b80d5ee5da9db1ead0e0"
+      "sha256": "18ebd66b536d45f9df0b12152047ce3eb794c40e743e4d35a9e8df399f4d8366"
     },
     {
       "path": "native/windows/service.cpp",
@@ -356,6 +356,34 @@
     {
       "path": "crates/stellar-vpn-helper/src/macos_client.rs",
       "sha256": "10dab2472b52bf30ee924bfd83e0ceaf50fa726c19404fd5173e150ff92eff51"
+    },
+    {
+      "path": "vendor/embed-resource-3.0.12/Cargo.toml",
+      "sha256": "213d31f389a7e6cce3286c133ce7fb72281296f1e4bd045a3ce838f2e4a9fffe"
+    },
+    {
+      "path": "vendor/embed-resource-3.0.12/LICENSE",
+      "sha256": "1abdbbd4e3f95e56c79d4a8af190254c23ddb14db34aadadfafef9c3af041113"
+    },
+    {
+      "path": "vendor/embed-resource-3.0.12/src/lib.rs",
+      "sha256": "70b477c14b4705a5d8e738e00388641a8ff73f76d53f1843e1178309ea14fc6a"
+    },
+    {
+      "path": "vendor/embed-resource-3.0.12/src/non_windows.rs",
+      "sha256": "e6deeb3ffd53378675d06bc60fab16a621ff946cf88dae149419517bac1010da"
+    },
+    {
+      "path": "vendor/embed-resource-3.0.12/src/windows_msvc.rs",
+      "sha256": "b65e81f174a92fc42eaefeee27bba0346add7f252a353bbe1c33bcba9d523a46"
+    },
+    {
+      "path": "vendor/embed-resource-3.0.12/src/windows_not_msvc.rs",
+      "sha256": "496b73be5b72d8906cb88cf3b412a880599d6eb663ccbf6017d40dc790fdfd85"
+    },
+    {
+      "path": "vendor/embed-resource-3.0.12/stellar-patch.json",
+      "sha256": "49bd57112a147e13a3eea9fd8ddc9f1f1342774a21c0dcdd67cf0948dce829a9"
     }
   ]
 }

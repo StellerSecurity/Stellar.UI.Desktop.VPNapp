@@ -1,4 +1,4 @@
-# Exact reviewed hosted Rust/SDK toolchain and locked source graph only.
+# Exact reviewed hosted Rust/SDK toolchain, locked graph and vendored source only.
 # No installer/driver/service registration, GUI launch or production credentials.
 param([Parameter(Mandatory = $true)][string] $SourceCommit, [switch] $ExportInterfaceTest)
 Set-StrictMode -Version Latest
@@ -30,7 +30,19 @@ if ($review.sdkExecutionApproval.approved -ne $true -or
     $review.sdkExecutionApproval.version -ne $review.sdkVersion) {
     throw 'Exact changed SDK execution approval required.'
 }
-if ($review.packages.Count -ne 410) { throw 'Reviewed dependency count changed.' }
+if ($review.vendoredSourceExecutionApproval.approved -ne $true -or
+    $review.vendoredSourceExecutionApproval.scope -ne 'exact-embed-resource-3.0.12-stellar-revision-1-debug-build-and-synthetic-tests' -or
+    $review.vendoredSourceExecutionApproval.sourcePlanSha256 -ne '32c2344d561eaefef9d3a09010b0158804a36e62fd2b63b219562f066728c289') {
+    throw 'Separate execution approval for the exact vendored source patch is required.'
+}
+if ($review.packages.Count -ne 407) { throw 'Reviewed dependency count changed.' }
+if ($review.vendoredSourceExecutionApproval.files.Count -ne 7 -or
+    @($review.vendoredSourceExecutionApproval.files.path | Sort-Object -Unique).Count -ne 7) { throw 'Exact seven-file vendored source review required.' }
+foreach ($pin in $review.vendoredSourceExecutionApproval.files) {
+    if ($pin.path -notmatch '^vendor/embed-resource-3\.0\.12/(Cargo\.toml|LICENSE|stellar-patch\.json|src/(lib|windows_msvc|windows_not_msvc|non_windows)\.rs)$' -or
+        $pin.sha256 -notmatch '^[a-f0-9]{64}$') { throw 'Unexpected vendored source input.' }
+    if ((Get-FileHash -LiteralPath (Join-Path $root $pin.path) -Algorithm SHA256).Hash.ToLowerInvariant() -ne $pin.sha256) { throw 'Reviewed vendored source changed.' }
+}
 function Verify-Lock {
     $lockPath = Join-Path $root 'Cargo.lock'
     if ((Get-FileHash -LiteralPath $lockPath -Algorithm SHA256).Hash.ToLowerInvariant() -ne $review.sourceLockSha256) { throw 'Exact source Cargo.lock changed.' }

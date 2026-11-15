@@ -7,7 +7,18 @@ test('Windows Rust job pins only the approved graph and first-party source input
   const approval = JSON.parse(read('native/windows/rust-build-approval.json'));
   assert.equal(approval.approved, true);
   assert.equal(approval.releaseApproved, false);
-  assert.equal(approval.packages.length, 410);
+  assert.equal(approval.packages.length, 407);
+  assert(!approval.packages.some(pkg => ['embed-resource', 'vswhom', 'vswhom-sys'].includes(pkg.name)));
+  const vendor = approval.vendoredSourceExecutionApproval;
+  assert.equal(typeof vendor.approved, 'boolean');
+  assert.equal(vendor.scope, 'exact-embed-resource-3.0.12-stellar-revision-1-debug-build-and-synthetic-tests');
+  assert.equal(vendor.sourcePlanSha256, '32c2344d561eaefef9d3a09010b0158804a36e62fd2b63b219562f066728c289');
+  assert.equal(vendor.files.length, 7);
+  assert.equal(new Set(vendor.files.map(file => file.path)).size, 7);
+  for (const file of vendor.files) {
+    assert.match(file.path, /^vendor\/embed-resource-3\.0\.12\/(Cargo\.toml|LICENSE|stellar-patch\.json|src\/(lib|windows_msvc|windows_not_msvc|non_windows)\.rs)$/);
+    assert.equal(createHash('sha256').update(read(file.path)).digest('hex'), file.sha256);
+  }
   assert.equal(approval.sdkVersion, '10.0.26100.9457');
   assert.equal(typeof approval.sdkExecutionApproval.approved, 'boolean');
   assert.equal(approval.sdkExecutionApproval.scope, 'exact-installed-sdk-debug-build-and-synthetic-tests');
@@ -21,6 +32,9 @@ test('Windows Rust job pins only the approved graph and first-party source input
   assert.equal(approval.lockSha256, createHash('sha256').update(original).digest('hex'));
   const manifest = JSON.parse(read('scripts/windows-rust-inputs.json'));
   assert.equal(new Set(manifest.files.map(f => f.path)).size, manifest.files.length);
+  for (const file of vendor.files) {
+    assert.deepEqual(manifest.files.find(input => input.path === file.path), file);
+  }
   for (const file of manifest.files) {
     assert(!/\.md$/i.test(file.path), file.path);
     assert(!file.path.includes('..') && !/\.env|credentials|node_modules|\/Runtime\//.test(file.path), file.path);
@@ -42,6 +56,10 @@ test('Rust workflow validates the harness and uses only its pinned first-party e
   assert(script.includes('vpnRuntimeIncluded = $false; serviceIncluded = $false; driverIncluded = $false'));
   assert(script.includes("Compress-Archive -LiteralPath $executable, (Join-Path $output 'build-info.json')"));
   assert(script.indexOf('Exact changed SDK execution approval required.') < script.indexOf('& $cargo fetch'));
+  assert(script.indexOf('Separate execution approval for the exact vendored source patch is required.') < script.indexOf('& $cargo fetch'));
+  assert(script.includes('$review.vendoredSourceExecutionApproval.approved -ne $true'));
+  assert(script.includes('Reviewed vendored source changed.'));
+  assert(script.includes('Exact seven-file vendored source review required.'));
   assert(script.includes("@('rc.exe', 'rcdll.dll', 'ServicingCommon.dll')"));
   assert(script.includes('Exact three-file SDK bundle required.'));
 });

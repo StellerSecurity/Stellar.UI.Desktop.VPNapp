@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "upstream_package": "embed-resource",
+  "version": "3.0.12",
+  "local_patch_revision": 1,
+  "source_archive_sha256": "6168487b5e7eb2673e6efe1200b1848016e436a6ca0b8031bf04bd9d493a249f",
+  "source_url": "https://crates.io/crates/embed-resource/3.0.12",
+  "changes": [
+    "Remove only the final legacy vswhom SDK-discovery fallback and dependency.",
+    "Keep explicit RC priority and all registry SDK discovery branches.",
+    "Update associated docs to use the existing cc dependency.",
+    "Do not vendor the standalone CLI or CI/test/document artifacts."
+  ],
+  "files": {
+    "Cargo.toml": {
+      "original_sha256": "def76ffa39547af404be332708298cb0e6164ca5e5c86b39961efaed9b93bf27",
+      "effective_sha256": "213d31f389a7e6cce3286c133ce7fb72281296f1e4bd045a3ce838f2e4a9fffe",
+      "changed": true
+    },
+    "LICENSE": {
+      "original_sha256": "1abdbbd4e3f95e56c79d4a8af190254c23ddb14db34aadadfafef9c3af041113",
+      "effective_sha256": "1abdbbd4e3f95e56c79d4a8af190254c23ddb14db34aadadfafef9c3af041113",
+      "changed": false
+    },
+    "src/lib.rs": {
+      "original_sha256": "dadba454348e993e3b599ff8405d8038bd6037725a3aac94c7cfd3adf24749b8",
+      "effective_sha256": "70b477c14b4705a5d8e738e00388641a8ff73f76d53f1843e1178309ea14fc6a",
+      "changed": true
+    },
+    "src/windows_msvc.rs": {
+      "original_sha256": "12874118d350c48c79343c245ad092ef2cca56754147ba708be21147fb86bb43",
+      "effective_sha256": "b65e81f174a92fc42eaefeee27bba0346add7f252a353bbe1c33bcba9d523a46",
+      "changed": true
+    },
+    "src/windows_not_msvc.rs": {
+      "original_sha256": "496b73be5b72d8906cb88cf3b412a880599d6eb663ccbf6017d40dc790fdfd85",
+      "effective_sha256": "496b73be5b72d8906cb88cf3b412a880599d6eb663ccbf6017d40dc790fdfd85",
+      "changed": false
+    },
+    "src/non_windows.rs": {
+      "original_sha256": "e6deeb3ffd53378675d06bc60fab16a621ff946cf88dae149419517bac1010da",
+      "effective_sha256": "e6deeb3ffd53378675d06bc60fab16a621ff946cf88dae149419517bac1010da",
+      "changed": false
+    }
+  },
+  "license_preserved": true,
+  "no_new_transitive_packages": true
+}
