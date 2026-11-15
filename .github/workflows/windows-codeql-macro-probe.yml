@@ -1,0 +1,32 @@
+name: Windows synthetic builtin macro coverage
+on:
+  workflow_dispatch:
+  push:
+    branches: ['stellar/codeql-vendor-workspace-20261115']
+    paths: ['scripts/windows-codeql-macro-probe.py', '.github/workflows/windows-codeql-macro-probe.yml']
+permissions: {}
+jobs:
+  verify:
+    runs-on: windows-2022
+    timeout-minutes: 12
+    steps:
+      - name: Isolate builtin macro semantics with reviewed offline tools
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        shell: python
+        run: |
+          import hashlib, os, pathlib, re, subprocess, sys, tempfile, urllib.request
+          commit = os.environ['SOURCE_COMMIT']
+          if not re.fullmatch('[a-f0-9]{40}', commit):
+              raise ValueError('exact first-party commit required')
+          files = {'scripts/windows-codeql-macro-probe.py': ('da93f4a83864b4e079aa2e9e1991c5cdcf412d9bbac3aca883ea8455f9bfb252', 65536), 'scripts/windows-codeql-probe.py': ('f3a792800c5cb12c913e847c93bd72cb59921a38c56710e59451b33ce1282212', 65536), 'scripts/codeql-layout-probe.py': ('caa01ad8ba40a5455ba046b273956a37d3c8fe78ea3d7c5cbd44ca1b26aa8224', 65536), 'scripts/stage-reviewed-rust-sysroot.py': ('39cee2a4fd131e0f8910fe53d15f34b5df1791eb9e02b735e31be39a4516c9af', 65536), 'native/codeql/windows-codeql-probe-plan.json': ('b01261fdfef54b1e59f83973f0f2b61d3c38b2c0f4ca14e9ef9e9a869e4c5f49', 76612), 'native/codeql/rust-sysroot-source-inputs.json': ('002ff08b64041193a2991dfd6438263645bdb4c07b7ae6e96520f614ad722ef8', 400309)}
+          with tempfile.TemporaryDirectory(prefix='stellar-builtin-coverage-') as folder:
+              root = pathlib.Path(folder).resolve(strict=True)
+              for name, (expected, limit) in files.items():
+                  url = 'https://raw.githubusercontent.com/StellerSecurity/Stellar.UI.Desktop.VPNapp/' + commit + '/' + name
+                  with urllib.request.urlopen(url, timeout=30) as response:
+                      raw = response.read(limit + 1)
+                      if response.geturl() != url or len(raw) > limit or hashlib.sha256(raw).hexdigest() != expected:
+                          raise ValueError('first-party macro probe source drift')
+                  (root / pathlib.Path(name).name).write_bytes(raw)
+              subprocess.run([sys.executable, str(root / 'windows-codeql-macro-probe.py')], check=True, timeout=660)
