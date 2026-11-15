@@ -28,6 +28,16 @@ export function verifyLinuxGlib(root = defaultRoot) {
     if (fs.lstatSync(file).isSymbolicLink()) throw new Error(`glib source must not be a symlink: ${relative}`);
     const actual = createHash('sha256').update(fs.readFileSync(file)).digest('hex');
     if (actual !== expected) throw new Error(`glib backport integrity mismatch: ${relative}`);
+    if (relative.endsWith('.rs')) {
+      const source = fs.readFileSync(file, 'utf8');
+      for (const match of source.matchAll(/\binclude(?:_str|_bytes)?!\s*\(\s*"([^"]+)"\s*[,)]/g)) {
+        const included = path.resolve(path.dirname(file), match[1]);
+        const input = path.relative(directory, included).split(path.sep).join('/');
+        if (path.isAbsolute(input) || input.split('/').includes('..') || !Object.hasOwn(provenance.files, input)) {
+          throw new Error(`Unreviewed or missing glib compile-time include: ${relative}`);
+        }
+      }
+    }
   }
   const workspace = fs.readFileSync(path.join(root, 'Cargo.toml'), 'utf8');
   const patch = workspace.match(/^\[patch\.crates-io\]\s*\n([\s\S]*?)(?=^\[|$(?![\s\S]))/m)?.[1] ?? '';

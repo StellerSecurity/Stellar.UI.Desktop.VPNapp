@@ -6,7 +6,7 @@
   "upstreamRepository": "https://github.com/gtk-rs/gtk-rs-core",
   "registryArchiveSha256": "233daaf6e83ae6a12a52055f568f9d7cf4671dabb78ff9560ab6da230ce00ee5",
   "upstreamFix": "https://github.com/gtk-rs/gtk-rs-core/pull/1343/files",
-  "modification": "Only let p -> let mut p and &p -> &mut p in VariantStrIter::impl_get; plus a Stellar regression test",
+  "modification": "Upstream VariantStrIter out-pointer fix and Stellar regression; remove the omitted README compile-time doc include and disable its readme metadata. No new runtime API or package dependency.",
   "verifiedArchiveFiles": 116,
   "omittedUpstreamFiles": [
     "README.md",
@@ -28,7 +28,7 @@
   ],
   "files": {
     "benches/gstring.rs": "17387e7dab0bd4002cc8b4bac315e60a171a271b152acaebe709551f4d494589",
-    "Cargo.toml": "bcd52d812b4c111864ae8e88ba6c0a8311eb0cf781b5e81634950b4619592132",
+    "Cargo.toml": "57e94ee91ef5a7489bae40cb16b98c11b8ecff15a39316a9b328536447df9bbd",
     "COPYRIGHT": "dae402989de65164815b7e2b6bc2b9576285434c3785934c8b6ece0fa055960d",
     "LICENSE": "8cf56d10131ce201cf69ab74b111d3ebac1acca3833d7efb39ae357224b70edb",
     "src/auto/alias.rs": "55c23867766bc1f570c9d51dd165eb0f96ba606eae6ee4c15d9f3c7a8ccd19e5",
@@ -84,7 +84,7 @@
     "src/gstring_builder.rs": "bfb1b131433531af2efa8765853ef35bbe02dc86120a04b55e6ec97e60cc8fac",
     "src/gstring.rs": "f3fe8d70bd1e58b070d4ed9d34cdd3e39f511f341424a632b9d8acdf2aec8741",
     "src/key_file.rs": "018b398bc1bd50fd0f9925408d6898d2974c7f510d79575cb655dad7e17243de",
-    "src/lib.rs": "70abc92bf0d02f3c4989034501065cdf64d70901e511f6720d8cd65fcbb662e1",
+    "src/lib.rs": "5b71def7d15f146270681e5b163d6da463fe45e8a6e6c579b2e1666e8a9efd2c",
     "src/log.rs": "d5458fa20083efdd1f46bc1464d46fcd32fb1af926f3151881f0c0ec37e330e1",
     "src/main_context_channel.rs": "e619173fc993bb1ffa350ef692b50b3b268ed5b294208caede8271ae742d80e8",
     "src/main_context_futures.rs": "49a56a433d4f57929d7ced0d438b8dcdbe05b78d097e28d27ead09821cb802be",
@@ -144,5 +144,14 @@
     "tests/subclass_compiletest/06-no-auto-send-sync-with-non-send-sync-ffi-parent.stderr": "808ac199325749e28e4c5ea6a459463d87c375443dc73c143a8fc1032575895f",
     "tests/subclass_compiletest.rs": "06fd13974d96c0a21ce9a906010f82db1fdf1b17c192716510cc93ed2ef79547",
     "tests/value.rs": "c796ea2b30559e9c8ab6ebbb6c59c575d365a27b461c20f9ca0b1989dbe01d79"
+  },
+  "documentationCompatibility": {
+    "reason": "Markdown files are deliberately local and untracked; production compilation must not include an omitted README.",
+    "changes": [
+      "Remove src/lib.rs doc include_str! attribute",
+      "Set Cargo.toml readme=false"
+    ],
+    "runtime_fix_preserved": true,
+    "native_linux_verification": "pending"
   }
 }
