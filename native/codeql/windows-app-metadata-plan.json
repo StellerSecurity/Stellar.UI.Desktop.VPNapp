@@ -10,7 +10,7 @@
     "stage-reviewed-rust-sysroot.py": "39cee2a4fd131e0f8910fe53d15f34b5df1791eb9e02b735e31be39a4516c9af",
     "rust-sysroot-source-inputs.json": "002ff08b64041193a2991dfd6438263645bdb4c07b7ae6e96520f614ad722ef8",
     "windows-codeql-toolchain.ps1": "583313a8db4d59507ce06580e80a72304a0f66fa40f80b9e671ca8644383cdde",
-    "stage-reviewed-rust-queries.py": "2b1144fcab6b6182a64865aba07ef1fa639dff0865932ffef510e1f402fb290b",
+    "stage-reviewed-rust-queries.py": "cc7561508d8fddf5c5f8cb15961b1a5878591c267f9a626607f0031881298134",
     "rust-query-source-inputs.json": "fe87f7bca97ceed18061370646aeb9ab1db649b56c11e6dc30ea2c4b0dfe9a4f"
   },
   "exported_environment": [

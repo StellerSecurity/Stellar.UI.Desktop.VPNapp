@@ -20,17 +20,17 @@ jobs:
           if not re.fullmatch('[a-f0-9]{40}', commit):
               raise ValueError('exact first-party commit required')
           files = {
-              'scripts/stage-reviewed-rust-queries.py': ('2b1144fcab6b6182a64865aba07ef1fa639dff0865932ffef510e1f402fb290b', 2097152),
+              'scripts/stage-reviewed-rust-queries.py': ('cc7561508d8fddf5c5f8cb15961b1a5878591c267f9a626607f0031881298134', 2097152),
               'native/codeql/rust-query-source-inputs.json': ('fe87f7bca97ceed18061370646aeb9ab1db649b56c11e6dc30ea2c4b0dfe9a4f', 2097152),
               'scripts/windows-codeql-toolchain.ps1': ('583313a8db4d59507ce06580e80a72304a0f66fa40f80b9e671ca8644383cdde', 524288),
               'native/codeql/rust-sysroot-source-inputs.json': ('002ff08b64041193a2991dfd6438263645bdb4c07b7ae6e96520f614ad722ef8', 2097152),
               'scripts/stage-reviewed-rust-sysroot.py': ('39cee2a4fd131e0f8910fe53d15f34b5df1791eb9e02b735e31be39a4516c9af', 2097152),
-              'scripts/windows-app-metadata.py': ('9945dca08c69ec2a5bb75172ca198e07160ce46a37090d25b629365236e36dd6', 524288),
+              'scripts/windows-app-metadata.py': ('fa05b3b25f0c68258287850f61e0538807834ce71f8e17a89eaed5067e489719', 524288),
               'scripts/windows-codeql-source.ps1': ('9482bf246b971803556f584a0d2d19b108f13310c0bbf78b0735c9e44f6d2894', 524288),
               'scripts/windows-codeql-probe.py': ('f3a792800c5cb12c913e847c93bd72cb59921a38c56710e59451b33ce1282212', 524288),
               'native/codeql/windows-codeql-probe-plan.json': ('b01261fdfef54b1e59f83973f0f2b61d3c38b2c0f4ca14e9ef9e9a869e4c5f49', 524288),
               'native/codeql/windows-app-source-inputs.json': ('d867ca1414b3d6db0e809d0fe3ba0b2c8291955dde4e17122862a20bcbe8764e', 524288),
-              'native/codeql/windows-app-metadata-plan.json': ('cbaaca55e3d5786de98e19bff6875c44bcc6e09fa5333519ef9c6dc64af4d701', 524288),
+              'native/codeql/windows-app-metadata-plan.json': ('82c492879af0d86df3035757a49e9ae80d8542c2dc177789857c29fe275beb98', 524288),
           }
           with tempfile.TemporaryDirectory(prefix='stellar-app-metadata-') as folder:
               root = pathlib.Path(folder)

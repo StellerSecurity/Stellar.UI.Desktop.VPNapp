@@ -37,6 +37,35 @@ def snapshot(root):
     return result
 
 
+def validate_resolution(mapping, destination, manifests):
+    """The legacy resolver lists shadowed SDK paths too; first is precedence."""
+    if not isinstance(mapping, dict):
+        raise ValueError('query pack resolution mapping required')
+    for row in manifests:
+        paths = mapping.get('codeql/' + row['package'])
+        if (not isinstance(paths, list) or not paths or not isinstance(paths[0], str) or
+                Path(paths[0]).resolve() != (Path(destination) / row['package']).resolve()):
+            raise ValueError('query pack precedence is outside verified sources')
+    return len(manifests)
+
+
+def validate_queries(paths, destination, profile):
+    if not isinstance(paths, list) or not 1 <= len(paths) <= 256:
+        raise ValueError('bounded nonempty official suite query list required')
+    root = Path(destination).resolve()
+    verified = {row['package'] + '/' + row['path'] for row in profile['files']}
+    seen = set()
+    for value in paths:
+        if not isinstance(value, str) or not Path(value).resolve().is_relative_to(root):
+            raise ValueError('query selected outside verified sources')
+        relative = Path(value).resolve().relative_to(root).as_posix()
+        if (relative not in verified or relative in seen or not relative.endswith('.ql') or
+                not relative.startswith('rust-queries/queries/')):
+            raise ValueError('unreviewed or duplicate selected query')
+        seen.add(relative)
+    return sorted(seen)
+
+
 def stage_source(base, destination, profile, expected_files=1211, expected_packs=15):
     base, destination = Path(base), Path(destination)
     if destination.exists() or destination.is_symlink():

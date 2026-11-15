@@ -122,14 +122,19 @@ def security_suite(stage, env, guard, runtime, database):
     except (ValueError, TypeError):
         print(json.dumps(dict(query_pack_resolution_output=output)))
         raise ValueError('expected exact source query-pack resolution JSON')
-    for row in profile['manifests']:
-        name = 'codeql/' + row['package']
-        paths = mapping.get(name)
-        if (not isinstance(paths, list) or len(paths) != 1 or not isinstance(paths[0], str) or
-                Path(paths[0]).resolve() != (destination / row['package']).resolve()):
-            print(json.dumps(dict(query_pack_resolution=mapping)))
-            raise ValueError('query pack resolved outside verified source projection')
+    helper.validate_resolution(mapping, destination, profile['manifests'])
     suite = destination / 'rust-queries/codeql-suites/rust-security-and-quality.qls'
+    query_resolution = guard.run([codeql, 'resolve', 'queries', '--format=json', str(suite)] + common,
+                                stage, env, 60, capture=True)
+    query_output = query_resolution.pop('output')
+    start = query_output.index('[')
+    query_paths, end = json.JSONDecoder().raw_decode(query_output[start:])
+    if query_output[start + end:].strip():
+        raise ValueError('unexpected suite resolution trailer')
+    resolution_diagnostics.extend(query_output[:start].splitlines())
+    selected = helper.validate_queries(query_paths, destination, profile)
+    if not any('/security/' in path for path in selected):
+        raise ValueError('official suite selected no security queries')
     sarif_path = stage / 'rust-security-and-quality.sarif'
     command = [codeql, 'database', 'analyze', str(database), str(suite), '--no-download',
                '--format=sarifv2.1.0', '--output=' + str(sarif_path), '--threads=2', '--ram=3072',
@@ -159,7 +164,7 @@ def security_suite(stage, env, guard, runtime, database):
             notifications.extend(invocation.get('toolConfigurationNotifications', []))
     if len(findings) > 10000 or len(notifications) > 10000:
         raise ValueError('security suite result count bounds')
-    return dict(suite='rust-security-and-quality', source_projection=copied, commands=[resolved, analyzed],
+    return dict(suite='rust-security-and-quality', source_projection=copied, commands=[resolved, query_resolution, analyzed], selected_query_files=selected,
                 query_rule_ids=sorted(set(rules)), findings=findings, notifications=notifications,
                 resolution_diagnostics=resolution_diagnostics, diagnostics=diagnostics, source_files_unchanged=len(before),
                 sarif_sha256=hashlib.sha256(sarif_path.read_bytes()).hexdigest(),

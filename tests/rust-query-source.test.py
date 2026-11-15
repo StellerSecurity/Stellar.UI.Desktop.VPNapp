@@ -89,6 +89,23 @@ class QueryStageTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'fresh'):
             self.stage()
 
+    def test_shadowed_sdk_paths_do_not_replace_verified_precedence(self):
+        mapping = {'codeql/' + row['package']: [str(self.destination / row['package']), str(self.sdk / row['package'] / row['version'])]
+                   for row in self.profile['manifests']}
+        self.assertEqual(queries.validate_resolution(mapping, self.destination, self.profile['manifests']), 2)
+        mapping['codeql/query'].reverse()
+        with self.assertRaisesRegex(ValueError, 'precedence'):
+            queries.validate_resolution(mapping, self.destination, self.profile['manifests'])
+
+    def test_selected_queries_cannot_use_sdk_compiled_or_unreviewed_inputs(self):
+        path = self.destination / 'rust-queries/queries/security/Example.ql'
+        profile = {'files': [{'package': 'rust-queries', 'path': 'queries/security/Example.ql'}]}
+        self.assertEqual(queries.validate_queries([str(path)], self.destination, profile), ['rust-queries/queries/security/Example.ql'])
+        for paths in ([], [str(self.sdk / 'Example.ql')], [str(path.with_suffix('.qlx'))], [str(path), str(path)]):
+            with self.subTest(paths=paths):
+                with self.assertRaises(ValueError):
+                    queries.validate_queries(paths, self.destination, profile)
+
 
 if __name__ == '__main__':
     unittest.main()
