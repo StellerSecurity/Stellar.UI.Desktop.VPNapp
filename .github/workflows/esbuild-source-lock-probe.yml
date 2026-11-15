@@ -1,0 +1,43 @@
+name: Reviewed esbuild source lock validation
+on:
+  workflow_dispatch:
+  push:
+    branches: ['stellar/codeql-vendor-workspace-20261115']
+    paths: ['.github/workflows/esbuild-source-lock-probe.yml', 'scripts/esbuild-source-lock-probe.py', 'scripts/stage-reviewed-esbuild-fork.py', 'native/esbuild-source-fork/**']
+permissions: {}
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Validate only the frozen contained-source graph without hooks or downloads by npm
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        shell: python
+        run: |
+          import hashlib, os, pathlib, re, subprocess, sys, tempfile, urllib.request
+          commit = os.environ['SOURCE_COMMIT']
+          if not re.fullmatch('[a-f0-9]{40}', commit):
+              raise ValueError('exact first-party source commit required')
+          files = {
+              'scripts/esbuild-source-lock-probe.py': ('7dc29f5b29f6f7b6b7e5c3ff3d3e09861913f4187ac412fef492267e9585427a', 'esbuild-source-lock-probe.py'),
+              'scripts/linux-npm-backport-probe.py': ('aaccee6c9eec318efdd5c3cebf1d8986f6758eeb3990dc171760f07c0a820556', 'linux-npm-backport-probe.py'),
+              'scripts/patch-reviewed-npm-tool.py': ('b256f3844d01e55da6ac8fd38f48985ec6dae7bb9ecb1953d53ddc603d964fa3', 'patch-reviewed-npm-tool.py'),
+              'scripts/stage-reviewed-esbuild-fork.py': ('db72045b8c371c623133967445a7c372f69ca8404a194055dd1987e596e9df69', 'stage-reviewed-esbuild-fork.py'),
+              'scripts/reviewed-esbuild-binary.cjs': ('f5c8a3aa6b92772a5d1d21eebf2e5796fc27571c12df252e12bd751cb5238ce7', 'reviewed-esbuild-binary.cjs'),
+              'native/esbuild-source-fork/package-template.json': ('e5fc4c4c3e6ec0f59df33a2187fcfc43042685e5224903356208fac4d9be1711', 'package-template.json'),
+              'native/esbuild-source-fork/binary-review.json': ('6e3b77348fd273ec25b783187fc4d0c92ce2392eb334a0f95b4bbff0fd615f93', 'binary-review.json'),
+              'native/esbuild-source-fork/stellar-patch.json': ('2113b9f504955f364365fa31aa2c02d813366109d3bf9599c1931850c2cf522a', 'stellar-patch.json'),
+              'package.json': ('5e364deee75cf4657e6214f46d7a1d5d4d99e52cf389a1fe4ad1d73e206cc334', 'application-package.json'),
+              'package-lock.json': ('81cb1cdf64389c02b9a0edab6ab36ac971f4e8870dc4dc2e5fd6178099335ab4', 'application-package-lock.json'),
+          }
+          with tempfile.TemporaryDirectory(prefix='stellar-source-lock-') as directory:
+              root = pathlib.Path(directory)
+              for name, (expected, target) in files.items():
+                  url = 'https://raw.githubusercontent.com/StellerSecurity/Stellar.UI.Desktop.VPNapp/' + commit + '/' + name
+                  with urllib.request.urlopen(url, timeout=30) as response:
+                      data = response.read(2097153)
+                      if response.geturl() != url or len(data) > 2097152 or hashlib.sha256(data).hexdigest() != expected:
+                          raise ValueError('reviewed source graph input drift')
+                  (root / target).write_bytes(data)
+              subprocess.run([sys.executable, str(root / 'esbuild-source-lock-probe.py')], check=True, timeout=180)

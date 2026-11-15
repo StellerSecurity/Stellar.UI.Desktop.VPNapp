@@ -1,0 +1,18 @@
+{
+  "name": "esbuild",
+  "version": "0.28.1-stellar.1",
+  "description": "Reviewed esbuild JavaScript API with a pinned source-built Go runtime",
+  "main": "lib/main.js",
+  "types": "lib/main.d.ts",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "license": "MIT",
+  "private": true,
+  "files": [
+    "lib",
+    "LICENSE",
+    "binary-review.json",
+    "stellar-patch.json"
+  ]
+}

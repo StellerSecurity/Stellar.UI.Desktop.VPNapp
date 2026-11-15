@@ -86,6 +86,48 @@ def download(url, expected, limit):
     return data
 
 
+def materialize_runtime(work, npm, node_archive, patcher):
+    if hashlib.sha256(npm).hexdigest() != NPM_SHA or hashlib.sha256(node_archive).hexdigest() != NODE_ARCHIVE_SHA:
+        raise ValueError('reviewed runtime view archive identity drift')
+    records, count = {}, 0
+    expected_patches = {}
+    with tarfile.open(fileobj=io.BytesIO(npm), mode='r:gz') as archive:
+        for member in archive:
+            parts = PurePosixPath(member.name).parts
+            if (not member.isfile() or parts[0] != 'package' or '..' in parts
+                    or '\\' in member.name or member.size > 4 * 1024**2):
+                raise ValueError('uncontained runtime source member')
+            relative = '/'.join(parts[1:])
+            if relative in records:
+                raise ValueError('duplicate runtime source member')
+            raw = archive.extractfile(member).read(4 * 1024**2 + 1)
+            if relative in patcher.INPUTS:
+                raw = patcher.patch(relative, raw)
+                expected_patches[relative] = hashlib.sha256(raw).hexdigest()
+            records[relative] = hashlib.sha256(raw).hexdigest()
+            path = work / 'npm' / relative
+            if not path.resolve().is_relative_to(work / 'npm'):
+                raise ValueError('runtime source traversal')
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with path.open('xb') as output:
+                output.write(raw)
+            path.chmod(0o600)
+            count += 1
+    if count != 1944 or set(expected_patches) != set(patcher.INPUTS):
+        raise ValueError('incomplete fixed-input tool view')
+    executable = work / 'node'
+    with tarfile.open(fileobj=io.BytesIO(node_archive), mode='r:xz') as archive:
+        member = archive.getmember('node-v26.13.1-linux-x64/bin/node')
+        if not member.isfile() or member.size != 150348872:
+            raise ValueError('reviewed Node member drift')
+        with archive.extractfile(member) as source, executable.open('xb') as output:
+            while block := source.read(1024**2):
+                output.write(block)
+    verified(executable, NODE_SHA)
+    executable.chmod(0o700)
+    return records, expected_patches, executable
+
+
 def main():
     if os.uname().sysname != 'Linux' or os.uname().machine != 'x86_64':
         raise ValueError('the reviewed fresh Linux CI VM is required')
@@ -104,42 +146,8 @@ def main():
         with tempfile.NamedTemporaryFile(prefix='stellar-denied-fixture-', dir=ROOT) as sentinel:
             sentinel.write(b'owned sandbox denial fixture')
             sentinel.flush()
-            records, count = {}, 0
-            expected_patches = {}
-            with tarfile.open(fileobj=io.BytesIO(npm), mode='r:gz') as archive:
-                for member in archive:
-                    parts = PurePosixPath(member.name).parts
-                    if (not member.isfile() or parts[0] != 'package' or '..' in parts
-                            or '\\' in member.name or member.size > 4 * 1024**2):
-                        raise ValueError('uncontained runtime source member')
-                    relative = '/'.join(parts[1:])
-                    if relative in records:
-                        raise ValueError('duplicate runtime source member')
-                    raw = archive.extractfile(member).read(4 * 1024**2 + 1)
-                    if relative in patcher.INPUTS:
-                        raw = patcher.patch(relative, raw)
-                        expected_patches[relative] = hashlib.sha256(raw).hexdigest()
-                    records[relative] = hashlib.sha256(raw).hexdigest()
-                    path = work / 'npm' / relative
-                    if not path.resolve().is_relative_to(work / 'npm'):
-                        raise ValueError('runtime source traversal')
-                    path.parent.mkdir(parents=True, exist_ok=True)
-                    with path.open('xb') as output:
-                        output.write(raw)
-                    path.chmod(0o600)
-                    count += 1
-            if count != 1944 or set(expected_patches) != set(patcher.INPUTS):
-                raise ValueError('incomplete fixed-input tool view')
-            executable = work / 'node'
-            with tarfile.open(fileobj=io.BytesIO(node_archive), mode='r:xz') as archive:
-                member = archive.getmember('node-v26.13.1-linux-x64/bin/node')
-                if not member.isfile() or member.size != 150348872:
-                    raise ValueError('reviewed Node member drift')
-                with archive.extractfile(member) as source, executable.open('xb') as output:
-                    while block := source.read(1024**2):
-                        output.write(block)
-            verified(executable, NODE_SHA)
-            executable.chmod(0o700)
+            records, expected_patches, executable = materialize_runtime(work, npm, node_archive, patcher)
+            count = len(records)
             (work / 'regression.cjs').write_bytes(fixture)
             env = dict(PATH='/usr/bin:/bin', TMPDIR=str(work / 'tmp'), LANG='C.UTF-8', TZ='UTC')
             command = [str(executable), '--permission', '--allow-fs-read=' + str(work),
