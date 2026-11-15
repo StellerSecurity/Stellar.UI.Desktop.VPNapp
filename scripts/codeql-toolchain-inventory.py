@@ -71,6 +71,13 @@ for relative in ('rust/codeql-extractor.yml', 'rust/tools/autobuild.sh',
     candidate = codeql_root / relative
     if candidate.is_file() and not candidate.is_symlink() and candidate.stat().st_size <= 32768:
         static_text[relative] = candidate.read_text(encoding='utf-8')
+schema_path = codeql_root / 'rust/rust.dbscheme'
+if schema_path.is_symlink() or schema_path.stat().st_size != 58079:
+    raise ValueError('reviewed Rust schema size/type drift')
+schema_bytes = schema_path.read_bytes()
+if hashlib.sha256(schema_bytes).hexdigest() != 'f412b260f76bdaad67d06973b8edc65e057ba723bd206d9fd12e653fa0aaf900':
+    raise ValueError('reviewed Rust schema hash drift')
+static_text['rust/rust.dbscheme'] = schema_bytes.decode('utf-8')
 rustup_root = Path.home() / '.rustup/toolchains'
 rustup_versions = sorted(p.name for p in rustup_root.iterdir() if p.is_dir()) if rustup_root.is_dir() else []
 rust_metadata = {}
