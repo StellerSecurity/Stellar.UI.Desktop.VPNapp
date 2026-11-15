@@ -1,0 +1,36 @@
+name: Windows Rust CodeQL layout probe
+on:
+  workflow_dispatch:
+  push:
+    branches: ['stellar/codeql-vendor-workspace-20261115']
+    paths: ['.github/workflows/windows-codeql-probe.yml', 'scripts/windows-codeql-probe.py', 'native/codeql/windows-codeql-probe-plan.json']
+permissions: {}
+jobs:
+  verify:
+    runs-on: windows-2025
+    timeout-minutes: 12
+    steps:
+      - name: Query four isolated synthetic Rust function bodies
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        shell: python
+        run: |
+          import hashlib, os, pathlib, re, subprocess, sys, tempfile, urllib.request
+          commit = os.environ['SOURCE_COMMIT']
+          if not re.fullmatch('[a-f0-9]{40}', commit):
+              raise ValueError('exact first-party commit required')
+          files = {
+              'scripts/windows-codeql-probe.py': ('a9baf6f920e81b802e1460895e996ba3d256bf9d621a77b7d9da5176fc94b983', 65536),
+              'scripts/codeql-layout-probe.py': ('7a14561d1a88b96d84cb9ae8b9f5328ff7ef32e048745c1d5b534a3c91a3907a', 65536),
+              'native/codeql/windows-codeql-probe-plan.json': ('d2587d734f52aa8376f8ef4c89cb36c527fd28442200ba88b798bc834518db2e', 524288),
+          }
+          with tempfile.TemporaryDirectory(prefix='stellar-windows-codeql-') as folder:
+              root = pathlib.Path(folder)
+              for name, (expected, limit) in files.items():
+                  url = 'https://raw.githubusercontent.com/StellerSecurity/Stellar.UI.Desktop.VPNapp/' + commit + '/' + name
+                  with urllib.request.urlopen(url, timeout=30) as response:
+                      raw = response.read(limit + 1)
+                      if response.geturl() != url or len(raw) > limit or hashlib.sha256(raw).hexdigest() != expected:
+                          raise ValueError('first-party probe source drift')
+                  (root / pathlib.Path(name).name).write_bytes(raw)
+              subprocess.run([sys.executable, str(root / 'windows-codeql-probe.py')], check=True, timeout=660)
