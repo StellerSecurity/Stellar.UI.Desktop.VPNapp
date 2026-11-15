@@ -96,6 +96,20 @@ def source_snapshot(source):
     return snapshot
 
 
+def verify_source_snapshot(source, expected, phase):
+    actual = source_snapshot(source)
+    if actual != expected:
+        changes = {
+            'added': sorted(actual.keys() - expected.keys()),
+            'removed': sorted(expected.keys() - actual.keys()),
+            'changed': sorted(name for name in actual.keys() & expected.keys()
+                              if actual[name] != expected[name]),
+        }
+        print(json.dumps(dict(source_mutation_phase=phase,
+                              source_mutations=changes, release_approved=False)), flush=True)
+        raise ValueError(phase + ' modified actual source inputs')
+
+
 def stage_native_approval(source):
     # Match the passed Windows build's exact approval-file layout. Copy the
     # existing reviewed record unchanged; do not manufacture a new approval or
@@ -323,8 +337,7 @@ def body_probe(source, stage, env, guard, runtime):
     commands.append(guard.run([str(codeql), 'bqrs', 'decode', '--format=json', '--output=' + str(decoded), str(output)], stage, env, 30))
     if not decoded.is_file() or decoded.stat().st_size > 1024**2:
         raise ValueError('application query output bounds')
-    if source_snapshot(source) != before:
-        raise ValueError('analysis modified actual source inputs')
+    verify_source_snapshot(source, before, 'analysis')
     bodies = validate_bodies(json.loads(decoded.read_bytes()))
     # Preserve the coverage evidence even if later suite resolution/compilation
     # fails. A completed body query is never a release/security-suite pass.
@@ -335,8 +348,7 @@ def body_probe(source, stage, env, guard, runtime):
     if any('macro expansion failed' in line.casefold() for line in diagnostics):
         raise ValueError('actual application macro extraction remains incomplete')
     security = security_suite(stage, env, guard, runtime, database)
-    if source_snapshot(source) != before:
-        raise ValueError('security suite modified actual source inputs')
+    verify_source_snapshot(source, before, 'security suite')
     return dict(commands=commands, sysroot_analysis_inputs=sysroot, reviewed_compiler_preparation=native, native_build_approval_layout=native_approval, native_path_budget=path_budget, extraction_diagnostics=diagnostics, analysis_source_files_unchanged=len(before), function_bodies=bodies, security_analysis=security,
                 windows_scope_only=True, coverage_diagnostics_status='requires-review' if diagnostics else 'no-diagnostics',
                 security_query_suite_executed=True, release_approved=False)

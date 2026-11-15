@@ -26,6 +26,28 @@ class LayoutTests(unittest.TestCase):
             shutil.copytree(ROOT / 'vendor' / name, self.source / 'vendor' / name,
                             ignore=shutil.ignore_patterns('*.md', '*.MD', '__pycache__'))
 
+    def test_snapshot_reports_and_blocks_every_mutation(self):
+        import contextlib
+        import io
+        import json
+        fixture = self.stage / 'snapshot-fixture'
+        fixture.mkdir()
+        (fixture / 'changed.rs').write_text('original')
+        (fixture / 'removed.rs').write_text('original')
+        before = layout.source_snapshot(fixture)
+        layout.verify_source_snapshot(fixture, before, 'analysis')
+        (fixture / 'changed.rs').write_text('changed')
+        (fixture / 'removed.rs').unlink()
+        (fixture / 'generated.json').write_text('{}')
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            with self.assertRaisesRegex(ValueError, 'analysis modified actual source inputs'):
+                layout.verify_source_snapshot(fixture, before, 'analysis')
+        report = json.loads(output.getvalue())
+        self.assertEqual(report['source_mutations'], dict(
+            added=['generated.json'], removed=['removed.rs'], changed=['changed.rs']))
+        self.assertFalse(report['release_approved'])
+
     def test_targets_sources_and_lock_are_preserved(self):
         rust = {str(p.relative_to(self.source)): hashlib.sha256(p.read_bytes()).hexdigest()
                 for p in self.source.rglob('*.rs')}
