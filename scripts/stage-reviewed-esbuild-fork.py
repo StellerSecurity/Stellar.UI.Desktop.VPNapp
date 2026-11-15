@@ -9,7 +9,7 @@ ARCHIVE_SHA = 'eb8ef756f8299d16d5c8b35678606d715ba29923f500db7b37c181310eed40a5'
 EXPECTED = {
     'LICENSE': 'b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681',
     'binary-review.json': '6e3b77348fd273ec25b783187fc4d0c92ce2392eb334a0f95b4bbff0fd615f93',
-    'stellar-patch.json': '2113b9f504955f364365fa31aa2c02d813366109d3bf9599c1931850c2cf522a',
+    'stellar-patch.json': '67c0da9a3f17b0a5bfae58918a04264db0ba167e8ff8786fab177aa10f5a240c',
     'package.json': 'e5fc4c4c3e6ec0f59df33a2187fcfc43042685e5224903356208fac4d9be1711',
     'lib/main.d.ts': '161c8e0690c46021506e32fda85956d785b70f309ae97011fd27374c065cac9b',
     'lib/main.js': '6e139ce946f944cc1915b1560b355b877cad093f0a139be07178b85d78854c65',

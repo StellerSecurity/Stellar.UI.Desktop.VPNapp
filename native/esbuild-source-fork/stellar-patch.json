@@ -13,6 +13,5 @@
     "Use a separately source-built Go 1.26.11/x/sys 0.44.0 runtime."
   ],
   "binary_files_committed": false,
-  "prototype_only": true,
-  "application_manifests_changed": false
+  "source_fork": true
 }
