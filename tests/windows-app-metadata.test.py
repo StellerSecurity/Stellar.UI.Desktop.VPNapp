@@ -140,5 +140,39 @@ class NativeApprovalLayoutTests(unittest.TestCase):
             self.assertFalse((root / '.security-review').exists())
 
 
+class StitchedSysrootTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(prefix='stellar-sysroot-layout-')
+        self.addCleanup(self.temp.cleanup)
+        self.parent = Path(self.temp.name)
+        self.root = self.parent / 'sysroot'
+        self.root.mkdir()
+        self.manifest = self.root / 'Cargo.toml'
+        self.manifest.write_text('[workspace]\nmembers=[]\n')
+        self.retained = self.parent / 'retained-Cargo.toml'
+
+    def test_changed_manifest_cannot_select_an_analysis_graph(self):
+        with self.assertRaisesRegex(ValueError, 'manifest changed'):
+            layout.prepare_stitched_sysroot(self.root, self.retained)
+        self.assertTrue(self.manifest.exists())
+        self.assertFalse(self.retained.exists())
+
+    def test_existing_destination_cannot_be_overwritten(self):
+        self.retained.write_text('keep original')
+        with self.assertRaisesRegex(ValueError, 'manifest layout'):
+            layout.prepare_stitched_sysroot(self.root, self.retained)
+        self.assertEqual(self.retained.read_text(), 'keep original')
+
+    def test_manifest_link_is_not_followed(self):
+        self.manifest.unlink()
+        self.manifest.symlink_to(ROOT / 'Cargo.toml')
+        with self.assertRaisesRegex(ValueError, 'manifest layout'):
+            layout.prepare_stitched_sysroot(self.root, self.retained)
+
+    def test_retained_manifest_must_be_outside_sysroot(self):
+        with self.assertRaisesRegex(ValueError, 'manifest layout'):
+            layout.prepare_stitched_sysroot(self.root, self.root / 'retained.toml')
+
+
 if __name__ == '__main__':
     unittest.main()

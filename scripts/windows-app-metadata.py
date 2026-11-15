@@ -128,6 +128,34 @@ def canonical_analysis_roots(work, source, stage):
     return source, stage
 
 
+def prepare_stitched_sysroot(root, retained_manifest):
+    """Select RA's built-in ten-crate graph, preserving every Rust source byte.
+
+    The source-only projection intentionally excludes unreviewed vendor inputs.
+    Its Cargo graph therefore cannot resolve offline. Keeping that incomplete
+    graph silently defeats builtin macro semantics; RA's supported stitched
+    source graph resolves core/std/alloc without inventing dependency metadata.
+    This is analysis layout only, never an SDK or application modification.
+    """
+    root, retained_manifest = Path(root), Path(retained_manifest)
+    manifest = root / 'Cargo.toml'
+    if (root.is_symlink() or manifest.is_symlink() or not manifest.is_file()
+            or retained_manifest.exists() or retained_manifest.is_symlink()
+            or retained_manifest.parent.resolve(strict=True) != root.parent.resolve(strict=True)
+            or manifest.stat().st_size > 65536):
+        raise ValueError('unexpected sysroot analysis manifest layout')
+    raw = manifest.read_bytes()
+    expected = 'b346ae33bd9648949894510a2bcc1d1f8b78c7301c3110e4a98b68bacd3b4584'
+    if hashlib.sha256(raw).hexdigest() != expected:
+        raise ValueError('reviewed sysroot manifest changed')
+    manifest.rename(retained_manifest)
+    if retained_manifest.read_bytes() != raw:
+        raise ValueError('retained sysroot manifest changed')
+    return dict(mode='rust-analyzer-stitched', retained_manifest_sha256=expected,
+                rust_source_modified=False, vendor_dependencies_added=False,
+                full_standard_library_dependency_graph=False)
+
+
 def security_suite(stage, env, guard, runtime, database):
     """Run the unmodified official suite from verified source-only local packs."""
     helper_path = Path(__file__).with_name('stage-reviewed-rust-queries.py')
@@ -220,6 +248,8 @@ def body_probe(source, stage, env, guard, runtime):
     helper = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(helper)
     sysroot = helper.stage_source(stage / 'reviewed-sysroot-source', profile)
+    sysroot['analysis_layout'] = prepare_stitched_sysroot(
+        sysroot['source_root'], stage / 'retained-sysroot-Cargo.toml')
     env['RUST_SRC_PATH'] = sysroot['source_root']
     # Official extractor Config::sysroot supports both explicit paths. Its
     # get_extra_env enables Rustup auto-install before applying cargo_extra_env;
@@ -283,6 +313,8 @@ def body_probe(source, stage, env, guard, runtime):
                           extraction_diagnostics=diagnostics,
                           analysis_source_files_unchanged=len(before),
                           security_query_suite_executed=False, release_approved=False)), flush=True)
+    if any('macro expansion failed' in line.casefold() for line in diagnostics):
+        raise ValueError('actual application macro extraction remains incomplete')
     security = security_suite(stage, env, guard, runtime, database)
     if source_snapshot(source) != before:
         raise ValueError('security suite modified actual source inputs')
