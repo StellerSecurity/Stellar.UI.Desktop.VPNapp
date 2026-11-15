@@ -105,7 +105,7 @@ def stage(source, destination, profile):
     probe.mkdir()
     (model / 'qlpack.yml').write_text(
         'name: ' + MODEL_NAME + '\nversion: ' + MODEL_VERSION + '\n'
-        'extensionTargets:\n  codeql/rust-all: 0.2.25\ndataExtensions:\n  - ipc.model.json\n')
+        'library: true\nextensionTargets:\n  codeql/rust-all: 0.2.25\ndataExtensions:\n  - ipc.model.json\n')
     (model / 'ipc.model.json').write_text(json.dumps(dict(extensions=[dict(
         addsTo=dict(pack='codeql/rust-all', extensible='sourceModel'), data=bound['data'])]), indent=2) + '\n')
     (probe / 'qlpack.yml').write_text(

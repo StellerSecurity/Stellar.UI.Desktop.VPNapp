@@ -12,7 +12,7 @@
     "windows-codeql-toolchain.ps1": "583313a8db4d59507ce06580e80a72304a0f66fa40f80b9e671ca8644383cdde",
     "stage-reviewed-rust-queries.py": "cc7561508d8fddf5c5f8cb15961b1a5878591c267f9a626607f0031881298134",
     "rust-query-source-inputs.json": "fe87f7bca97ceed18061370646aeb9ab1db649b56c11e6dc30ea2c4b0dfe9a4f",
-    "stage-tauri-ipc-models.py": "6efec2519fdb026e97f1de54c80625e27abf7741d8ee58b9e320b37e7005d72c"
+    "stage-tauri-ipc-models.py": "916dccc80f47f80e996a64c94db36cb6a8e0d371e66534bf83b3243cf7200140"
   },
   "exported_environment": [
     "RUSTC",

@@ -91,6 +91,7 @@ class ModelTests(unittest.TestCase):
         (destination / 'rust-queries/codeql-pack.lock.yml').write_text('lockVersion: 1.0.0\ncompiled: false\n')
         result = models.stage(self.source, destination, self.profile)
         self.assertTrue(result['source_only'])
+        self.assertIn('library: true\n', (destination / 'stellar-tauri-ipc-models/qlpack.yml').read_text())
         model = json.loads((destination / 'stellar-tauri-ipc-models/ipc.model.json').read_bytes())
         self.assertEqual(model['extensions'][0]['addsTo']['extensible'], 'sourceModel')
         self.assertEqual(len(model['extensions']), 1)
