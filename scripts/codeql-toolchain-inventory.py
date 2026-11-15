@@ -14,7 +14,8 @@ scanned = 0
 roots = [Path('/opt/hostedtoolcache/CodeQL/2.27.4/x64/codeql'),
          Path.home() / '.rustup/toolchains/1.99.1-x86_64-unknown-linux-gnu',
          Path.home() / '.rustup/toolchains/stable-x86_64-unknown-linux-gnu',
-         Path('/opt/hostedtoolcache/go/1.26.4/x64')]
+         Path('/opt/hostedtoolcache/go/1.26.4/x64'),
+         Path('/usr/lib/jvm/temurin-25-jdk-amd64')]
 missing = []
 for root in roots:
     if not root.is_dir() or root.is_symlink():
@@ -40,7 +41,9 @@ for root in roots:
                        (relative == 'VERSION' or relative.startswith(('bin/', 'pkg/tool/linux_amd64/'))))
             codeql_tool = (root.name == 'codeql' and
                            (relative == 'codeql' or relative.startswith(('rust/', 'tools/linux64/', 'tools/codeql'))))
-            selected = rust_tool or go_tool or codeql_tool
+            jdk_tool = (str(root) == '/usr/lib/jvm/temurin-25-jdk-amd64' and
+                        (relative in ('bin/java', 'release') or relative.startswith(('lib/', 'conf/'))))
+            selected = rust_tool or go_tool or codeql_tool or jdk_tool
             if not selected:
                 continue
             if info.st_size > 512 * 1024**2 or scanned + info.st_size > LIMIT_BYTES:
