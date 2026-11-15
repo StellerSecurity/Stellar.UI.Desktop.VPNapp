@@ -8,7 +8,7 @@ permissions: {}
 jobs:
   verify:
     runs-on: windows-2022
-    timeout-minutes: 32
+    timeout-minutes: 45
     steps:
       - name: Prepare reviewed sources and verify offline analysis graph
         env:
@@ -20,15 +20,17 @@ jobs:
           if not re.fullmatch('[a-f0-9]{40}', commit):
               raise ValueError('exact first-party commit required')
           files = {
+              'scripts/stage-reviewed-rust-queries.py': ('2b1144fcab6b6182a64865aba07ef1fa639dff0865932ffef510e1f402fb290b', 2097152),
+              'native/codeql/rust-query-source-inputs.json': ('fe87f7bca97ceed18061370646aeb9ab1db649b56c11e6dc30ea2c4b0dfe9a4f', 2097152),
               'scripts/windows-codeql-toolchain.ps1': ('583313a8db4d59507ce06580e80a72304a0f66fa40f80b9e671ca8644383cdde', 524288),
               'native/codeql/rust-sysroot-source-inputs.json': ('002ff08b64041193a2991dfd6438263645bdb4c07b7ae6e96520f614ad722ef8', 2097152),
               'scripts/stage-reviewed-rust-sysroot.py': ('39cee2a4fd131e0f8910fe53d15f34b5df1791eb9e02b735e31be39a4516c9af', 2097152),
-              'scripts/windows-app-metadata.py': ('da58b3cdd388cf78e0003fe6f80095389bc38d98281c02ac3905c6ff41d483da', 524288),
+              'scripts/windows-app-metadata.py': ('7e2ff4d0f1a3c89a46052396cd08fcd62920565a76f28488d6c61656e2d15bab', 524288),
               'scripts/windows-codeql-source.ps1': ('9482bf246b971803556f584a0d2d19b108f13310c0bbf78b0735c9e44f6d2894', 524288),
               'scripts/windows-codeql-probe.py': ('f3a792800c5cb12c913e847c93bd72cb59921a38c56710e59451b33ce1282212', 524288),
               'native/codeql/windows-codeql-probe-plan.json': ('b01261fdfef54b1e59f83973f0f2b61d3c38b2c0f4ca14e9ef9e9a869e4c5f49', 524288),
               'native/codeql/windows-app-source-inputs.json': ('d867ca1414b3d6db0e809d0fe3ba0b2c8291955dde4e17122862a20bcbe8764e', 524288),
-              'native/codeql/windows-app-metadata-plan.json': ('6d7f1def78bb1a2a32457f2ede8a0c07fc0fa9fa67bade7ecf99dc31937b2776', 524288),
+              'native/codeql/windows-app-metadata-plan.json': ('cbaaca55e3d5786de98e19bff6875c44bcc6e09fa5333519ef9c6dc64af4d701', 524288),
           }
           with tempfile.TemporaryDirectory(prefix='stellar-app-metadata-') as folder:
               root = pathlib.Path(folder)
@@ -39,4 +41,4 @@ jobs:
                       if response.geturl() != url or len(raw) > limit or hashlib.sha256(raw).hexdigest() != expected:
                           raise ValueError('reviewed analysis helper drift')
                   (root / pathlib.Path(name).name).write_bytes(raw)
-              subprocess.run([sys.executable, str(root / 'windows-app-metadata.py')], check=True, timeout=1800)
+              subprocess.run([sys.executable, str(root / 'windows-app-metadata.py')], check=True, timeout=2400)

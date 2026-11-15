@@ -95,6 +95,76 @@ def source_snapshot(source):
         snapshot[path.relative_to(source).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
     return snapshot
 
+
+def security_suite(stage, env, guard, runtime, database):
+    """Run the unmodified official suite from verified source-only local packs."""
+    helper_path = Path(__file__).with_name('stage-reviewed-rust-queries.py')
+    spec = importlib.util.spec_from_file_location('firstparty_query_source', helper_path)
+    helper = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(helper)
+    profile = json.loads(Path(__file__).with_name('rust-query-source-inputs.json').read_bytes())
+    destination = stage / 'reviewed-query-source'
+    copied = helper.stage_source(Path(runtime['codeql_root']) / 'qlpacks/codeql', destination, profile)
+    before = copied.pop('snapshot')
+    codeql = str(Path(runtime['codeql_root']) / 'codeql.exe')
+    caches = stage / 'query-caches'
+    common = ['--additional-packs=' + str(destination), '--common-caches=' + str(caches)]
+    resolved = guard.run([codeql, 'resolve', 'qlpacks', '--format=json'] + common, stage, env, 60, capture=True)
+    output = resolved.pop('output')
+    try:
+        start = output.index('{')
+        mapping, end = json.JSONDecoder().raw_decode(output[start:])
+        if output[start + end:].strip() or not isinstance(mapping, dict):
+            raise ValueError('unexpected query resolution trailer')
+        resolution_diagnostics = output[:start].splitlines()
+        if any('error' in line.casefold() or 'failed' in line.casefold() for line in resolution_diagnostics):
+            raise ValueError('query resolution reported an error')
+    except (ValueError, TypeError):
+        print(json.dumps(dict(query_pack_resolution_output=output)))
+        raise ValueError('expected exact source query-pack resolution JSON')
+    for row in profile['manifests']:
+        name = 'codeql/' + row['package']
+        paths = mapping.get(name)
+        if (not isinstance(paths, list) or len(paths) != 1 or not isinstance(paths[0], str) or
+                Path(paths[0]).resolve() != (destination / row['package']).resolve()):
+            print(json.dumps(dict(query_pack_resolution=mapping)))
+            raise ValueError('query pack resolved outside verified source projection')
+    suite = destination / 'rust-queries/codeql-suites/rust-security-and-quality.qls'
+    sarif_path = stage / 'rust-security-and-quality.sarif'
+    command = [codeql, 'database', 'analyze', str(database), str(suite), '--no-download',
+               '--format=sarifv2.1.0', '--output=' + str(sarif_path), '--threads=2', '--ram=3072',
+               '--no-default-compilation-cache', '--compilation-cache=' + str(stage / 'query-compilation'),
+               '--no-sarif-add-file-contents', '--no-sarif-add-snippets', '--no-sarif-add-query-help'] + common
+    print(json.dumps(dict(security_suite_started=True, source_projection=copied,
+                          resolved_exact_packs=len(profile['manifests']), suite=suite.name)), flush=True)
+    analyzed = guard.run(command, stage, env, 1500, capture=True)
+    logs = analyzed.pop('output')
+    diagnostics = [line for line in logs.splitlines() if any(word in line.casefold() for word in ('warning', 'error', 'failed'))]
+    if helper.snapshot(destination) != before:
+        raise ValueError('security query source was modified during analysis')
+    if not sarif_path.is_file() or sarif_path.stat().st_size > 32 * 1024**2:
+        raise ValueError('security suite SARIF output bounds')
+    sarif = json.loads(sarif_path.read_bytes())
+    runs = sarif.get('runs')
+    if sarif.get('version') != '2.1.0' or not isinstance(runs, list) or not runs or len(runs) > 4:
+        raise ValueError('unexpected security suite SARIF format')
+    findings, notifications, rules = [], [], []
+    for run in runs:
+        rules.extend(rule['id'] for rule in run.get('tool', {}).get('driver', {}).get('rules', []))
+        findings.extend(run.get('results', []))
+        for invocation in run.get('invocations', []):
+            if invocation.get('executionSuccessful') is False:
+                raise ValueError('security suite reported unsuccessful execution')
+            notifications.extend(invocation.get('toolExecutionNotifications', []))
+            notifications.extend(invocation.get('toolConfigurationNotifications', []))
+    if len(findings) > 10000 or len(notifications) > 10000:
+        raise ValueError('security suite result count bounds')
+    return dict(suite='rust-security-and-quality', source_projection=copied, commands=[resolved, analyzed],
+                query_rule_ids=sorted(set(rules)), findings=findings, notifications=notifications,
+                resolution_diagnostics=resolution_diagnostics, diagnostics=diagnostics, source_files_unchanged=len(before),
+                sarif_sha256=hashlib.sha256(sarif_path.read_bytes()).hexdigest(),
+                security_query_suite_executed=True, release_approved=False)
+
 def body_probe(source, stage, env, guard, runtime):
     codeql = Path(runtime['codeql_root']) / 'codeql.exe'
     schema = Path(runtime['codeql_root']) / 'rust/rust.dbscheme'
@@ -157,9 +227,13 @@ def body_probe(source, stage, env, guard, runtime):
         raise ValueError('application query output bounds')
     if source_snapshot(source) != before:
         raise ValueError('analysis modified actual source inputs')
-    return dict(commands=commands, sysroot_analysis_inputs=sysroot, reviewed_compiler_preparation=native, extraction_diagnostics=diagnostics, analysis_source_files_unchanged=len(before), function_bodies=validate_bodies(json.loads(decoded.read_bytes())),
+    bodies = validate_bodies(json.loads(decoded.read_bytes()))
+    security = security_suite(stage, env, guard, runtime, database)
+    if source_snapshot(source) != before:
+        raise ValueError('security suite modified actual source inputs')
+    return dict(commands=commands, sysroot_analysis_inputs=sysroot, reviewed_compiler_preparation=native, extraction_diagnostics=diagnostics, analysis_source_files_unchanged=len(before), function_bodies=bodies, security_analysis=security,
                 windows_scope_only=True, coverage_diagnostics_status='requires-review' if diagnostics else 'no-diagnostics',
-                security_query_suite_executed=False, release_approved=False)
+                security_query_suite_executed=True, release_approved=False)
 
 
 def main():
