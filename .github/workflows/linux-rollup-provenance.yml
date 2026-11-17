@@ -22,7 +22,7 @@ jobs:
           files = {
               'scripts/rollup-parser-probe-file-identity.json': '4963770d29a3ba9c2c8a810d0369952c07ef8746f493ec3ffe0b3e879d19af43',
               'scripts/rollup-wasm-parser-probe.cjs': '0647ef30f494c49d1f0bc88ad806f9d295400aaa997def1bc12fe3def92ef010',
-              'scripts/linux-rollup-provenance.py': 'c44c9ceda404837b1aae372b5fc427ed775417b66da32c99abc9602247bba374',
+              'scripts/linux-rollup-provenance.py': '54939b3898deb621b7f7ea35ba87778301cbd68d92628f843f7b2353d942b54c',
               'scripts/verify-rollup-provenance.cjs': '3339c86223ca25790cbc12e4f6442ed3f2f00ed2920cb4b62bea5f609fde2dd2',
               'scripts/prepare-sigstore-public-metadata.py': '6dc8d71dfc753e0f94c8a49da969662a5df283b7d00ee1d0d4c1f87f0f43c3c6',
               'scripts/linux-npm-backport-probe.py': 'aaccee6c9eec318efdd5c3cebf1d8986f6758eeb3990dc171760f07c0a820556',

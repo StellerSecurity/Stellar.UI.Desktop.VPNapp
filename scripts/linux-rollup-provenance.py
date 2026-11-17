@@ -69,6 +69,8 @@ def main():
         result = json.loads(runtime.run(command, work, env, 45))
         if result.get('verified') is not True or result.get('negative_controls') != 5:
             raise ValueError('incomplete provenance verification')
+        result['provenance_target_code_executed'] = result.pop('target_code_executed')
+        result['target_code_executed'] = False
         if probe_parser:
             identities = json.loads((ROOT / 'rollup-parser-probe-file-identity.json').read_text())
             expected_names = {'dist/wasm-node/bindings_wasm.js', 'dist/wasm-node/bindings_wasm_bg.wasm',
@@ -96,6 +98,7 @@ def main():
             for name, identity in identities.items():
                 runtime.verified(work / 'rollup' / name, identity['sha256'])
             result['scoped_parser_regressions'] = parser_result
+            result['target_code_executed'] = True
         for relative, digest in records.items():
             runtime.verified(work / 'npm' / relative, digest)
         result.update(tool_source_files_unchanged=len(records),
