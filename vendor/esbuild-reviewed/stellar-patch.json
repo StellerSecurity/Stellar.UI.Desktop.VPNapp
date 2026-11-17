@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "upstream": {
+    "name": "esbuild",
+    "version": "0.28.1",
+    "npm_archive_sha256": "eb8ef756f8299d16d5c8b35678606d715ba29923f500db7b37c181310eed40a5",
+    "api_sha256": "8331fe1d8b3a07381f33cc425fcfaa94776e263113653f80ec3ba433e9657e73"
+  },
+  "modifications": [
+    "Replace upstream binary discovery with exact local binary guard.",
+    "Remove npm postinstall and optional platform binary dependencies.",
+    "Keep public API and service protocol version 0.28.1.",
+    "Use a separately source-built Go 1.26.11/x/sys 0.44.0 runtime."
+  ],
+  "binary_files_committed": false,
+  "source_fork": true
+}
