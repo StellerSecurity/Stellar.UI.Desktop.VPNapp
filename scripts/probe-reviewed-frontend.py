@@ -198,13 +198,17 @@ syncBuiltinESMExports();
   process.env.ESBUILD_BINARY_PATH = path.join(__dirname, 'missing-runtime');
   await assert.rejects(import(pathToFileURL(wrapper).href + '?probe=' + index++), /ENOENT/);
   assert.equal(calls.length, 3, 'invalid mode/runtime must never invoke Vite');
-  console.log(JSON.stringify({mode_checks: 3, rejected_inputs: 5, real_child_started: false, target_executed: false}));
+  console.log('STELLAR_LAUNCHER_RESULT ' + JSON.stringify({mode_checks: 3, rejected_inputs: 5, real_child_started: false, target_executed: false}));
 })().catch(error => { console.error(error); process.exitCode = 1; });
 """)
     snapshots[str(launcher_fixture)] = hashlib.sha256(launcher_fixture.read_bytes()).hexdigest()
     launcher_check = tool.run(node_base + [str(launcher_fixture)], project, env, 30)
-    if json.loads(launcher_check.splitlines()[-1]) != dict(mode_checks=3, rejected_inputs=5,
-                                                        real_child_started=False, target_executed=False):
+    marker = 'STELLAR_LAUNCHER_RESULT '
+    launcher_results = [line[len(marker):] for line in launcher_check.splitlines() if line.startswith(marker)]
+    if len(launcher_results) != 1:
+        raise ValueError('first-party launcher result marker missing or duplicated')
+    launcher_result = json.loads(launcher_results[0])
+    if launcher_result != dict(mode_checks=3, rejected_inputs=5, real_child_started=False, target_executed=False):
         raise ValueError('first-party launcher negative-control drift')
     build = tool.run(node_base + ['--allow-fs-write=' + str(project), '--allow-child-process',
                                   '--wasm-max-mem-pages=1024', str(wrapper)], project, env, 45)
@@ -220,7 +224,7 @@ syncBuiltinESMExports();
     for path, expected in runtime_sources.items():
         tool.verified(scope / 'npm' / path, expected)
     return dict(application_commit=plan['application_commit'], typecheck=True, production_vite_build=True,
-                frontend_launcher_modes=json.loads(launcher_check.splitlines()[-1]),
+                frontend_launcher_modes=launcher_result,
                 vite='7.3.8', rollup='@rollup/wasm-node@4.65.1', esbuild='reviewed source fork 0.28.1-stellar.1',
                 immutable_input_files=len(snapshots), tool_sources_unchanged=len(runtime_sources),
                 production_api_identity_present=True, source_maps=False, build_log=build,
