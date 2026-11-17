@@ -1,0 +1,81 @@
+name: Reviewed frontend launcher unit controls
+on:
+  workflow_dispatch:
+  push:
+    branches: ['stellar/codeql-vendor-workspace-20261115']
+    paths: ['.github/workflows/frontend-launcher-unit.yml', 'scripts/build-frontend-reviewed.mjs', 'scripts/probe-reviewed-frontend.py']
+permissions: {}
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Exercise first-party launch argument controls with a first-party guard stub
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        shell: python
+        run: |
+          import ast, hashlib, io, json, os, pathlib, re, subprocess, tarfile, tempfile, urllib.request
+          commit = os.environ['SOURCE_COMMIT']
+          if not re.fullmatch('[a-f0-9]{40}', commit):
+              raise ValueError('immutable first-party commit required')
+          sources = {
+              'scripts/build-frontend-reviewed.mjs': '83e69a0e1287987c9586a928a0559d093375d3f154439aed31a970332b4bbcef',
+              'scripts/probe-reviewed-frontend.py': 'e2ec3bdf6372fa0d1c101ac32c01abf4f8d550fe029a49d9cb43cb018f251189',
+          }
+          def fetch(url, maximum, expected):
+              with urllib.request.urlopen(url, timeout=30) as response:
+                  raw = response.read(maximum + 1)
+                  if response.geturl() != url or len(raw) > maximum or hashlib.sha256(raw).hexdigest() != expected:
+                      raise ValueError('reviewed immutable input drift')
+              return raw
+          data = {name: fetch('https://raw.githubusercontent.com/StellerSecurity/Stellar.UI.Desktop.VPNapp/' + commit + '/' + name, 65536, checksum)
+                  for name, checksum in sources.items()}
+          tree = ast.parse(data['scripts/probe-reviewed-frontend.py'])
+          fixtures = [call.args[0].value for call in ast.walk(tree) if isinstance(call, ast.Call)
+                      and isinstance(call.func, ast.Attribute) and call.func.attr == 'write_text'
+                      and isinstance(call.func.value, ast.Name) and call.func.value.id == 'launcher_fixture'
+                      and len(call.args) == 1 and isinstance(call.args[0], ast.Constant) and isinstance(call.args[0].value, str)]
+          if len(fixtures) != 1:
+              raise ValueError('exact first-party fixture required')
+          sdk = fetch('https://nodejs.org/dist/v26.13.1/node-v26.13.1-linux-x64.tar.xz', 64 * 1024**2,
+                      '5c063e46bab0fbc1c17cc445d7ff129cbdcd0471be6ed83b6ab864f8143bc864')
+          with tempfile.TemporaryDirectory(prefix='stellar-launcher-unit-') as folder:
+              root = pathlib.Path(folder)
+              with tarfile.open(fileobj=io.BytesIO(sdk), mode='r:xz') as archive:
+                  member = archive.getmember('node-v26.13.1-linux-x64/bin/node')
+                  if not member.isfile() or member.size != 150348872:
+                      raise ValueError('exact reviewed Node member required')
+                  runtime = archive.extractfile(member).read()
+              if hashlib.sha256(runtime).hexdigest() != 'd931c649850ffa7155b8ceffb400dc916ef325866e509cc52ae36e33e8fbb9a9':
+                  raise ValueError('reviewed Node executable drift')
+              node = root / 'node'
+              node.write_bytes(runtime)
+              node.chmod(0o500)
+              project = root / 'project'
+              (project / 'scripts').mkdir(parents=True)
+              (project / 'scripts/build-frontend-reviewed.mjs').write_bytes(data['scripts/build-frontend-reviewed.mjs'])
+              (project / 'package.json').write_text('{"private":true,"type":"module"}\n')
+              guard = project / 'node_modules/esbuild/lib/reviewed-binary.cjs'
+              guard.parent.mkdir(parents=True)
+              guard.write_text("module.exports=()=>{const value=process.env.ESBUILD_BINARY_PATH;if(value.endsWith('/missing-runtime'))throw new Error('ENOENT');return value;};\n")
+              fixture = project / 'launcher-probe.cjs'
+              fixture.write_text(fixtures[0])
+              environment = dict(PATH='/nonexistent', TMPDIR=folder, LANG='C.UTF-8', TZ='UTC')
+              command = [str(node), '--permission', '--allow-fs-read=' + folder, '--no-addons',
+                         '--disable-sigusr1', '--max-old-space-size=256', str(fixture)]
+              result = subprocess.run(command, cwd=project, env=environment, capture_output=True, timeout=30)
+              if len(result.stdout) + len(result.stderr) > 16384:
+                  raise ValueError('unit output bound')
+              output = (result.stdout + result.stderr).decode(errors='replace')
+              marker = 'STELLAR_LAUNCHER_RESULT '
+              rows = [line[len(marker):] for line in output.splitlines() if line.startswith(marker)]
+              if result.returncode or len(rows) != 1:
+                  print(output[-4096:])
+                  raise ValueError('first-party launcher unit completion failed')
+              summary = json.loads(rows[0])
+              if summary != dict(mode_checks=3, rejected_inputs=5, real_child_started=False, target_executed=False):
+                  raise ValueError('launcher unit result drift')
+              print(json.dumps(dict(result=summary, guard_stub_used=True, actual_binary_guard_tested=False,
+                                    real_vite_started=False, package_hooks=False, network_requested_by_fixture=False,
+                                    scope='First-party launch argument unit controls only; real binary guard and full frontend build remain separately required.')))
