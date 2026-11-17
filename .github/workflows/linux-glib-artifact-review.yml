@@ -1,0 +1,35 @@
+name: Linux GLib official artifact static review
+on:
+  workflow_dispatch:
+  push:
+    branches: ['stellar/codeql-vendor-workspace-20261115']
+    paths: ['.github/workflows/linux-glib-artifact-review.yml', 'scripts/linux-glib-artifact-review.py', 'scripts/download-glib-native-review.py']
+permissions: {}
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Match official package bytes without loading GLib
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        shell: python
+        run: |
+          import hashlib, os, pathlib, re, subprocess, sys, tempfile, urllib.request
+          commit = os.environ['SOURCE_COMMIT']
+          if not re.fullmatch('[a-f0-9]{40}', commit):
+              raise ValueError('exact source commit required')
+          files = {
+              'scripts/linux-glib-artifact-review.py': 'bc63160feb0fba8428ab2e852d425bf3bb6d41289092af1c042fafcff7dce728',
+              'scripts/download-glib-native-review.py': '576d3bd4fb14ac8a64d7ca905ed770b47eedf4927953be4e54fa84f898364cfa',
+          }
+          with tempfile.TemporaryDirectory(prefix='stellar-glib-review-') as directory:
+              root = pathlib.Path(directory)
+              for name, expected in files.items():
+                  url = 'https://raw.githubusercontent.com/StellerSecurity/Stellar.UI.Desktop.VPNapp/' + commit + '/' + name
+                  with urllib.request.urlopen(url, timeout=30) as response:
+                      raw = response.read(65537)
+                      if response.geturl() != url or len(raw) > 65536 or hashlib.sha256(raw).hexdigest() != expected:
+                          raise ValueError('first-party review source drift')
+                  (root / pathlib.Path(name).name).write_bytes(raw)
+              subprocess.run([sys.executable, str(root / 'linux-glib-artifact-review.py')], check=True, timeout=240)
