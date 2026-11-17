@@ -73,6 +73,24 @@ async function main() {
   const info = await updater.getTargetInfo('trusted_root.json');
   assert.ok(info);
   const target = await updater.downloadTarget(info);
+  const originalTimestamp = map.responses[ORIGIN + '/timestamp.json'];
+  const tamperedTimestamp = JSON.parse(Buffer.from(originalTimestamp.bytes_base64, 'base64'));
+  assert.ok(tamperedTimestamp.signatures.length > 0);
+  for (const signature of tamperedTimestamp.signatures) signature.sig = '00'.repeat(64);
+  const tamperedBytes = Buffer.from(JSON.stringify(tamperedTimestamp));
+  map.responses[ORIGIN + '/timestamp.json'] = { status: 200,
+    bytes_base64: tamperedBytes.toString('base64'),
+    sha256: crypto.createHash('sha256').update(tamperedBytes).digest('hex') };
+  const rejectedDir = path.join(root, 'tampered-metadata');
+  fs.mkdirSync(rejectedDir);
+  fs.writeFileSync(path.join(rejectedDir, 'root.json'), Buffer.from(seeds[ORIGIN]['root.json'], 'base64'));
+  try {
+    const negativeUpdater = new Updater({ metadataDir: rejectedDir, targetDir,
+      metadataBaseUrl: ORIGIN, targetBaseUrl: ORIGIN + '/targets', fetcher });
+    await assert.rejects(negativeUpdater.getTargetInfo('trusted_root.json'), /signature|signed|threshold/i);
+  } finally {
+    map.responses[ORIGIN + '/timestamp.json'] = originalTimestamp;
+  }
   const trust = toTrustMaterial(TrustedRoot.fromJSON(JSON.parse(fs.readFileSync(target))));
   const verifier = new Verifier(trust);
   assert.equal(verifier.options.ctlogThreshold, 1);
@@ -104,7 +122,8 @@ async function main() {
   assert.equal(WebAssembly.validate(wasm.subarray(0, wasm.length - 1)), false);
   console.log(JSON.stringify({ verified: true, artifact_sha512: SHA512, release_commit: COMMIT,
     identity: SAN, issuer: ISSUER, public_metadata_responses: seen.size,
-    default_ctlog_tlog_timestamp_thresholds: [1, 1, 1], negative_controls: 5,
+    default_ctlog_tlog_timestamp_thresholds: [1, 1, 1], negative_controls: 6,
+    tampered_tuf_signature_rejected: true,
     wasm_type_validation: true, truncated_wasm_rejected: true,
     network_allowed: false, target_code_executed: false, signing_invoked: false,
     native_semantic_review_complete: false, release_approved: false }));

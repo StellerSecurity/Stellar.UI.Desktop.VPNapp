@@ -22,8 +22,8 @@ jobs:
           files = {
               'scripts/rollup-parser-probe-file-identity.json': '4963770d29a3ba9c2c8a810d0369952c07ef8746f493ec3ffe0b3e879d19af43',
               'scripts/rollup-wasm-parser-probe.cjs': '0647ef30f494c49d1f0bc88ad806f9d295400aaa997def1bc12fe3def92ef010',
-              'scripts/linux-rollup-provenance.py': '54939b3898deb621b7f7ea35ba87778301cbd68d92628f843f7b2353d942b54c',
-              'scripts/verify-rollup-provenance.cjs': '3339c86223ca25790cbc12e4f6442ed3f2f00ed2920cb4b62bea5f609fde2dd2',
+              'scripts/linux-rollup-provenance.py': '8de62a9dc98e6946871f3a97ca82e49ee189f60c4c52b2d2cde9f5e3071f0c4f',
+              'scripts/verify-rollup-provenance.cjs': 'db8433a50a502dd5bc27d52dc385d6d8c5ea748c1d5e1183d8935a93d3ac1a56',
               'scripts/prepare-sigstore-public-metadata.py': '6dc8d71dfc753e0f94c8a49da969662a5df283b7d00ee1d0d4c1f87f0f43c3c6',
               'scripts/linux-npm-backport-probe.py': 'aaccee6c9eec318efdd5c3cebf1d8986f6758eeb3990dc171760f07c0a820556',
               'scripts/patch-reviewed-npm-tool.py': 'b256f3844d01e55da6ac8fd38f48985ec6dae7bb9ecb1953d53ddc603d964fa3',

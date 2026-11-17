@@ -67,7 +67,7 @@ def main():
                    '--allow-fs-write=' + str(work), '--no-addons', '--disable-sigusr1',
                    '--max-old-space-size=256', str(work / 'verify.cjs')]
         result = json.loads(runtime.run(command, work, env, 45))
-        if result.get('verified') is not True or result.get('negative_controls') != 5:
+        if result.get('verified') is not True or result.get('negative_controls') != 6:
             raise ValueError('incomplete provenance verification')
         result['provenance_target_code_executed'] = result.pop('target_code_executed')
         result['target_code_executed'] = False
