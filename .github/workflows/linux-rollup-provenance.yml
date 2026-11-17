@@ -1,6 +1,9 @@
 name: Offline Rollup artifact provenance verification
 on:
   workflow_dispatch:
+  push:
+    branches: ['stellar/codeql-vendor-workspace-20261115']
+    paths: ['.github/workflows/linux-rollup-provenance.yml', 'scripts/linux-rollup-provenance.py', 'scripts/verify-rollup-provenance.cjs', 'scripts/prepare-sigstore-public-metadata.py']
 permissions: {}
 jobs:
   verify:
