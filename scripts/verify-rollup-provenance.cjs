@@ -94,9 +94,18 @@ async function main() {
   assert.throws(() => verifier.verify(toSignedEntity(bundleFromJSON(altered)), policy));
   assert.throws(() => statementPolicy(statement, '0'.repeat(128)));
   assert.throws(() => verifier.verify(entity, { ...policy, oids: { '1.3.6.1.4.1.57264.1.1': ISSUER + '-wrong' } }));
+  const wasm = fs.readFileSync(path.join(__dirname, 'reviewed.wasm'));
+  assert.equal(wasm.length, 588077);
+  assert.equal(crypto.createHash('sha256').update(wasm).digest('hex'),
+    '7099c59e9da5c0d690356ba986bf02a89dd21b35e578684758ecbdac4aca0c8d');
+  // Engine validation checks types and control flow. Never instantiate, compile
+  // a Module, create imports, or call any target export in this analysis phase.
+  assert.equal(WebAssembly.validate(wasm), true);
+  assert.equal(WebAssembly.validate(wasm.subarray(0, wasm.length - 1)), false);
   console.log(JSON.stringify({ verified: true, artifact_sha512: SHA512, release_commit: COMMIT,
     identity: SAN, issuer: ISSUER, public_metadata_responses: seen.size,
     default_ctlog_tlog_timestamp_thresholds: [1, 1, 1], negative_controls: 5,
+    wasm_type_validation: true, truncated_wasm_rejected: true,
     network_allowed: false, target_code_executed: false, signing_invoked: false,
     native_semantic_review_complete: false, release_approved: false }));
 }

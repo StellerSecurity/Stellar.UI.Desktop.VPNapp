@@ -2,6 +2,7 @@
 import base64
 import importlib.util
 import json
+import re
 from pathlib import Path
 import unittest
 import urllib.error
@@ -32,6 +33,16 @@ class Response:
 
 
 class MetadataTests(unittest.TestCase):
+    def test_validation_phase_never_instantiates_target_or_allows_network(self):
+        javascript = (ROOT / 'scripts/verify-rollup-provenance.cjs').read_text()
+        runner = (ROOT / 'scripts/linux-rollup-provenance.py').read_text()
+        self.assertNotRegex(javascript, r'WebAssembly\.(?:instantiate|compile|Module|Instance)\s*\(')
+        self.assertIn('WebAssembly.validate(wasm)', javascript)
+        self.assertNotIn('--allow-net', runner)
+        self.assertNotIn('--allow-child-process', runner)
+        self.assertNotIn('forceCache: true', javascript)
+        self.assertIn('new Verifier(trust)', javascript)
+
     def seed(self):
         raw = json.dumps({'signed': {'version': 14, 'consistent_snapshot': True}}).encode()
         return {'root.json': base64.b64encode(raw).decode()}

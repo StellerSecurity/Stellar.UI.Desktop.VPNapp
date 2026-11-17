@@ -20,8 +20,8 @@ jobs:
           if not re.fullmatch('[a-f0-9]{40}', commit):
               raise ValueError('immutable first-party source required')
           files = {
-              'scripts/linux-rollup-provenance.py': '969f3981b86758ceab9797fea2393a623961c023841c9f48a6a24ab23ec20168',
-              'scripts/verify-rollup-provenance.cjs': 'ebf5be8bb7d2a120f666a1b531e1acb32b19af14b3fc9a0bb1ccc235a050b324',
+              'scripts/linux-rollup-provenance.py': '3d63a3caee5e212246f23dc6a04f94192612b7bc04bb67d2e69693eaba14e11b',
+              'scripts/verify-rollup-provenance.cjs': '3339c86223ca25790cbc12e4f6442ed3f2f00ed2920cb4b62bea5f609fde2dd2',
               'scripts/prepare-sigstore-public-metadata.py': '6dc8d71dfc753e0f94c8a49da969662a5df283b7d00ee1d0d4c1f87f0f43c3c6',
               'scripts/linux-npm-backport-probe.py': 'aaccee6c9eec318efdd5c3cebf1d8986f6758eeb3990dc171760f07c0a820556',
               'scripts/patch-reviewed-npm-tool.py': 'b256f3844d01e55da6ac8fd38f48985ec6dae7bb9ecb1953d53ddc603d964fa3',

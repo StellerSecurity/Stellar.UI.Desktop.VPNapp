@@ -1,10 +1,12 @@
 """Verify public provenance using reviewed tools, with target execution denied."""
 import hashlib
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
 import tempfile
+import tarfile
 import urllib.request
 
 ROOT = Path(__file__).resolve().parent
@@ -42,6 +44,19 @@ def main():
         if set(parsed) != {'attestations'} or len(parsed['attestations']) != 2:
             raise ValueError('public attestation envelope drift')
         (work / 'attestations.json').write_bytes(raw)
+        package = runtime.download('https://registry.npmjs.org/@rollup/wasm-node/-/wasm-node-4.65.1.tgz',
+                                   '8fd2e64dfeaa6334a683ce198e4b6487df44c63f02f3b7843339300b3e5f459a', 4 * 1024**2)
+        if hashlib.sha512(package).hexdigest() != '05ef71d299c54bdd70b40b25cf47f1dc79cb6ea42e578105d972de9b08f3f011aa2e332bc3db42ceeeef22e5a0a63084b0c42032d6751485872715fde59c0193':
+            raise ValueError('attested archive digest drift')
+        with tarfile.open(fileobj=io.BytesIO(package), mode='r:gz') as archive:
+            members = archive.getmembers()
+            matching = [m for m in members if m.name == 'package/dist/wasm-node/bindings_wasm_bg.wasm']
+            if len(members) != 29 or len(matching) != 1 or not matching[0].isfile() or matching[0].size != 588077:
+                raise ValueError('reviewed WASM archive member drift')
+            wasm = archive.extractfile(matching[0]).read(588078)
+        if hashlib.sha256(wasm).hexdigest() != '7099c59e9da5c0d690356ba986bf02a89dd21b35e578684758ecbdac4aca0c8d':
+            raise ValueError('reviewed WASM content drift')
+        (work / 'reviewed.wasm').write_bytes(wasm)
         (work / 'verify.cjs').write_bytes((ROOT / 'verify-rollup-provenance.cjs').read_bytes())
         env = dict(PATH='/usr/bin:/bin', TMPDIR=str(work / 'tmp'), LANG='C.UTF-8', TZ='UTC')
         command = [str(executable), '--permission', '--allow-fs-read=' + str(work),
