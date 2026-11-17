@@ -10,7 +10,7 @@ import tarfile
 import urllib.request
 
 ROOT = Path(__file__).resolve().parent
-FRONTEND_WRAPPER_SHA = '83e69a0e1287987c9586a928a0559d093375d3f154439aed31a970332b4bbcef'
+FRONTEND_WRAPPER_SHA = '71baaed6c609b35f018213d45b95c92a77d8ef65cc7aa46820af10a2463c5399'
 
 
 def load(name, filename):

@@ -13,7 +13,7 @@ if (process.argv.length > 3 || !Object.hasOwn(commands, mode)) {
   throw new Error('Choose only build, dev or preview without additional arguments.');
 }
 
-const root = fileURLToPath(new URL('..', import.meta.url));
+const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const runtimeOS = process.platform === 'win32' ? 'windows' : process.platform;
 const runtimeArch = process.arch === 'x64' ? 'amd64' : process.arch;
 const suffix = process.platform === 'win32' ? '.exe' : '';
@@ -40,5 +40,5 @@ child.on('error', () => {
   process.exitCode = 1;
 });
 child.on('exit', (code, signal) => {
-  process.exitCode = signal ? 1 : (code ?? 1);
+  process.exitCode = process.exitCode || (signal ? 1 : (code ?? 1));
 });

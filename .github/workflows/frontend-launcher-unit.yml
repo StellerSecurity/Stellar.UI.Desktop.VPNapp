@@ -20,8 +20,8 @@ jobs:
           if not re.fullmatch('[a-f0-9]{40}', commit):
               raise ValueError('immutable first-party commit required')
           sources = {
-              'scripts/build-frontend-reviewed.mjs': '83e69a0e1287987c9586a928a0559d093375d3f154439aed31a970332b4bbcef',
-              'scripts/probe-reviewed-frontend.py': 'e2ec3bdf6372fa0d1c101ac32c01abf4f8d550fe029a49d9cb43cb018f251189',
+              'scripts/build-frontend-reviewed.mjs': '71baaed6c609b35f018213d45b95c92a77d8ef65cc7aa46820af10a2463c5399',
+              'scripts/probe-reviewed-frontend.py': '3f4f2f98bf5b40aa334a733cf9c6b762ca5a7cb260dbb2b1c7ba7bfc8710bc87',
           }
           def fetch(url, maximum, expected):
               with urllib.request.urlopen(url, timeout=30) as response:

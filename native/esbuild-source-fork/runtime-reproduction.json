@@ -57,11 +57,11 @@
   "provisioning": {
     "command": "python3 scripts/provision-reviewed-esbuild.py --source /absolute/path/to/reproduced-bundle",
     "destination": ".stellar-build-tools/esbuild",
-    "requires_parent_directory": ".stellar-build-tools",
     "bundle_files": 10,
     "checks": "Exactly six pinned binaries, independently reproduced manifest and three exact licenses. Reject extra files, changed contents, symlinks, duplicate keys and existing destinations. No download, install hook, shell or target execution.",
     "negative_and_positive_controls": 8,
-    "default_frontend_build": "npm run build invokes the first-party launcher, selects this ignored runtime or explicit ESBUILD_BINARY_PATH and invokes the exact binary guard before Vite."
+    "default_frontend_build": "npm run build invokes the first-party launcher, selects this ignored runtime or explicit ESBUILD_BINARY_PATH and invokes the exact binary guard before Vite.",
+    "default_parent_directory": "Created privately if absent, without replacing existing paths."
   },
   "preserved_limits": [
     "All other native dependency and malformed-CFB gaps remain blocked.",
