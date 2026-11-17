@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "script_sha256": "d3c676f673a0dc319abd86f21c40e10e63fddb4308756ea5134d05a9af18b8ef",
+  "script_sha256": "05e8a53faeb8cf2a9ebae09874198fb319d1ca3f8d7fce6c693cdd37057d75ba",
   "sdk": "Go 1.26.11 linux/amd64",
   "sdk_tool_sha256": {
     "bin/go": "95499375c24b610cdc9e3684cec920174ec4c4f3f66d35b4332107f0f7d3d27d",

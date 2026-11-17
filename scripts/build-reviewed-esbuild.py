@@ -147,9 +147,15 @@ def main():
     parser = argparse.ArgumentParser(description='Rebuild reviewed esbuild sources with frozen tools.')
     parser.add_argument('--export-reviewed-runtimes', type=Path)
     parser.add_argument('--probe-frontend', action='store_true')
+    parser.add_argument('--upload-reviewed-runtime-artifact', action='store_true')
     arguments = parser.parse_args()
     if arguments.probe_frontend and arguments.export_reviewed_runtimes is None:
         parser.error('frontend probe requires independently reproduced exported runtimes')
+    if arguments.upload_reviewed_runtime_artifact:
+        if not arguments.probe_frontend or arguments.export_reviewed_runtimes is None:
+            parser.error('artifact transfer requires successful full source and frontend verification')
+        if not all(os.environ.get(key) for key in ('ACTIONS_RUNTIME_TOKEN', 'ACTIONS_RESULTS_URL')):
+            raise ValueError('current job artifact context is unavailable; no credential or upload attempted')
     plan = json.loads((ROOT / 'esbuild-rebuild-plan.json').read_text())
     if digest(Path(__file__).read_bytes()) != plan['script_sha256']:
         raise ValueError('first-party builder drift')
@@ -251,6 +257,7 @@ def main():
         exported = None
         exported_api_probe = None
         frontend_probe = None
+        runtime_artifact = None
         if arguments.export_reviewed_runtimes is not None:
             exported = export_reviewed_runtimes(outputs, work / 'output',
                                                arguments.export_reviewed_runtimes,
@@ -274,6 +281,16 @@ def main():
                 frontend_module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(frontend_module)
                 frontend_probe = frontend_module.probe(exported_linux, work)
+            if arguments.upload_reviewed_runtime_artifact:
+                legal = {'LICENSE-Go': sources['LICENSE'], 'LICENSE-esbuild': esbuild['LICENSE.md'],
+                         'LICENSE-x-sys': sys_source['LICENSE']}
+                for name, raw in legal.items():
+                    with (arguments.export_reviewed_runtimes / name).open('xb') as output:
+                        output.write(raw)
+                spec = importlib.util.spec_from_file_location('firstparty_artifact_transfer', ROOT / 'upload-reviewed-runtime.py')
+                transfer = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(transfer)
+                runtime_artifact = transfer.upload(arguments.export_reviewed_runtimes)
         print(json.dumps(dict(sdk_source_files_verified=verified, sdk_version=version,
                               outputs=outputs, source_patch='Go directive 1.25.0 and x/sys v0.44.0; application Rust and JS unchanged',
                               synthetic_tests=synthetic_tests,
@@ -281,6 +298,7 @@ def main():
                               exported_reviewed_runtimes=exported,
                               exported_runtime_api_probe=exported_api_probe,
                               source_only_frontend_probe=frontend_probe,
+                              reviewed_runtime_artifact=runtime_artifact,
                               independently_reproduced_targets=sorted(plan['expected_target_sha256']),
                               new_build_only_targets=plan.get('new_build_only_targets', []),
                               target_execution_scope='Linux amd64 only: version/minification and fixed API tests; optional explicitly requested frontend compilation, never app startup or Mac execution',

@@ -2,6 +2,12 @@ name: Reviewed esbuild source rebuild
 
 on:
   workflow_dispatch:
+    inputs:
+      upload_reviewed_runtime_artifact:
+        description: Transfer only verified source-built runtimes after all tests
+        type: boolean
+        required: false
+        default: false
   push:
     branches: ['stellar/codeql-vendor-workspace-20261115']
     paths:
@@ -22,6 +28,7 @@ jobs:
       - name: Build only the reviewed isolated source inputs
         env:
           SOURCE_COMMIT: ${{ github.sha }}
+          UPLOAD_REVIEWED_RUNTIME_ARTIFACT: ${{ inputs.upload_reviewed_runtime_artifact && 'true' || 'false' }}
         shell: python
         run: |
           import hashlib, os, pathlib, re, subprocess, sys, tempfile, urllib.request
@@ -29,10 +36,11 @@ jobs:
           if not re.fullmatch('[a-f0-9]{40}', commit):
               raise ValueError('exact first-party commit required')
           files = {
+              'scripts/upload-reviewed-runtime.py': ('f40a6c9cb12496f6128cad8756b36fa18e20ad355cccbfbc715142b6a1ca13d3', 65536),
               'native/codeql/frontend-build-plan.json': ('9317865871f766db5ba22c114d1b37b70359b7a33e4ad9ca56c566ed2bb2588c', 65536),
               'scripts/probe-reviewed-frontend.py': ('c5fb3a0e0662b9f2e86ac32b801c03489aa0d2ad516844c0af916396234046c7', 65536),
-              'scripts/build-reviewed-esbuild.py': ('d3c676f673a0dc319abd86f21c40e10e63fddb4308756ea5134d05a9af18b8ef', 65536),
-              'native/codeql/esbuild-rebuild-plan.json': ('2c1266f302544aa262adda0b462839799c4116dc5031215ebdb3172961e27803', 65536),
+              'scripts/build-reviewed-esbuild.py': ('05e8a53faeb8cf2a9ebae09874198fb319d1ca3f8d7fce6c693cdd37057d75ba', 65536),
+              'native/codeql/esbuild-rebuild-plan.json': ('8fdc0909e1d8fbaf0510730d825d4a7d1eb40cac2d08ee0f83ae1b6124f38fcd', 65536),
               'scripts/probe-reviewed-esbuild-api.py': ('bcf34788397d22f081967bcbed46896d960e48de8fe78f8f1acfb61e626662ff', 65536),
               'scripts/linux-npm-backport-probe.py': ('aaccee6c9eec318efdd5c3cebf1d8986f6758eeb3990dc171760f07c0a820556', 65536),
               'scripts/patch-reviewed-npm-tool.py': ('b256f3844d01e55da6ac8fd38f48985ec6dae7bb9ecb1953d53ddc603d964fa3', 65536),
@@ -53,4 +61,7 @@ jobs:
                   if len(raw) > limit or hashlib.sha256(raw).hexdigest() != expected:
                       raise ValueError('first-party build guard drift')
                   (root / pathlib.Path(name).name).write_bytes(raw)
-              subprocess.run([sys.executable, str(root / 'build-reviewed-esbuild.py'), '--export-reviewed-runtimes', str(root / 'generated-runtimes'), '--probe-frontend'], check=True, timeout=840)
+              command = [sys.executable, str(root / 'build-reviewed-esbuild.py'), '--export-reviewed-runtimes', str(root / 'generated-runtimes'), '--probe-frontend']
+              if os.environ['UPLOAD_REVIEWED_RUNTIME_ARTIFACT'] == 'true':
+                  command.append('--upload-reviewed-runtime-artifact')
+              subprocess.run(command, check=True, timeout=840)
