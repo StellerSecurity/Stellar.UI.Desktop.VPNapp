@@ -1,0 +1,31 @@
+name: Artifact action runtime static inventory
+on:
+  workflow_dispatch:
+  push:
+    branches: ['stellar/codeql-vendor-workspace-20261115']
+    paths: ['.github/workflows/artifact-runtime-inventory.yml']
+permissions: {}
+jobs:
+  inventory:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Read only the relevant launcher binary identity without execution
+        shell: python
+        run: |
+          import hashlib, json, pathlib, re, struct
+          roots = pathlib.Path('/home/runner/runners')
+          records = []
+          for path in sorted(roots.glob('*/externals/node24/bin/node')):
+              if path.is_symlink() or not path.is_file() or path.stat().st_size > 256 * 1024**2:
+                  raise ValueError('bounded regular action runtime required')
+              raw = path.read_bytes()
+              if raw[:6] != b'\x7fELF\x02\x01' or struct.unpack_from('<H', raw, 18)[0] != 62:
+                  raise ValueError('expected Linux x64 launcher format')
+              candidates = sorted(set(x.decode() for x in re.findall(rb'v24\.[0-9]{1,3}\.[0-9]{1,3}', raw)))
+              if len(candidates) > 50:
+                  raise ValueError('unexpected version metadata count')
+              records.append(dict(path=str(path), bytes=len(raw), sha256=hashlib.sha256(raw).hexdigest(), version_candidates=candidates))
+          if not records or len(records) > 3:
+              raise ValueError('action runtime identity not established')
+          print(json.dumps(dict(records=records, binary_executed=False, credentials_read=False, upload_attempted=False)))
