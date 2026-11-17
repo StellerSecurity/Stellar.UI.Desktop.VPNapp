@@ -29,8 +29,8 @@ jobs:
           if not re.fullmatch('[a-f0-9]{40}', commit):
               raise ValueError('exact first-party commit required')
           files = {
-              'native/codeql/frontend-build-plan.json': ('afc4e9a7ae38fef9fb0081aeea83e63419c92992fc68353a047df05c9160b639', 65536),
-              'scripts/probe-reviewed-frontend.py': ('4000f595d1ca9308b0f39cd586a07e27ca19261c22ffb9285bd0059f892c620f', 65536),
+              'native/codeql/frontend-build-plan.json': ('9317865871f766db5ba22c114d1b37b70359b7a33e4ad9ca56c566ed2bb2588c', 65536),
+              'scripts/probe-reviewed-frontend.py': ('c5fb3a0e0662b9f2e86ac32b801c03489aa0d2ad516844c0af916396234046c7', 65536),
               'scripts/build-reviewed-esbuild.py': ('d3c676f673a0dc319abd86f21c40e10e63fddb4308756ea5134d05a9af18b8ef', 65536),
               'native/codeql/esbuild-rebuild-plan.json': ('2c1266f302544aa262adda0b462839799c4116dc5031215ebdb3172961e27803', 65536),
               'scripts/probe-reviewed-esbuild-api.py': ('bcf34788397d22f081967bcbed46896d960e48de8fe78f8f1acfb61e626662ff', 65536),

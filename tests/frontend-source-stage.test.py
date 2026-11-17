@@ -2,7 +2,9 @@
 import hashlib
 import importlib.util
 import io
+import json
 from pathlib import Path
+import re
 import tarfile
 import tempfile
 import unittest
@@ -26,6 +28,18 @@ def archive(name, raw=b'owned fixture', link=None):
 
 
 class StageTests(unittest.TestCase):
+    def test_firstparty_relative_imports_have_frozen_inputs(self):
+        plan = json.loads((ROOT / 'native/codeql/frontend-build-plan.json').read_text())
+        names = set(plan['application_files'])
+        for name in sorted(names):
+            if not name.endswith(('.ts', '.tsx')):
+                continue
+            source = (ROOT / name).read_text()
+            for imported in re.findall(r'(?:from\s*|import\s*)[\'\"](\.[^\'\"]+)[\'\"]', source):
+                target = ((ROOT / name).parent / imported.split('?', 1)[0]).resolve().relative_to(ROOT).as_posix()
+                candidates = {target, target + '.ts', target + '.tsx', target + '/index.ts', target + '/index.tsx'}
+                self.assertTrue(candidates & names, name + ': ' + imported)
+
     def test_exact_regular_file_and_input_hash(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -52,7 +52,7 @@ def probe(exported_binary, work):
     plan = json.loads((ROOT / 'frontend-build-plan.json').read_text())
     if (plan['application_commit'] != '3a4801a0cc384f0626f9f08660626f7ff85bed05'
             or plan['application_repository'] != 'StellerSecurity/Stellar.UI.Desktop.VPNapp'
-            or len(plan['application_files']) != 378 or len(plan['source_packages']) != 17):
+            or len(plan['application_files']) != 380 or len(plan['source_packages']) != 17):
         raise ValueError('fixed current PR13 frontend input closure required')
     tool = load('reviewed_node_tool', 'linux-npm-backport-probe.py')
     fork = load('reviewed_esbuild_source', 'stage-reviewed-esbuild-fork.py')
@@ -76,7 +76,8 @@ def probe(exported_binary, work):
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), tool.NoRedirect())
     def application_input(item):
         name, identity = item
-        if (not (name.startswith(('src/', 'assets/')) or name in ('index.html', 'package.json', 'tsconfig.json', 'vite.config.ts'))
+        if (not (name.startswith(('src/', 'assets/')) or name in (
+                'index.html', 'package.json', 'tsconfig.json', 'vite.config.ts', 'stellar-tokens.css', 'vpn.css'))
                 or '..' in PurePosixPath(name).parts or '\\' in name or name.endswith(('.md', '.env'))):
             raise ValueError('unreviewed application input path')
         url = 'https://raw.githubusercontent.com/' + plan['application_repository'] + '/' + plan['application_commit'] + '/' + name
