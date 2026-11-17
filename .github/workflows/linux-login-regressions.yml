@@ -1,0 +1,37 @@
+name: Frozen PR13 synthetic login regressions
+on:
+  workflow_dispatch:
+  push:
+    branches: ['stellar/codeql-vendor-workspace-20261115']
+    paths: ['.github/workflows/linux-login-regressions.yml', 'scripts/linux-login-regressions.py', 'native/codeql/login-regression-plan.json']
+permissions: {}
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Test exact login source with network and native vault access denied
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        shell: python
+        run: |
+          import hashlib, os, pathlib, re, subprocess, sys, tempfile, urllib.request
+          commit = os.environ['SOURCE_COMMIT']
+          if not re.fullmatch('[a-f0-9]{40}', commit):
+              raise ValueError('immutable first-party source required')
+          files = {
+              'scripts/linux-login-regressions.py': '38ffaca33697469c1db54afb582f9a6d1f4a64ad93f201f3f20c5387c2cd9622',
+              'native/codeql/login-regression-plan.json': '8dd1995f102955641ef6093a7efa8e95a4d5b5b53257b56f3a039c993281603d',
+              'scripts/linux-npm-backport-probe.py': 'aaccee6c9eec318efdd5c3cebf1d8986f6758eeb3990dc171760f07c0a820556',
+              'scripts/patch-reviewed-npm-tool.py': 'b256f3844d01e55da6ac8fd38f48985ec6dae7bb9ecb1953d53ddc603d964fa3',
+          }
+          with tempfile.TemporaryDirectory(prefix='stellar-auth-tests-') as directory:
+              root = pathlib.Path(directory)
+              for name, expected in files.items():
+                  url = 'https://raw.githubusercontent.com/StellerSecurity/Stellar.UI.Desktop.VPNapp/' + commit + '/' + name
+                  with urllib.request.urlopen(url, timeout=30) as response:
+                      data = response.read(262145)
+                      if response.geturl() != url or len(data) > 262144 or hashlib.sha256(data).hexdigest() != expected:
+                          raise ValueError('reviewed first-party helper drift')
+                  (root / pathlib.Path(name).name).write_bytes(data)
+              subprocess.run([sys.executable, str(root / 'linux-login-regressions.py')], check=True, timeout=240)

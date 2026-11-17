@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "commit": "551950c7c71a8a8b28b921725b53c10d5e1792b0",
+  "repository": "StellerSecurity/Stellar.UI.Desktop.VPNapp",
+  "tests": [
+    "tests/remembered-login.test.ts",
+    "tests/remembered-session.test.ts",
+    "tests/session-restoration.test.ts",
+    "tests/session-failure.test.ts",
+    "tests/session-screen.test.ts",
+    "tests/vpn-auth-refresh.test.ts",
+    "tests/device-logins.test.ts"
+  ],
+  "files_sha256": {
+    "tests/device-logins.test.ts": "778b5ba575f091b0d87a81f640bdaf2b00cb712015f606c966eeeff6b7f11de4",
+    "src/features/devices/domain/DeviceSession.ts": "2ee753bbc9f22b9ba1e376ddf94f47c66f6f750dac5272be138725b32be20832",
+    "src/infrastructure/auth/HttpIdentityClient.ts": "eb8024268e7f3fa65e65b448211c73306688313981fb2cff782a0c8b70dd5a08",
+    "src/features/account/domain/VpnAccess.ts": "770eab69c0901e4c2117cedff321a83334371c38209e6ea0386aec883b6cc068",
+    "src/features/account/domain/Account.ts": "2f730368d7631c3d8b0085ba744a6587dc5bb50cc140196e60174e8b99718223",
+    "src/infrastructure/http/ApiRetry.ts": "9742a2febb389d2ed691912a53c8900d9ac2206689095e42b8d02e7ec2370d9f",
+    "src/infrastructure/config/Signup.ts": "7a268357361f9c2275d71b31e034001e9e8dcf8e9a9e54bd3310136f1d5c1e00",
+    "src/infrastructure/config/Production.ts": "c5e3273ae6410b4752b499bb551c5444e66b98ebd5ef5fb2d25333fffc1bd88a",
+    "tests/vpn-auth-refresh.test.ts": "8161e3ad061fa4f8df869794271913cb81a56ee78f060dbff4d6beb4441e43bf",
+    "tests/session-screen.test.ts": "80d7c90a64a06bcb8bc2e3f3d60fff7ede0496e305bc7e1830501ee7bbeb56f6",
+    "src/app/SessionScreen.ts": "72d45aa91e0c51fdd0af79effc8214b2791198ffdbe2c81def480f0a18e408e0",
+    "tests/session-failure.test.ts": "b88e683e759b237483cc57c08f8b85c13d16b301543eca836d47fb6aefede1b3",
+    "src/infrastructure/auth/SessionFailure.ts": "9db5f2199496e75fa268a93962f060f16af2c6ac9a31dccd225aa2fece508f86",
+    "tests/session-restoration.test.ts": "c1e4a04905956bc3da50a7fd3bfe85f0ca862d5c85c980b1a6ca16cd73f5bb96",
+    "src/infrastructure/auth/SessionRestoration.ts": "b600bb3b018319d0efc019c207989b9f1bc5010d805c6ce791016ed70bcfc385",
+    "tests/remembered-session.test.ts": "4ee30921f63ed91281e9626e32696ec61d55962572a60cfbc56b0f86ec0ca590",
+    "src/infrastructure/auth/RememberedSession.ts": "908652eba200adde5f69c8628df40d8b7d6735ec79511eccd70595bd4cca34eb",
+    "tests/remembered-login.test.ts": "69efc8948bec1bb5d883b06cec84f5e58b94c877a16d0734742320a82c9e6294"
+  },
+  "synthetic_only": true,
+  "network_allowed": false,
+  "mac_app_touched": false
+}
