@@ -52,7 +52,9 @@
   "probes": {
     "linux_amd64": "29 actual API assertions with/without workers on original and exported copies; real frontend typecheck/build401modules, patched Vite7.3.8 and independently reviewed Rollup WASM test view.",
     "darwin_arm64": "Apple code signature verification; exact version, fixed stdin minification and invalid-JS rejection; no input/output files or network requested.",
-    "other_targets": "Built and hash-compared only, not executed."
+    "other_targets": "Built and hash-compared only, not executed.",
+    "frontend_launcher": "https://github.com/StellerSecurity/Stellar.UI.Desktop.VPNapp/actions/runs/44011181093:3 fixed launch modes and5 rejection controls plus real production frontend build,919 immutable inputs and1944 tool source files unchanged.",
+    "metadata_lock_reproduction": "https://github.com/StellerSecurity/Stellar.UI.Desktop.VPNapp/actions/runs/44010767738:exact60record candidate lock reproduced from immutable3a4801a baseline,57 unrelated records unchanged."
   },
   "provisioning": {
     "command": "python3 scripts/provision-reviewed-esbuild.py --source /absolute/path/to/reproduced-bundle",

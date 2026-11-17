@@ -1,0 +1,32 @@
+[package]
+name = "cfb"
+version = "0.14.0"
+edition = "2018"
+rust-version = "1.74"
+authors = ["Matthew D. Steele <mdsteele@alum.mit.edu>"]
+license = "MIT"
+repository = "https://github.com/mdsteele/rust-cfb"
+description = "Read/write Compound File Binary (structured storage) files"
+publish = false
+build = false
+autolib = false
+autobins = false
+autoexamples = false
+autotests = false
+autobenches = false
+
+[lib]
+name = "cfb"
+path = "src/lib.rs"
+
+[dependencies.fnv]
+version = "1.0"
+
+[dependencies.uuid]
+version = "1"
+
+[dependencies.web-time]
+version = "1"
+
+[workspace]
+resolver = "2"

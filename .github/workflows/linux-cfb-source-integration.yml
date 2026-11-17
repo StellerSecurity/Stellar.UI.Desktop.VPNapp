@@ -1,0 +1,40 @@
+name: Source-only CFB library regressions
+on:
+  workflow_dispatch:
+  push:
+    branches: ['stellar/codeql-vendor-workspace-20261115']
+    paths: ['.github/workflows/linux-cfb-source-integration.yml', 'scripts/linux-cfb-source-integration.py', 'native/codeql/cfb-source-integration-plan.json', 'native/cfb-source-only/**']
+permissions: {}
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Test only unchanged CFB sources with reviewed offline compiler inputs
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        shell: python
+        run: |
+          import hashlib, os, pathlib, re, subprocess, sys, tempfile, urllib.request
+          commit = os.environ['SOURCE_COMMIT']
+          if not re.fullmatch('[a-f0-9]{40}', commit):
+              raise ValueError('immutable first-party source commit required')
+          files = {
+              'scripts/linux-cfb-source-integration.py': '50923cf03646c3b710c2eaa091cd73d4416a64ce4e69817e44ba317d4d038105',
+              'scripts/linux-glib-crate-integration.py': '6bee5c0d7c4815f908d188257977c87dec95244a38ee6737f345c04ff9872d93',
+              'scripts/linux-glib-iterator-probe.py': '0c62fb7b046714b7fa428570b64bdae5ea05f0a9b338432281bd06cd5f6bd672',
+              'native/codeql/cfb-source-integration-plan.json': 'dca9b2b83e505875ab1cec94b173404a72678281ea28c189ac397b67b2195166',
+              'native/codeql/glib-iterator-native-plan.json': 'e8501f389adfcf38909fc4a63debb62f48d5d08a54ea5124295bc2c914843356',
+              'native/codeql/runtime-review.json': 'c8965ee984ca699e87fead31b46c68330c645759f85bd63711c77ebe64eaf0db',
+          }
+          with tempfile.TemporaryDirectory(prefix='stellar-cfb-regression-inputs-') as folder:
+              root = pathlib.Path(folder)
+              for name, expected in files.items():
+                  url = 'https://raw.githubusercontent.com/StellerSecurity/Stellar.UI.Desktop.VPNapp/' + commit + '/' + name
+                  with urllib.request.urlopen(url, timeout=30) as response:
+                      raw = response.read(2 * 1024**2 + 1)
+                      if response.geturl() != url or len(raw) > 2 * 1024**2 or hashlib.sha256(raw).hexdigest() != expected:
+                          raise ValueError('reviewed regression input drift')
+                  (root / pathlib.Path(name).name).write_bytes(raw)
+              subprocess.run([sys.executable, str(root / 'linux-cfb-source-integration.py')],
+                             check=True, timeout=800)
