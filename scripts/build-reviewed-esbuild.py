@@ -146,7 +146,10 @@ def run(command, cwd, env, seconds=300, input_bytes=None):
 def main():
     parser = argparse.ArgumentParser(description='Rebuild reviewed esbuild sources with frozen tools.')
     parser.add_argument('--export-reviewed-runtimes', type=Path)
+    parser.add_argument('--probe-frontend', action='store_true')
     arguments = parser.parse_args()
+    if arguments.probe_frontend and arguments.export_reviewed_runtimes is None:
+        parser.error('frontend probe requires independently reproduced exported runtimes')
     plan = json.loads((ROOT / 'esbuild-rebuild-plan.json').read_text())
     if digest(Path(__file__).read_bytes()) != plan['script_sha256']:
         raise ValueError('first-party builder drift')
@@ -247,6 +250,7 @@ def main():
                                 target_executed=(target_os, target_arch) == ('linux', 'amd64')))
         exported = None
         exported_api_probe = None
+        frontend_probe = None
         if arguments.export_reviewed_runtimes is not None:
             exported = export_reviewed_runtimes(outputs, work / 'output',
                                                arguments.export_reviewed_runtimes,
@@ -265,15 +269,21 @@ def main():
                 stream.write(exported_bytes)
             staged_linux.chmod(0o700)
             exported_api_probe = probe_module.probe(staged_linux, export_check)
+            if arguments.probe_frontend:
+                spec = importlib.util.spec_from_file_location('reviewed_frontend_probe', ROOT / 'probe-reviewed-frontend.py')
+                frontend_module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(frontend_module)
+                frontend_probe = frontend_module.probe(exported_linux, work)
         print(json.dumps(dict(sdk_source_files_verified=verified, sdk_version=version,
                               outputs=outputs, source_patch='Go directive 1.25.0 and x/sys v0.44.0; application Rust and JS unchanged',
                               synthetic_tests=synthetic_tests,
                               source_fork_api_probe=api_probe,
                               exported_reviewed_runtimes=exported,
                               exported_runtime_api_probe=exported_api_probe,
+                              source_only_frontend_probe=frontend_probe,
                               independently_reproduced_targets=sorted(plan['expected_target_sha256']),
                               new_build_only_targets=plan.get('new_build_only_targets', []),
-                              target_execution_scope='Linux amd64 only: --version and fixed 20-byte stdin expression; no target app or Mac execution',
+                              target_execution_scope='Linux amd64 only: version/minification and fixed API tests; optional explicitly requested frontend compilation, never app startup or Mac execution',
                               module_downloads_enabled=False,
                               cgo_enabled=False, installed=False, published=False,
                               scope='Isolated patched esbuild source rebuild only, not native clearance or application release.')))

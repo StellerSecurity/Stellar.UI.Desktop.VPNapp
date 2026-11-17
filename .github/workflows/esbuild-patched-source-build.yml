@@ -9,6 +9,8 @@ on:
       - 'scripts/build-reviewed-esbuild.py'
       - 'native/codeql/esbuild-rebuild-plan.json'
       - 'scripts/probe-reviewed-esbuild-api.py'
+      - 'scripts/probe-reviewed-frontend.py'
+      - 'native/codeql/frontend-build-plan.json'
 
 permissions: {}
 
@@ -27,8 +29,10 @@ jobs:
           if not re.fullmatch('[a-f0-9]{40}', commit):
               raise ValueError('exact first-party commit required')
           files = {
-              'scripts/build-reviewed-esbuild.py': ('17c198feff6beba845277c09fbc6d0590acd0f9e956cf50cc8d8c72be277e2b2', 65536),
-              'native/codeql/esbuild-rebuild-plan.json': ('52be2c76a2a72e93797a31ee522d599485a33e379f538c49f7900cb6427f9632', 65536),
+              'native/codeql/frontend-build-plan.json': ('afc4e9a7ae38fef9fb0081aeea83e63419c92992fc68353a047df05c9160b639', 65536),
+              'scripts/probe-reviewed-frontend.py': ('82be92ae8f7fceaa66c547395cec0958fb0429d88c26ae9337cc73cc45f32bb3', 65536),
+              'scripts/build-reviewed-esbuild.py': ('d3c676f673a0dc319abd86f21c40e10e63fddb4308756ea5134d05a9af18b8ef', 65536),
+              'native/codeql/esbuild-rebuild-plan.json': ('2c1266f302544aa262adda0b462839799c4116dc5031215ebdb3172961e27803', 65536),
               'scripts/probe-reviewed-esbuild-api.py': ('bcf34788397d22f081967bcbed46896d960e48de8fe78f8f1acfb61e626662ff', 65536),
               'scripts/linux-npm-backport-probe.py': ('aaccee6c9eec318efdd5c3cebf1d8986f6758eeb3990dc171760f07c0a820556', 65536),
               'scripts/patch-reviewed-npm-tool.py': ('b256f3844d01e55da6ac8fd38f48985ec6dae7bb9ecb1953d53ddc603d964fa3', 65536),
@@ -49,4 +53,4 @@ jobs:
                   if len(raw) > limit or hashlib.sha256(raw).hexdigest() != expected:
                       raise ValueError('first-party build guard drift')
                   (root / pathlib.Path(name).name).write_bytes(raw)
-              subprocess.run([sys.executable, str(root / 'build-reviewed-esbuild.py'), '--export-reviewed-runtimes', str(root / 'generated-runtimes')], check=True, timeout=840)
+              subprocess.run([sys.executable, str(root / 'build-reviewed-esbuild.py'), '--export-reviewed-runtimes', str(root / 'generated-runtimes'), '--probe-frontend'], check=True, timeout=840)
