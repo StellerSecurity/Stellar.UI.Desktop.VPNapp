@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches: ['stellar/codeql-vendor-workspace-20261115']
-    paths: ['.github/workflows/esbuild-source-lock-probe.yml', 'scripts/esbuild-source-lock-probe.py', 'scripts/stage-reviewed-esbuild-fork.py', 'native/esbuild-source-fork/**']
+    paths: ['.github/workflows/esbuild-source-lock-probe.yml', 'scripts/esbuild-source-lock-probe.py', 'scripts/stage-reviewed-esbuild-fork.py', 'native/esbuild-source-fork/**', 'package.json', 'package-lock.json', 'scripts/build-frontend-reviewed.mjs']
 permissions: {}
 jobs:
   validate:
@@ -20,7 +20,7 @@ jobs:
           if not re.fullmatch('[a-f0-9]{40}', commit):
               raise ValueError('exact first-party source commit required')
           files = {
-              'scripts/esbuild-source-lock-probe.py': ('a2f1747a875faf830e3a885d28629d8e60d2139a63bcd47937d54bdcb77dd310', 'esbuild-source-lock-probe.py'),
+              'scripts/esbuild-source-lock-probe.py': ('23308337babe9073beb7a45ed894d460fe112dab041db75525d45d584fc1b32a', 'esbuild-source-lock-probe.py'),
               'scripts/linux-npm-backport-probe.py': ('aaccee6c9eec318efdd5c3cebf1d8986f6758eeb3990dc171760f07c0a820556', 'linux-npm-backport-probe.py'),
               'scripts/patch-reviewed-npm-tool.py': ('b256f3844d01e55da6ac8fd38f48985ec6dae7bb9ecb1953d53ddc603d964fa3', 'patch-reviewed-npm-tool.py'),
               'scripts/stage-reviewed-esbuild-fork.py': ('de9268edf1dc7266fc66bf653d07b43134926d62981bdff0763e0b5e489bf8bf', 'stage-reviewed-esbuild-fork.py'),
@@ -28,11 +28,22 @@ jobs:
               'native/esbuild-source-fork/package-template.json': ('e5fc4c4c3e6ec0f59df33a2187fcfc43042685e5224903356208fac4d9be1711', 'package-template.json'),
               'native/esbuild-source-fork/binary-review.json': ('6e3b77348fd273ec25b783187fc4d0c92ce2392eb334a0f95b4bbff0fd615f93', 'binary-review.json'),
               'native/esbuild-source-fork/stellar-patch.json': ('67c0da9a3f17b0a5bfae58918a04264db0ba167e8ff8786fab177aa10f5a240c', 'stellar-patch.json'),
-              'package.json': ('cc14d9dfd942d17ff05eacb9ca43571806ced7c807126dddb777280260452458', 'application-package.json'),
-              'package-lock.json': ('68403a0fd33ecc30c55bce87b9c8898fb79ade8dc115fe53cb3fe91a877f13b2', 'application-package-lock.json'),
+              'package.json': ('7fd5de97515d8f4be876a8f36167eeb0cb6eab79123f4ed989429a65f7afc1e7', 'candidate-package.json'),
+              'package-lock.json': ('0f1f172239b3941f3d63086bdd81c0ec923e0d4cfd94a5e82eb0109e04b5ead0', 'candidate-package-lock.json'),
           }
           with tempfile.TemporaryDirectory(prefix='stellar-source-lock-') as directory:
               root = pathlib.Path(directory)
+              baseline = {
+                  'package.json': ('cc14d9dfd942d17ff05eacb9ca43571806ced7c807126dddb777280260452458', 'application-package.json'),
+                  'package-lock.json': ('68403a0fd33ecc30c55bce87b9c8898fb79ade8dc115fe53cb3fe91a877f13b2', 'application-package-lock.json'),
+              }
+              for name, (expected, target) in baseline.items():
+                  url = 'https://raw.githubusercontent.com/StellerSecurity/Stellar.UI.Desktop.VPNapp/3a4801a0cc384f0626f9f08660626f7ff85bed05/' + name
+                  with urllib.request.urlopen(url, timeout=30) as response:
+                      data = response.read(2097153)
+                      if response.geturl() != url or len(data) > 2097152 or hashlib.sha256(data).hexdigest() != expected:
+                          raise ValueError('immutable baseline graph input drift')
+                  (root / target).write_bytes(data)
               for name, (expected, target) in files.items():
                   url = 'https://raw.githubusercontent.com/StellerSecurity/Stellar.UI.Desktop.VPNapp/' + commit + '/' + name
                   with urllib.request.urlopen(url, timeout=30) as response:

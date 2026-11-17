@@ -44,6 +44,21 @@ def validate_graph(before, after):
                 only_contained_esbuild_source=True, package_graph_complete=True)
 
 
+def candidate_manifest(baseline):
+    manifest = json.loads(json.dumps(baseline))
+    manifest.setdefault('devDependencies', {})['esbuild'] = 'file:vendor/esbuild-reviewed'
+    manifest.setdefault('overrides', {})['esbuild'] = '$esbuild'
+    manifest['scripts'].update(build='npm run typecheck && node scripts/build-frontend-reviewed.mjs',
+                               dev='node scripts/build-frontend-reviewed.mjs dev',
+                               preview='node scripts/build-frontend-reviewed.mjs preview')
+    return manifest
+
+
+def validate_manifest(baseline, candidate):
+    if candidate != candidate_manifest(baseline):
+        raise ValueError('unreviewed candidate manifest changes')
+
+
 def main():
     tool = load('reviewed_tool', 'linux-npm-backport-probe.py')
     fork = load('reviewed_fork', 'stage-reviewed-esbuild-fork.py')
@@ -67,9 +82,12 @@ def main():
         records, patches, executable = tool.materialize_runtime(work, npm, node, patcher)
         candidate = project / 'vendor/esbuild-reviewed'
         source_identity = fork.stage(source, ROOT, candidate)
-        manifest = json.loads(package)
-        manifest.setdefault('devDependencies', {})['esbuild'] = 'file:vendor/esbuild-reviewed'
-        manifest.setdefault('overrides', {})['esbuild'] = '$esbuild'
+        manifest = candidate_manifest(json.loads(package))
+        candidate_package = (ROOT / 'candidate-package.json').read_bytes()
+        candidate_lock = (ROOT / 'candidate-package-lock.json').read_bytes()
+        validate_manifest(json.loads(package), json.loads(candidate_package))
+        if candidate_package != (json.dumps(manifest, indent=2) + '\n').encode():
+            raise ValueError('candidate manifest differs from exact reviewed dependency and launcher changes')
         (project / 'package.json').write_text(json.dumps(manifest, indent=2) + '\n')
         (project / 'package-lock.json').write_bytes(lock)
         env = dict(PATH='/usr/bin:/bin', TMPDIR=str(work / 'tmp'), LANG='C.UTF-8', TZ='UTC',
@@ -87,6 +105,8 @@ def main():
             raise ValueError('generated source lock byte limit')
         after = json.loads(generated)
         checked = validate_graph(json.loads(lock), after)
+        if generated != candidate_lock:
+            raise ValueError('candidate lock does not reproduce exactly')
         for name, expected in records.items():
             tool.verified(work / 'npm' / name, expected)
         for name, expected in source_identity['files_sha256'].items():
@@ -95,6 +115,7 @@ def main():
             raise ValueError('metadata-only validation installed node_modules')
         print(json.dumps(dict(schema=1, result=checked, source_identity=source_identity,
                               npm_cli_frozen_graph_only=True, npm_output=output,
+                              candidate_lock_bytes_reproduced=True,
                               package_manifest=manifest, generated_lock=after,
                               source_fork_api_executed=False, hooks_executed=False,
                               node_modules_installed=False, unchanged_tool_source_files=len(records),

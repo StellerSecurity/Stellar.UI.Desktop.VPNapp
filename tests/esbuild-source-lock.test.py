@@ -13,14 +13,14 @@ SPEC.loader.exec_module(lock)
 class GraphTests(unittest.TestCase):
     def setUp(self):
         self.before = dict(lockfileVersion=3, packages={
-            '': dict(name='app', devDependencies=dict(vite='7.3.7')),
-            'node_modules/vite': dict(version='7.3.7', integrity='known'),
+            '': dict(name='app', devDependencies=dict(vite='7.3.8')),
+            'node_modules/vite': dict(version='7.3.8', integrity='known'),
             'node_modules/esbuild': dict(version='0.28.1'),
             'node_modules/@esbuild/linux-x64': dict(version='0.28.1'),
         })
         self.after = dict(lockfileVersion=3, packages={
-            '': dict(name='app', devDependencies=dict(vite='7.3.7', esbuild='file:vendor/esbuild-reviewed')),
-            'node_modules/vite': dict(version='7.3.7', integrity='known'),
+            '': dict(name='app', devDependencies=dict(vite='7.3.8', esbuild='file:vendor/esbuild-reviewed')),
+            'node_modules/vite': dict(version='7.3.8', integrity='known'),
             'node_modules/esbuild': dict(resolved='vendor/esbuild-reviewed', link=True),
             'vendor/esbuild-reviewed': dict(version='0.28.1-stellar.1'),
         })
@@ -65,6 +65,24 @@ class GraphTests(unittest.TestCase):
         self.after['lockfileVersion'] = 2
         with self.assertRaisesRegex(ValueError, 'v3 lock graphs'):
             lock.validate_graph(self.before, self.after)
+
+    def test_source_manifest_preserves_unrelated_fields_without_mutation(self):
+        baseline = dict(scripts=dict(build='vite build', test='node test.mjs'),
+                        devDependencies=dict(vite='7.3.8'), overrides=dict(react='19.2.9'),
+                        custom={'preserve': True})
+        original = copy.deepcopy(baseline)
+        candidate = lock.candidate_manifest(baseline)
+        lock.validate_manifest(baseline, candidate)
+        self.assertEqual(baseline, original)
+        self.assertEqual(candidate['custom'], original['custom'])
+        self.assertEqual(candidate['scripts']['test'], original['scripts']['test'])
+        self.assertEqual(candidate['overrides']['react'], '19.2.9')
+        for field, key, value in [('devDependencies', 'unreviewed', '1.0.0'),
+                                  ('scripts', 'dev', 'vite --host 0.0.0.0')]:
+            changed = copy.deepcopy(candidate)
+            changed[field][key] = value
+            with self.assertRaisesRegex(ValueError, 'unreviewed candidate manifest'):
+                lock.validate_manifest(baseline, changed)
 
 
 if __name__ == '__main__':
