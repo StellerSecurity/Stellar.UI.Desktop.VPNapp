@@ -110,6 +110,8 @@ def main():
         rust = Path('/home/runner/.rustup/toolchains/stable-x86_64-unknown-linux-gnu')
         tool_paths = [rust / 'lib/rustlib/x86_64-unknown-linux-gnu/bin/rust-lld',
                       Path('/usr/lib/gcc/x86_64-linux-gnu/13/collect2'), Path('/usr/lib/gcc/x86_64-linux-gnu/13/liblto_plugin.so')]
+        tool_paths.extend(Path('/usr/lib/x86_64-linux-gnu') / name for name in
+                          ('Scrt1.o', 'crti.o', 'crtn.o', 'libc.so', 'libc.so.6', 'libgcc_s.so.1', 'libpcre2-8.so.0', 'libm.so.6'))
         tools = []
         for path in tool_paths:
             if not path.exists():
@@ -120,6 +122,8 @@ def main():
                 raise ValueError('native linker inventory bound')
             data = resolved.read_bytes()
             tools.append(dict(path=str(path), resolved=str(resolved), present=True, bytes=len(data), sha256=hashlib.sha256(data).hexdigest(), elf=data.startswith(b'\x7fELF')))
+            if len(data) <= 4096:
+                tools[-1]['static_bytes_hex'] = data.hex()
         print(json.dumps(dict(artifacts=reports, linker_inventory=tools,
             node_purpose='Only hash-pinned built-in zstd decompression under Node permission restrictions.',
             glib_loaded=False, gio_loaded=False, maintainer_scripts_executed=False, installed=False,
