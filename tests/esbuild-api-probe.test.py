@@ -19,7 +19,7 @@ class ApiProbeBoundaryTests(unittest.TestCase):
         assignment = next(node for node in tree.body if isinstance(node, ast.Assign)
                           and any(isinstance(target, ast.Name) and target.id == 'files' for target in node.targets))
         files = ast.literal_eval(assignment.value)
-        self.assertEqual(len(files), 13)
+        self.assertEqual(len(files), 14)
         for name, (expected, maximum) in files.items():
             data = (ROOT / name).read_bytes()
             self.assertLessEqual(len(data), maximum)

@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 4176 --strictPort",
     "typecheck": "tsc --noEmit",
-    "build": "npm run typecheck && vite build",
+    "build": "npm run typecheck && node scripts/build-frontend-reviewed.mjs",
     "preview": "vite preview --host 127.0.0.1 --port 4177 --strictPort",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
     "test:ota": "node --test tests/ota-release.test.mjs",

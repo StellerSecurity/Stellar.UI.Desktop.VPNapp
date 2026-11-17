@@ -10,6 +10,7 @@ import tarfile
 import urllib.request
 
 ROOT = Path(__file__).resolve().parent
+FRONTEND_WRAPPER_SHA = '2a0d292ca4cee84f81e1bf50d938cac7c3e4d41b4f0b9b9a393d2dcd52dfc16f'
 
 
 def load(name, filename):
@@ -138,9 +139,16 @@ def probe(exported_binary, work):
         raise ValueError('unexpected TypeScript output')
     print(json.dumps(dict(frontend_phase='typecheck', passed=True,
                           application_commit=plan['application_commit'])), flush=True)
+    wrapper_source = ROOT / 'build-frontend-reviewed.mjs'
+    wrapper_bytes = wrapper_source.read_bytes()
+    if hashlib.sha256(wrapper_bytes).hexdigest() != FRONTEND_WRAPPER_SHA:
+        raise ValueError('first-party frontend launcher drift')
+    wrapper = project / 'scripts/build-frontend-reviewed.mjs'
+    wrapper.parent.mkdir()
+    wrapper.write_bytes(wrapper_bytes)
+    snapshots[str(wrapper)] = FRONTEND_WRAPPER_SHA
     build = tool.run(node_base + ['--allow-fs-write=' + str(project), '--allow-child-process',
-                                  '--wasm-max-mem-pages=1024', str(project / 'node_modules/vite/bin/vite.js'),
-                                  'build', '--config', str(project / 'vite.config.ts')], project, env, 45)
+                                  '--wasm-max-mem-pages=1024', str(wrapper)], project, env, 45)
     if not (project / 'dist/index.html').is_file() or '@vite/client' in (project / 'dist/index.html').read_text():
         raise ValueError('production frontend output missing or contains dev client')
     scripts = list((project / 'dist/assets').glob('*.js'))
