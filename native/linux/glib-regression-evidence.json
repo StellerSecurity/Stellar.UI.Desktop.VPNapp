@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "scope": "Production GLib crate regressions on native Ubuntu, without GTK/GIO or full desktop execution.",
+  "run_url": "https://github.com/StellerSecurity/Stellar.UI.Desktop.VPNapp/actions/runs/43991321742",
+  "job_id": 133732336099,
+  "diagnostic_commit": "975965cffe8702f46cc9a9eea196a5d58f48dbdd",
+  "source_files_sha256": {
+    "vendor/glib-0.18.5/src/variant_iter.rs": "a0f5ee8acb8faa089bcdfbc9a57372609fce7654026ccef7d9a224d05a654ccc",
+    "vendor/glib-0.18.5/src/collections/ptr_slice.rs": "6fcb10ac7d9b4ba58cdbed9dc0ad40a4f4d4f608a3572403f8a7c77fc99c2221",
+    "vendor/glib-0.18.5/src/object.rs": "61304201fc2dd2ec7d0e8db7343bc62db6e9c81be07b2b16ad3f530a8972f017"
+  },
+  "local_source_files_unchanged": 113,
+  "registry_archives_verified": 52,
+  "immutable_source_and_fixture_files_verified": 5853,
+  "profiles": [
+    {
+      "profile": "dev",
+      "tests": 5,
+      "failed": 0,
+      "ignored": 0,
+      "output_sha256": "c003e6a00a8a9239a41136ce88715075d86733b23706a02ccc658a5e8dd1436a"
+    },
+    {
+      "profile": "release",
+      "tests": 5,
+      "failed": 0,
+      "ignored": 0,
+      "output_sha256": "d168cb30d9e0b455272d486badef645f6789ac2891daf22734bfd87065e4b4fe"
+    }
+  ],
+  "assertions": [
+    "Empty, Unicode and long string arrays through the real VariantStrIter API.",
+    "Mixed forward/backward iteration and usize overflow.",
+    "PtrSlice truncate/clear preserve exact GObject reference counts and null termination.",
+    "PtrSlice pop/drop release exactly the owned objects, verified with weak references.",
+    "Loaded process contains GLib and GObject but no GIO."
+  ],
+  "native_libraries": {
+    "GLib 2.80.0-6ubuntu3.10": "448d9d271e77a7f6c4d057336df40c34b02c794f551caf8fa03b5122f25e601b",
+    "GObject 2.80.0-6ubuntu3.10": "2bf396b14b469ca2eed46a785b3bc0bd1fd979261c6bf505bc4debdcd0a6870a"
+  },
+  "retained_maintenance_advisories": [
+    "RUSTSEC-2024-0370"
+  ],
+  "retained_native_advisory": "CVE-2026-86469 remains unresolved in system GIO; excluded from these tests, not waived.",
+  "original_codeql_finding_retained": true,
+  "source_exclusions_added": false,
+  "full_glib_feature_matrix_tested": false,
+  "full_linux_desktop_tested": false,
+  "release_approved": false
+}
