@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "script_sha256": "0c62fb7b046714b7fa428570b64bdae5ea05f0a9b338432281bd06cd5f6bd672",
+  "harness_sha256": "6c745efc31aae83fcbcc8658f21bbec420a2bfc770a7bf8c37882ea21ba45aa1",
+  "native_sha256": {
+    "/home/runner/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin/rust-lld": "9b6f51f983a8184f5d47d224e336cdb35171ad5b138981bc62a22e6d65e7b214",
+    "/usr/lib/x86_64-linux-gnu/Scrt1.o": "9438d15c4bac893a0e3aad2c2c86ccbceb59d5872bd07101949f237ee1c92a8b",
+    "/usr/lib/x86_64-linux-gnu/crti.o": "077ccb6c68db1794da3ee262c4a16a3c6f8e902845dd0829110ad4b7065e5aa3",
+    "/usr/lib/x86_64-linux-gnu/crtn.o": "a2266079f95b84ccc2162ebbf279bcd78858a748aa1882e0bdb912316c76a58f",
+    "/usr/lib/x86_64-linux-gnu/libc.so": "fe2a4ce2930fc6b3966aa987fae808375446c8d3823b8c21792e991aad9c75df",
+    "/usr/lib/x86_64-linux-gnu/libc.so.6": "3a15d66867d83762c7f2f1e37359cb8f6c5743edb369c65285cb0b1c4f7498bf",
+    "/usr/lib/x86_64-linux-gnu/libgcc_s.so.1": "d93224d2b0dab4247598be683adca02f5cf00586f99c187579cd7e92058fb7cb",
+    "/usr/lib/x86_64-linux-gnu/libpcre2-8.so.0.11.2": "6075a70c30fd7216b9214ae50f2def0ce835092b034088ed9bd64c6a376c740f",
+    "/usr/lib/x86_64-linux-gnu/libm.so.6": "fce00b6f25f459cf4ae0b7fae4257909a1a8a86f9149e7c029a5d617baf1ccd0",
+    "/usr/lib/x86_64-linux-gnu/libglib-2.0.so.0.8000.0": "448d9d271e77a7f6c4d057336df40c34b02c794f551caf8fa03b5122f25e601b"
+  },
+  "scope": "Exact production VariantStrIter in first-party ownership/FFI harness, debug/release only. No GIO, package installation, app execution or release clearance.",
+  "known_advisory": "CVE-2026-86469 remains open and is not waived by this regression test."
+}
