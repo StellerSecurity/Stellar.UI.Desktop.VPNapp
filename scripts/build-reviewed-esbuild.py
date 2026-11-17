@@ -1,5 +1,6 @@
 """Isolated source rebuild and exact Linux-only synthetic probes after hash checks."""
 import hashlib
+import argparse
 import importlib.util
 import io
 import json
@@ -24,6 +25,49 @@ ARTIFACTS = {
 
 def digest(raw):
     return hashlib.sha256(raw).hexdigest()
+
+
+def export_reviewed_runtimes(outputs, source_dir, destination, expected):
+    """Export independently reproduced files only, never execute or publish."""
+    targets = {'darwin/arm64', 'darwin/amd64', 'linux/arm64', 'linux/amd64',
+               'windows/arm64', 'windows/amd64'}
+    if set(expected) != targets or len(outputs) != 6:
+        raise ValueError('complete exact six-target review required')
+    verified_files = {}
+    for row in outputs:
+        key = row['os'] + '/' + row['arch']
+        if key in verified_files or key not in targets or not row['independent_rebuild_matches_previous']:
+            raise ValueError('runtime export requires independent reproduction')
+        source = Path(source_dir) / ('esbuild-' + row['os'] + '-' + row['arch'])
+        if source.is_symlink() or not source.is_file() or not 0 < source.stat().st_size <= 32 * 1024**2:
+            raise ValueError('regular bounded runtime export input required')
+        raw = source.read_bytes()
+        if len(raw) != row['bytes'] or digest(raw) != row['sha256'] or digest(raw) != expected[key]:
+            raise ValueError('runtime export identity drift')
+        verified_files[key] = raw
+    destination = Path(destination)
+    if (not destination.is_absolute() or destination.exists() or destination.is_symlink()
+            or not destination.parent.is_dir() or destination.parent.resolve() != destination.parent):
+        raise ValueError('fresh absolute owned output directory required')
+    # All input checks precede the first output write. Only this new directory
+    # is created; existing build outputs or user files are never overwritten.
+    destination.mkdir(mode=0o700)
+    manifest = {}
+    for key, raw in verified_files.items():
+        filename = 'esbuild-' + key.replace('/', '-') + ('.exe' if key.startswith('windows/') else '')
+        target = destination / filename
+        with target.open('xb') as stream:
+            stream.write(raw)
+        target.chmod(0o700)
+        if digest(target.read_bytes()) != expected[key]:
+            raise ValueError('written runtime verification failed')
+        manifest[key] = dict(filename=filename, bytes=len(raw), sha256=expected[key])
+    with (destination / 'runtime-manifest.json').open('x') as stream:
+        json.dump(dict(schema=1, targets=manifest, source_built=True, independently_reproduced=True,
+                       published=False, release_approved=False), stream, indent=2)
+        stream.write('\n')
+    (destination / 'runtime-manifest.json').chmod(0o600)
+    return manifest
 
 
 def fetch(name):
@@ -100,6 +144,9 @@ def run(command, cwd, env, seconds=300, input_bytes=None):
 
 
 def main():
+    parser = argparse.ArgumentParser(description='Rebuild reviewed esbuild sources with frozen tools.')
+    parser.add_argument('--export-reviewed-runtimes', type=Path)
+    arguments = parser.parse_args()
     plan = json.loads((ROOT / 'esbuild-rebuild-plan.json').read_text())
     if digest(Path(__file__).read_bytes()) != plan['script_sha256']:
         raise ValueError('first-party builder drift')
@@ -198,10 +245,22 @@ def main():
                                 sha256=identity, build_metadata=metadata,
                                 independent_rebuild_matches_previous=target_os + '/' + target_arch in plan['expected_target_sha256'],
                                 target_executed=(target_os, target_arch) == ('linux', 'amd64')))
+        exported = None
+        exported_api_probe = None
+        if arguments.export_reviewed_runtimes is not None:
+            exported = export_reviewed_runtimes(outputs, work / 'output',
+                                               arguments.export_reviewed_runtimes,
+                                               plan['expected_target_sha256'])
+            export_check = work / 'export-check'
+            export_check.mkdir()
+            exported_api_probe = probe_module.probe(
+                arguments.export_reviewed_runtimes / exported['linux/amd64']['filename'], export_check)
         print(json.dumps(dict(sdk_source_files_verified=verified, sdk_version=version,
                               outputs=outputs, source_patch='Go directive 1.25.0 and x/sys v0.44.0; application Rust and JS unchanged',
                               synthetic_tests=synthetic_tests,
                               source_fork_api_probe=api_probe,
+                              exported_reviewed_runtimes=exported,
+                              exported_runtime_api_probe=exported_api_probe,
                               independently_reproduced_targets=sorted(plan['expected_target_sha256']),
                               new_build_only_targets=plan.get('new_build_only_targets', []),
                               target_execution_scope='Linux amd64 only: --version and fixed 20-byte stdin expression; no target app or Mac execution',

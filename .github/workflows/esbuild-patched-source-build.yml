@@ -27,8 +27,8 @@ jobs:
           if not re.fullmatch('[a-f0-9]{40}', commit):
               raise ValueError('exact first-party commit required')
           files = {
-              'scripts/build-reviewed-esbuild.py': ('d4d270d9dbc899e60c0c6acb80e692e5c27d194418f046f5d78c89f54f56f5f5', 65536),
-              'native/codeql/esbuild-rebuild-plan.json': ('4e72a0eda4521c3f5c3647c2a130323d0e0f96bc6678d1ee61791d98c273edc4', 65536),
+              'scripts/build-reviewed-esbuild.py': ('bc86e0d411d84e493bb89db6c7058115f9d9a80a9213d302740ae05838642c8f', 65536),
+              'native/codeql/esbuild-rebuild-plan.json': ('6cab3431be8bd954c68b2d4ce0357f0a0e262bb91d46c32f326484570a24d720', 65536),
               'scripts/probe-reviewed-esbuild-api.py': ('bcf34788397d22f081967bcbed46896d960e48de8fe78f8f1acfb61e626662ff', 65536),
               'scripts/linux-npm-backport-probe.py': ('aaccee6c9eec318efdd5c3cebf1d8986f6758eeb3990dc171760f07c0a820556', 65536),
               'scripts/patch-reviewed-npm-tool.py': ('b256f3844d01e55da6ac8fd38f48985ec6dae7bb9ecb1953d53ddc603d964fa3', 65536),
@@ -49,4 +49,4 @@ jobs:
                   if len(raw) > limit or hashlib.sha256(raw).hexdigest() != expected:
                       raise ValueError('first-party build guard drift')
                   (root / pathlib.Path(name).name).write_bytes(raw)
-              subprocess.run([sys.executable, str(root / 'build-reviewed-esbuild.py')], check=True, timeout=840)
+              subprocess.run([sys.executable, str(root / 'build-reviewed-esbuild.py'), '--export-reviewed-runtimes', str(root / 'generated-runtimes')], check=True, timeout=840)
