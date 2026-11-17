@@ -36,10 +36,10 @@ jobs:
           if not re.fullmatch('[a-f0-9]{40}', commit):
               raise ValueError('exact first-party commit required')
           files = {
-              'scripts/build-frontend-reviewed.mjs': ('2a0d292ca4cee84f81e1bf50d938cac7c3e4d41b4f0b9b9a393d2dcd52dfc16f', 65536),
+              'scripts/build-frontend-reviewed.mjs': ('83e69a0e1287987c9586a928a0559d093375d3f154439aed31a970332b4bbcef', 65536),
               'scripts/upload-reviewed-runtime.py': ('f40a6c9cb12496f6128cad8756b36fa18e20ad355cccbfbc715142b6a1ca13d3', 65536),
               'native/codeql/frontend-build-plan.json': ('9317865871f766db5ba22c114d1b37b70359b7a33e4ad9ca56c566ed2bb2588c', 65536),
-              'scripts/probe-reviewed-frontend.py': ('06bec1861f67245ac7ad0b95a3988a6af2203eb53ff10f43459f83cf3f80c460', 65536),
+              'scripts/probe-reviewed-frontend.py': ('d18d650a5af17f12aa7644437cf289076aa3d632a5b986170d6bb3912e605017', 65536),
               'scripts/build-reviewed-esbuild.py': ('05e8a53faeb8cf2a9ebae09874198fb319d1ca3f8d7fce6c693cdd37057d75ba', 65536),
               'native/codeql/esbuild-rebuild-plan.json': ('8fdc0909e1d8fbaf0510730d825d4a7d1eb40cac2d08ee0f83ae1b6124f38fcd', 65536),
               'scripts/probe-reviewed-esbuild-api.py': ('1abe0bad45f626246e1e09e1354496613a259d80b41447c801ea227827301043', 65536),

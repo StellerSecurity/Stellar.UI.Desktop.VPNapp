@@ -3,8 +3,14 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-if (process.argv.length !== 2) {
-  throw new Error('This build command does not accept additional arguments.');
+const commands = {
+  build: ['build'],
+  dev: ['--host', '127.0.0.1', '--port', '4176', '--strictPort'],
+  preview: ['preview', '--host', '127.0.0.1', '--port', '4177', '--strictPort'],
+};
+const mode = process.argv[2] ?? 'build';
+if (process.argv.length > 3 || !Object.hasOwn(commands, mode)) {
+  throw new Error('Choose only build, dev or preview without additional arguments.');
 }
 
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -19,7 +25,7 @@ process.env.ESBUILD_BINARY_PATH ??= defaultRuntime;
 const require = createRequire(import.meta.url);
 const binary = require('esbuild/lib/reviewed-binary.cjs')();
 const cli = path.join(root, 'node_modules', 'vite', 'bin', 'vite.js');
-const child = spawn(process.execPath, [...process.execArgv, cli, 'build'], {
+const child = spawn(process.execPath, [...process.execArgv, cli, ...commands[mode]], {
   cwd: root,
   env: { ...process.env, ESBUILD_BINARY_PATH: binary },
   stdio: 'inherit',

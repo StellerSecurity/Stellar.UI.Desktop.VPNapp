@@ -10,7 +10,7 @@ import tarfile
 import urllib.request
 
 ROOT = Path(__file__).resolve().parent
-FRONTEND_WRAPPER_SHA = '2a0d292ca4cee84f81e1bf50d938cac7c3e4d41b4f0b9b9a393d2dcd52dfc16f'
+FRONTEND_WRAPPER_SHA = '83e69a0e1287987c9586a928a0559d093375d3f154439aed31a970332b4bbcef'
 
 
 def load(name, filename):
@@ -147,6 +147,65 @@ def probe(exported_binary, work):
     wrapper.parent.mkdir()
     wrapper.write_bytes(wrapper_bytes)
     snapshots[str(wrapper)] = FRONTEND_WRAPPER_SHA
+    default_runtime = project / '.stellar-build-tools/esbuild/esbuild-linux-amd64'
+    default_runtime.parent.mkdir(parents=True)
+    default_runtime.write_bytes(binary.read_bytes())
+    snapshots[str(default_runtime)] = plan['esbuild_linux_sha256']
+    launcher_fixture = project / 'launcher-probe.cjs'
+    launcher_fixture.write_text("""'use strict';
+const assert = require('node:assert/strict');
+const child = require('node:child_process');
+const {EventEmitter} = require('node:events');
+const {syncBuiltinESMExports} = require('node:module');
+const path = require('node:path');
+const {pathToFileURL} = require('node:url');
+const wrapper = path.join(__dirname, 'scripts/build-frontend-reviewed.mjs');
+const expectedBinary = path.join(__dirname, '.stellar-build-tools/esbuild/esbuild-linux-amd64');
+const calls = [];
+child.spawn = (...args) => {
+  calls.push(args);
+  const fake = new EventEmitter();
+  fake.kill = () => { throw new Error('unexpected signal during fixed probe'); };
+  process.nextTick(() => fake.emit('exit', 0, null));
+  return fake;
+};
+syncBuiltinESMExports();
+(async () => {
+  const commands = [
+    ['build', ['build']],
+    ['dev', ['--host', '127.0.0.1', '--port', '4176', '--strictPort']],
+    ['preview', ['preview', '--host', '127.0.0.1', '--port', '4177', '--strictPort']],
+  ];
+  let index = 0;
+  for (const [mode, args] of commands) {
+    delete process.env.ESBUILD_BINARY_PATH;
+    process.argv = [process.execPath, wrapper, mode];
+    await import(pathToFileURL(wrapper).href + '?probe=' + index++);
+    const invocation = calls.at(-1);
+    assert.equal(invocation[0], process.execPath);
+    assert.deepEqual(invocation[1].slice(process.execArgv.length),
+                     [path.join(__dirname, 'node_modules/vite/bin/vite.js'), ...args]);
+    assert.equal(invocation[2].cwd, __dirname);
+    assert.equal(invocation[2].shell, false);
+    assert.equal(invocation[2].env.ESBUILD_BINARY_PATH, expectedBinary);
+  }
+  assert.equal(calls.length, 3);
+  for (const args of [['__proto__'], ['constructor'], ['--host'], ['build', '--host=0.0.0.0']]) {
+    process.argv = [process.execPath, wrapper, ...args];
+    await assert.rejects(import(pathToFileURL(wrapper).href + '?probe=' + index++), /Choose only/);
+  }
+  process.argv = [process.execPath, wrapper];
+  process.env.ESBUILD_BINARY_PATH = path.join(__dirname, 'missing-runtime');
+  await assert.rejects(import(pathToFileURL(wrapper).href + '?probe=' + index++), /ENOENT/);
+  assert.equal(calls.length, 3, 'invalid mode/runtime must never invoke Vite');
+  console.log(JSON.stringify({mode_checks: 3, rejected_inputs: 5, real_child_started: false, target_executed: false}));
+})().catch(error => { console.error(error); process.exitCode = 1; });
+""")
+    snapshots[str(launcher_fixture)] = hashlib.sha256(launcher_fixture.read_bytes()).hexdigest()
+    launcher_check = tool.run(node_base + [str(launcher_fixture)], project, env, 30)
+    if json.loads(launcher_check.splitlines()[-1]) != dict(mode_checks=3, rejected_inputs=5,
+                                                        real_child_started=False, target_executed=False):
+        raise ValueError('first-party launcher negative-control drift')
     build = tool.run(node_base + ['--allow-fs-write=' + str(project), '--allow-child-process',
                                   '--wasm-max-mem-pages=1024', str(wrapper)], project, env, 45)
     if not (project / 'dist/index.html').is_file() or '@vite/client' in (project / 'dist/index.html').read_text():
@@ -161,6 +220,7 @@ def probe(exported_binary, work):
     for path, expected in runtime_sources.items():
         tool.verified(scope / 'npm' / path, expected)
     return dict(application_commit=plan['application_commit'], typecheck=True, production_vite_build=True,
+                frontend_launcher_modes=json.loads(launcher_check.splitlines()[-1]),
                 vite='7.3.8', rollup='@rollup/wasm-node@4.65.1', esbuild='reviewed source fork 0.28.1-stellar.1',
                 immutable_input_files=len(snapshots), tool_sources_unchanged=len(runtime_sources),
                 production_api_identity_present=True, source_maps=False, build_log=build,

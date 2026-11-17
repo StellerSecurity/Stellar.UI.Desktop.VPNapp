@@ -91,6 +91,9 @@ def main():
     parser.add_argument('--source', required=True, type=Path)
     parser.add_argument('--destination', type=Path, default=ROOT / '.stellar-build-tools' / 'esbuild')
     args = parser.parse_args()
+    if args.destination == ROOT / '.stellar-build-tools' / 'esbuild' and not args.destination.parent.exists():
+        verified_bundle(args.source)
+        args.destination.parent.mkdir(mode=0o700)
     print(json.dumps(provision(args.source, args.destination)))
 
 if __name__ == '__main__':

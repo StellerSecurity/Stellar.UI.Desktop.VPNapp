@@ -1,0 +1,73 @@
+{
+  "schema": 1,
+  "purpose": "Build-time esbuild source fork only; not the VPN tunnel runtime or application-release approval.",
+  "upstream": {
+    "esbuild": "0.28.1",
+    "go": "1.26.11",
+    "golang.org/x/sys": "0.44.0"
+  },
+  "source_archives": {
+    "go_sha256": "d44101b0ff27ed2a4c75ad46c17b9c74359209e2eb2ca7c9df6cb4fdb68e1969",
+    "esbuild_sha256": "96a3e9d485f33cefa1200dbed6a29787f7c7161b0bec4d42dd4b017c40cbc6b5",
+    "x_sys_sha256": "f1fa1052808e6bd6eb9c5372c053b2370a582532fac5d6a4600e7a6fab190ff3"
+  },
+  "reproductions": {
+    "linux_ci": "https://github.com/StellerSecurity/Stellar.UI.Desktop.VPNapp/actions/runs/44007512257",
+    "darwin_arm64_sdk_sha256": "e3a42e67a7a8acf450ebada2b074c7ca863000ca514907b7185b45e8f5cdff57",
+    "all_six_cross_host_outputs_match": true,
+    "immutable_local_inputs_unchanged": 15874
+  },
+  "targets": {
+    "darwin/arm64": {
+      "filename": "esbuild-darwin-arm64",
+      "bytes": 15050370,
+      "sha256": "e1909408bf8cd939548394b9fafe3a99b0e5243bb97e976bf4f4b05f02a193f0"
+    },
+    "darwin/amd64": {
+      "filename": "esbuild-darwin-amd64",
+      "bytes": 16341296,
+      "sha256": "daf459299ec172f189f3c13c8175f801ab5a9165c3b8b5b977fb6a4c299a711c"
+    },
+    "linux/amd64": {
+      "filename": "esbuild-linux-amd64",
+      "bytes": 16061047,
+      "sha256": "0ec4b4dc642d8786c75ea26419100ac291af95ab1b831e559d1ed62fa6b7cd96"
+    },
+    "linux/arm64": {
+      "filename": "esbuild-linux-arm64",
+      "bytes": 14665372,
+      "sha256": "8d6e5c08be0095413a2e2f68b216eb4fd054c4764d73991867e6a71e4479e0ee"
+    },
+    "windows/amd64": {
+      "filename": "esbuild-windows-amd64.exe",
+      "bytes": 16164864,
+      "sha256": "ef7c56fdd6e105da11c59b669eec487512261d50c0b549775df47fc9b64e6192"
+    },
+    "windows/arm64": {
+      "filename": "esbuild-windows-arm64.exe",
+      "bytes": 14583808,
+      "sha256": "41b1ef9793e27c48631fb4a17d0231e70ae0850c30c581421acd94ecc5ed2505"
+    }
+  },
+  "probes": {
+    "linux_amd64": "29 actual API assertions with/without workers on original and exported copies; real frontend typecheck/build401modules, patched Vite7.3.8 and independently reviewed Rollup WASM test view.",
+    "darwin_arm64": "Apple code signature verification; exact version, fixed stdin minification and invalid-JS rejection; no input/output files or network requested.",
+    "other_targets": "Built and hash-compared only, not executed."
+  },
+  "provisioning": {
+    "command": "python3 scripts/provision-reviewed-esbuild.py --source /absolute/path/to/reproduced-bundle",
+    "destination": ".stellar-build-tools/esbuild",
+    "requires_parent_directory": ".stellar-build-tools",
+    "bundle_files": 10,
+    "checks": "Exactly six pinned binaries, independently reproduced manifest and three exact licenses. Reject extra files, changed contents, symlinks, duplicate keys and existing destinations. No download, install hook, shell or target execution.",
+    "negative_and_positive_controls": 8,
+    "default_frontend_build": "npm run build invokes the first-party launcher, selects this ignored runtime or explicit ESBUILD_BINARY_PATH and invokes the exact binary guard before Vite."
+  },
+  "preserved_limits": [
+    "All other native dependency and malformed-CFB gaps remain blocked.",
+    "No new dependencies or opaque binaries are automatically cleared.",
+    "No signing, credentials, app installation, restart or public release is performed."
+  ],
+  "binary_files_committed": false,
+  "release_approved": false
+}
