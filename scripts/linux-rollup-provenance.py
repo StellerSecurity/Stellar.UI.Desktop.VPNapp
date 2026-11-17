@@ -4,6 +4,7 @@ import importlib.util
 import io
 import json
 import os
+import sys
 from pathlib import Path
 import tempfile
 import tarfile
@@ -20,6 +21,9 @@ def module(name, filename):
 
 
 def main():
+    if sys.argv[1:] not in ([], ['--probe-parser']):
+        raise ValueError('fixed analysis scope only')
+    probe_parser = sys.argv[1:] == ['--probe-parser']
     if os.uname().sysname != 'Linux' or os.uname().machine != 'x86_64' or os.environ.get('GITHUB_ACTIONS') != 'true':
         raise ValueError('reviewed ephemeral CI Linux only')
     runtime = module('reviewed_runtime', 'linux-npm-backport-probe.py')
@@ -65,6 +69,33 @@ def main():
         result = json.loads(runtime.run(command, work, env, 45))
         if result.get('verified') is not True or result.get('negative_controls') != 5:
             raise ValueError('incomplete provenance verification')
+        if probe_parser:
+            identities = json.loads((ROOT / 'rollup-parser-probe-file-identity.json').read_text())
+            expected_names = {'dist/wasm-node/bindings_wasm.js', 'dist/wasm-node/bindings_wasm_bg.wasm',
+                              'dist/native.js', 'dist/parseAst.js', 'dist/shared/parseAst.js'}
+            if set(identities) != expected_names:
+                raise ValueError('fixed synthetic parser source scope')
+            with tarfile.open(fileobj=io.BytesIO(package), mode='r:gz') as archive:
+                for name, identity in identities.items():
+                    member = archive.getmember('package/' + name)
+                    if not member.isfile() or member.size != identity['bytes']:
+                        raise ValueError('fixed parser source member drift')
+                    content = archive.extractfile(member).read(1024 * 1024)
+                    if hashlib.sha256(content).hexdigest() != identity['sha256']:
+                        raise ValueError('fixed parser source content drift')
+                    destination = work / 'rollup' / name
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    destination.write_bytes(content)
+            (work / 'parser-probe.cjs').write_bytes((ROOT / 'rollup-wasm-parser-probe.cjs').read_bytes())
+            command = [str(executable), '--permission', '--allow-fs-read=' + str(work),
+                       '--no-addons', '--disable-sigusr1', '--max-old-space-size=128',
+                       '--wasm-max-mem-pages=64', str(work / 'parser-probe.cjs')]
+            parser_result = json.loads(runtime.run(command, work, env, 30))
+            if parser_result.get('assertions') != 16 or not parser_result.get('oversize_memory_growth_rejected'):
+                raise ValueError('incomplete bounded parser regressions')
+            for name, identity in identities.items():
+                runtime.verified(work / 'rollup' / name, identity['sha256'])
+            result['scoped_parser_regressions'] = parser_result
         for relative, digest in records.items():
             runtime.verified(work / 'npm' / relative, digest)
         result.update(tool_source_files_unchanged=len(records),

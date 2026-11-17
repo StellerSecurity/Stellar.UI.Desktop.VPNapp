@@ -1,0 +1,22 @@
+{
+  "dist/wasm-node/bindings_wasm.js": {
+    "bytes": 7967,
+    "sha256": "e9ab446ab348930a5f29520dcd04cdc1d17ff1e557481161c0b693e4d6d5c432"
+  },
+  "dist/wasm-node/bindings_wasm_bg.wasm": {
+    "bytes": 588077,
+    "sha256": "7099c59e9da5c0d690356ba986bf02a89dd21b35e578684758ecbdac4aca0c8d"
+  },
+  "dist/native.js": {
+    "bytes": 933,
+    "sha256": "d8ab4aee0129b3dc9d8274617b015ab8dbdc9661207fe5b80749606e87093992"
+  },
+  "dist/parseAst.js": {
+    "bytes": 506,
+    "sha256": "d99a66495c060828444e8a5bd9603a8858a79832578405567f6d94b60aa7e49a"
+  },
+  "dist/shared/parseAst.js": {
+    "bytes": 96232,
+    "sha256": "4695889fabab161bf5c473f17976f5204a1a814d08a33b3a394ebd04aad6d1d2"
+  }
+}
