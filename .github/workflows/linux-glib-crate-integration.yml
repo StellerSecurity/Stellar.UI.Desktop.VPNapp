@@ -1,0 +1,39 @@
+name: Full GLib production crate regressions
+on:
+  workflow_dispatch:
+  push:
+    branches: ['stellar/codeql-vendor-workspace-20261115']
+    paths: ['.github/workflows/linux-glib-crate-integration.yml', 'scripts/linux-glib-crate-integration.py', 'native/codeql/glib-crate-integration-plan.json', 'native/codeql/glib-crate-production-tests.rs']
+permissions: {}
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Test complete reviewed GLib crate without GTK or GIO
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        shell: python
+        run: |
+          import hashlib, os, pathlib, re, subprocess, sys, tempfile, urllib.request
+          commit = os.environ['SOURCE_COMMIT']
+          if not re.fullmatch('[a-f0-9]{40}', commit):
+              raise ValueError('exact public source commit required')
+          files = {
+              'scripts/linux-glib-crate-integration.py': ('544d66d389ad6520e93cd7507243b6407917fe19bfa2dc6cb36191f15a0efcc1', 'linux-glib-crate-integration.py'),
+              'native/codeql/glib-crate-integration-plan.json': ('10d256415ab58891177e56b8764b175c30fb89a95d79dd139fef6fca39c5ef53', 'glib-crate-integration-plan.json'),
+              'native/codeql/glib-crate-production-tests.rs': ('4b59429182ae7a47378e8ab0c9c4f68221d5f6f699f5a0626072c757e0a3cb4d', 'glib-crate-production-tests.rs'),
+              'scripts/linux-glib-iterator-probe.py': ('0c62fb7b046714b7fa428570b64bdae5ea05f0a9b338432281bd06cd5f6bd672', 'linux-glib-iterator-probe.py'),
+              'native/codeql/glib-iterator-native-plan.json': ('e8501f389adfcf38909fc4a63debb62f48d5d08a54ea5124295bc2c914843356', 'glib-iterator-native-plan.json'),
+              'native/codeql/runtime-review.json': ('c8965ee984ca699e87fead31b46c68330c645759f85bd63711c77ebe64eaf0db', 'runtime-review.json'),
+          }
+          with tempfile.TemporaryDirectory(prefix='stellar-glib-crate-stage-') as directory:
+              root = pathlib.Path(directory)
+              for name, (expected, target) in files.items():
+                  url = 'https://raw.githubusercontent.com/StellerSecurity/Stellar.UI.Desktop.VPNapp/' + commit + '/' + name
+                  with urllib.request.urlopen(url, timeout=30) as response:
+                      raw = response.read(262145)
+                      if response.geturl() != url or len(raw) > 262144 or hashlib.sha256(raw).hexdigest() != expected:
+                          raise ValueError('reviewed source input changed')
+                  (root / target).write_bytes(raw)
+              subprocess.run([sys.executable, str(root / 'linux-glib-crate-integration.py')], check=True, timeout=840)
