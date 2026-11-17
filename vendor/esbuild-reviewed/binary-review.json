@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "go": "1.26.11",
+  "sys": "0.44.0",
+  "targets": {
+    "darwin-arm64": {
+      "sha256": "e1909408bf8cd939548394b9fafe3a99b0e5243bb97e976bf4f4b05f02a193f0",
+      "bytes": 15050370
+    },
+    "darwin-x64": {
+      "sha256": "daf459299ec172f189f3c13c8175f801ab5a9165c3b8b5b977fb6a4c299a711c",
+      "bytes": 16341296
+    },
+    "linux-x64": {
+      "sha256": "0ec4b4dc642d8786c75ea26419100ac291af95ab1b831e559d1ed62fa6b7cd96",
+      "bytes": 16061047
+    },
+    "linux-arm64": {
+      "sha256": "8d6e5c08be0095413a2e2f68b216eb4fd054c4764d73991867e6a71e4479e0ee",
+      "bytes": 14665372
+    },
+    "win32-x64": {
+      "sha256": "ef7c56fdd6e105da11c59b669eec487512261d50c0b549775df47fc9b64e6192",
+      "bytes": 16164864
+    },
+    "win32-arm64": {
+      "sha256": "41b1ef9793e27c48631fb4a17d0231e70ae0850c30c581421acd94ecc5ed2505",
+      "bytes": 14583808
+    }
+  }
+}
