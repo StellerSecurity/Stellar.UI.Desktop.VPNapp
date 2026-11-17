@@ -13,10 +13,24 @@ jobs:
       - name: Read only the relevant launcher binary identity without execution
         shell: python
         run: |
-          import hashlib, json, pathlib, re, struct
-          roots = pathlib.Path('/home/runner/runners')
+          import hashlib, json, os, pathlib, re, struct
+          runner_roots = set()
+          pid = os.getppid()
+          for _ in range(6):
+              process = pathlib.Path('/proc') / str(pid)
+              executable = (process / 'exe').resolve()
+              if executable.name in ('Runner.Worker', 'Runner.Listener'):
+                  runner_roots.add(executable.parent.parent)
+                  break
+              fields = (process / 'stat').read_text().rpartition(') ')[2].split()
+              parent = int(fields[1])
+              if parent <= 1 or parent == pid:
+                  break
+              pid = parent
+          if len(runner_roots) != 1:
+              raise ValueError('current runner executable root not established')
           records = []
-          for path in sorted(roots.glob('*/externals/node24/bin/node')):
+          for path in sorted(root / 'externals/node24/bin/node' for root in runner_roots):
               if path.is_symlink() or not path.is_file() or path.stat().st_size > 256 * 1024**2:
                   raise ValueError('bounded regular action runtime required')
               raw = path.read_bytes()
