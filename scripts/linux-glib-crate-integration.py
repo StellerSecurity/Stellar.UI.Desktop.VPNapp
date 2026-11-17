@@ -159,6 +159,7 @@ os.execve(linker,[linker]+args,dict(os.environ))
                  '-L', 'native=/usr/lib/x86_64-linux-gnu', '-L', 'native=/usr/lib/gcc/x86_64-linux-gnu/13']
         env = dict(PATH='/nonexistent', TMPDIR=str(work / 'tmp'), LANG='C.UTF-8', TZ='UTC',
                    CARGO_HOME=str(work / 'cargo-home'), CARGO_NET_OFFLINE='true',
+                   CARGO_INCREMENTAL='0', CARGO_PROFILE_DEV_DEBUG='0', CARGO_PROFILE_RELEASE_DEBUG='0',
                    CARGO_TARGET_DIR=str(work / 'target'), RUSTC=str(rust / 'bin/rustc'),
                    RUSTC_WRAPPER='', RUSTC_WORKSPACE_WRAPPER='', CARGO_ENCODED_RUSTFLAGS='\x1f'.join(flags),
                    SYSTEM_DEPS_GLIB_2_0_NO_PKG_CONFIG='1', SYSTEM_DEPS_GLIB_2_0_LIB='glib-2.0',

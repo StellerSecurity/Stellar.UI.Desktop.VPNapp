@@ -42,6 +42,9 @@ fn pointer_slice_truncate_and_clear_release_only_removed_objects() {
     slice.truncate(1);
     assert_eq!(first.ref_count(), 2);
     assert_eq!(second.ref_count(), 1);
+    // The allocated array is still owned by the nonempty PtrSlice; the slot
+    // immediately after its logical end must contain the C null terminator.
+    assert!(unsafe { (*slice.as_ptr().add(slice.len())).is_null() });
     slice.truncate(1);
     assert_eq!(first.ref_count(), 2);
     slice.push(second.clone());
