@@ -71,13 +71,13 @@ impl StreamBuffer {
     /// Writes bytes into the buffer at the current cursor.
     /// Returns the number of bytes written, or None if the buffer cannot grow.
     pub(crate) fn write_bytes(&mut self, input: &[u8]) -> Option<usize> {
-        debug_assert!(self.pos <= self.data.len());
+        assert!(self.pos <= self.data.len());
         if self.pos >= self.data.len() && !self.grow() {
             return None;
         }
         let written = (&mut self.data[self.pos..]).write(input).unwrap_or(0);
         self.pos += written;
-        debug_assert!(self.pos <= self.data.len());
+        assert!(self.pos <= self.data.len());
         if self.cap < self.pos {
             self.cap = self.pos;
         }
@@ -86,7 +86,7 @@ impl StreamBuffer {
 
     /// Moves the cursor to an absolute position within the buffer.
     pub(crate) fn seek(&mut self, pos: usize) {
-        debug_assert!(pos <= self.data.len());
+        assert!(pos <= self.data.len());
         self.pos = pos;
         if self.cap < self.pos {
             self.cap = self.pos;
@@ -94,7 +94,7 @@ impl StreamBuffer {
     }
 
     fn set_cap(&mut self, cap: usize) {
-        debug_assert!(cap <= self.data.len());
+        assert!(cap <= self.data.len());
         self.cap = cap;
         if self.pos > self.cap {
             self.pos = self.cap;
@@ -109,8 +109,12 @@ impl StreamBuffer {
 
     /// Consumes bytes from the filled region, asserting it stays in-bounds.
     pub(crate) fn consume(&mut self, amt: usize) {
-        debug_assert!(self.pos + amt <= self.cap);
-        self.pos += amt;
+        let next = self
+            .pos
+            .checked_add(amt)
+            .expect("stream buffer cursor overflow");
+        assert!(next <= self.cap, "cannot consume past the filled buffer");
+        self.pos = next;
     }
 
     /// Attempts to grow the buffer, returning false if at max size.
@@ -145,6 +149,7 @@ impl StreamBuffer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::panic::{catch_unwind, AssertUnwindSafe};
 
     #[test]
     fn stream_buffer_advance() {
@@ -162,6 +167,64 @@ mod tests {
         let mut buffer = StreamBuffer::default();
         buffer.refill_with(4, |_| Ok(4)).unwrap();
         buffer.consume(5);
+    }
+
+    #[test]
+    fn stream_buffer_consume_overflow_preserves_state() {
+        let mut buffer = StreamBuffer::default();
+        buffer.refill_with(4, |_| Ok(4)).unwrap();
+        buffer.consume(1);
+        let result = catch_unwind(AssertUnwindSafe(|| {
+            buffer.consume(usize::MAX);
+        }));
+        assert!(result.is_err());
+        assert_eq!(buffer.cursor(), 1);
+        assert_eq!(buffer.filled_len(), 4);
+    }
+
+    #[test]
+    fn stream_buffer_consume_past_cap_preserves_state() {
+        let mut buffer = StreamBuffer::default();
+        buffer.refill_with(4, |_| Ok(4)).unwrap();
+        buffer.consume(2);
+        let result = catch_unwind(AssertUnwindSafe(|| buffer.consume(3)));
+        assert!(result.is_err());
+        assert_eq!(buffer.cursor(), 2);
+        assert_eq!(buffer.remaining_slice().len(), 2);
+    }
+
+    #[test]
+    fn stream_buffer_consume_zero_at_cap() {
+        let mut buffer = StreamBuffer::default();
+        buffer.refill_with(4, |_| Ok(4)).unwrap();
+        buffer.consume(4);
+        buffer.consume(0);
+        assert_eq!(buffer.cursor(), 4);
+        assert!(buffer.remaining_slice().is_empty());
+    }
+
+    #[test]
+    fn stream_buffer_invalid_seek_preserves_state() {
+        let mut buffer = StreamBuffer::default();
+        buffer.refill_with(4, |_| Ok(4)).unwrap();
+        buffer.consume(2);
+        let outside = buffer.data_len() + 1;
+        let result = catch_unwind(AssertUnwindSafe(|| buffer.seek(outside)));
+        assert!(result.is_err());
+        assert_eq!(buffer.cursor(), 2);
+        assert_eq!(buffer.filled_len(), 4);
+    }
+
+    #[test]
+    fn stream_buffer_invalid_capacity_preserves_state() {
+        let mut buffer = StreamBuffer::default();
+        buffer.refill_with(4, |_| Ok(4)).unwrap();
+        buffer.consume(2);
+        let outside = buffer.data_len() + 1;
+        let result = catch_unwind(AssertUnwindSafe(|| buffer.set_cap(outside)));
+        assert!(result.is_err());
+        assert_eq!(buffer.cursor(), 2);
+        assert_eq!(buffer.filled_len(), 4);
     }
 
     #[test]

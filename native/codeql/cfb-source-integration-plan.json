@@ -93,8 +93,8 @@
     },
     {
       "path": "native/cfb-source-only/src/internal/stream_buffer.rs",
-      "bytes": 8916,
-      "sha256": "634f556c5e79ebb3f63f2f56d5d2ac4bd262e50987bbdab9fe29a28525e54ef3"
+      "bytes": 11141,
+      "sha256": "ae42f1e1572b6ea019c3cd7047af0659e00c21e63482c95feb27432cde445c81"
     },
     {
       "path": "native/cfb-source-only/src/internal/timestamp.rs",
@@ -123,8 +123,8 @@
     },
     {
       "path": "native/cfb-source-only/stellar-source-only.json",
-      "bytes": 5798,
-      "sha256": "030ec00184e01c1d75a2d45c9502a0fe5f5b9931756c86c77ac8d5b39c7cef46"
+      "bytes": 6312,
+      "sha256": "5daf3755f256d061686bcfa92a8d52c432738809e428e3549167bbaa47c39d15"
     }
   ],
   "registry_packages": [
@@ -426,7 +426,7 @@
       "archive_bytes": 11266
     }
   ],
-  "production_sources_unchanged": 23,
+  "production_sources_unchanged": 22,
   "original_in_library_tests": 99,
   "upstream_ignored_test": "uppercase_generation:upstream ignored maintenance generator, not a skipped security regression",
   "allowed_native_crate_names": [
@@ -444,5 +444,10 @@
   ],
   "source_packaging_adopted": false,
   "cargo_app_lock_changed": false,
-  "original_document_fixtures_cleared": false
+  "original_document_fixtures_cleared": false,
+  "patched_production_files": [
+    "src/internal/stream_buffer.rs"
+  ],
+  "added_bounds_regressions": 5,
+  "expected_tests_passed": 103
 }

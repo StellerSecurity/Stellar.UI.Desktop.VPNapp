@@ -1,4 +1,4 @@
-"""Test unchanged CFB production source without carrying opaque Office fixtures."""
+"""Test source-only CFB packaging with release-enforced buffer boundaries."""
 from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import importlib.util
@@ -160,9 +160,9 @@ os.execve(compiler,[compiler]+args,dict(os.environ))
                     compiled.add(event['target']['name'])
             if not compiled <= set(plan['allowed_native_crate_names']) or 'cfb' not in compiled:
                 raise ValueError('native compilation escaped source-only scope')
-            if '98 passed; 0 failed; 1 ignored' not in result['output']:
+            if '103 passed; 0 failed; 1 ignored' not in result['output']:
                 raise ValueError('all unchanged library regression tests required')
-            reports.append(dict(profile=profile, tests_passed=98, upstream_maintenance_generator_ignored=1,
+            reports.append(dict(profile=profile, tests_passed=103, upstream_maintenance_generator_ignored=1,
                                 compiled_crates=sorted(compiled), output_sha256=result['output_sha256']))
         if (source / 'Cargo.lock').read_bytes() != lock:
             raise ValueError('test lock changed')
@@ -171,8 +171,8 @@ os.execve(compiler,[compiler]+args,dict(os.environ))
         observed = {str(path) for root in (source, registry) for path in root.rglob('*') if path.is_file()}
         if observed != source_inventory | {str(source / 'Cargo.lock')}:
             raise ValueError('source inventory changed during regression tests')
-        print(json.dumps(dict(source_files_unchanged=len(snapshots), original_production_files=23,
-                              original_library_test_functions=99, reports=reports, selected_packages=selected,
+        print(json.dumps(dict(source_files_unchanged=len(snapshots), original_production_files=23, unchanged_production_files=22,
+                              original_library_test_functions=99, added_bounds_regressions=5, reports=reports, selected_packages=selected,
                               registry_archives_verified=31, package_hooks_executed=False,
                               registry_network_during_build=False, office_documents_present=False,
                               original_fuzz_documents_cleared=False, app_graph_changed=False,

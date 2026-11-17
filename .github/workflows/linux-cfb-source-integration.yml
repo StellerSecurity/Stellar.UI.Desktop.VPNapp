@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - name: Test only unchanged CFB sources with reviewed offline compiler inputs
+      - name: Test reviewed source-only CFB with offline compiler inputs
         env:
           SOURCE_COMMIT: ${{ github.sha }}
         shell: python
@@ -20,10 +20,10 @@ jobs:
           if not re.fullmatch('[a-f0-9]{40}', commit):
               raise ValueError('immutable first-party source commit required')
           files = {
-              'scripts/linux-cfb-source-integration.py': '50923cf03646c3b710c2eaa091cd73d4416a64ce4e69817e44ba317d4d038105',
+              'scripts/linux-cfb-source-integration.py': 'fa79dd1cec456f161d2ea95954532d6494b326c52d974fbf2c643a6a3815664f',
               'scripts/linux-glib-crate-integration.py': '6bee5c0d7c4815f908d188257977c87dec95244a38ee6737f345c04ff9872d93',
               'scripts/linux-glib-iterator-probe.py': '0c62fb7b046714b7fa428570b64bdae5ea05f0a9b338432281bd06cd5f6bd672',
-              'native/codeql/cfb-source-integration-plan.json': 'dca9b2b83e505875ab1cec94b173404a72678281ea28c189ac397b67b2195166',
+              'native/codeql/cfb-source-integration-plan.json': '7223b0bf1b8e8a895ed827e4da57812e5e36103e93cdf8f1e336a32f30ea1fdf',
               'native/codeql/glib-iterator-native-plan.json': 'e8501f389adfcf38909fc4a63debb62f48d5d08a54ea5124295bc2c914843356',
               'native/codeql/runtime-review.json': 'c8965ee984ca699e87fead31b46c68330c645759f85bd63711c77ebe64eaf0db',
           }

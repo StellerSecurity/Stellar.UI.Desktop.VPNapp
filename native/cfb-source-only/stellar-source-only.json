@@ -122,15 +122,25 @@
       "upstream_git_blob": "7a3135cacf363aeeb5ae355d35fbf70c328ea50b"
     }
   },
-  "unchanged_production_files": 23,
+  "unchanged_production_files": 22,
   "unchanged_in_library_tests": 99,
   "dependencies_unchanged": true,
   "source_only_packaging": true,
   "unused_upstream_external_fuzz_corpus_included": false,
   "original_fuzz_documents_cleared": false,
-  "installed_or_executed": false,
   "adopted_into_app": false,
-  "pending": "Execute preserved library tests in debug/release and verify a closed source-only Cargo dependency graph before adoption.",
-  "phase": "Static source-only preparation; execution results are recorded separately.",
-  "production_rust_changed": false
+  "pending": "Execute all104 library tests in dev/release before adoption; the original ignored Unicode data generator is unchanged.",
+  "phase": "Static provenance inventory; native executions are recorded in separate CI regression evidence.",
+  "production_rust_changed": true,
+  "patched_production_files": {
+    "src/internal/stream_buffer.rs": {
+      "upstream_sha256": "634f556c5e79ebb3f63f2f56d5d2ac4bd262e50987bbdab9fe29a28525e54ef3",
+      "patched_sha256": "ae42f1e1572b6ea019c3cd7047af0659e00c21e63482c95feb27432cde445c81",
+      "changes": [
+        "Enforce all five buffer bounds assertions in release as well as debug.",
+        "Check cursor addition for overflow before mutating state.",
+        "Preserve all99 original library tests and add5 boundary/state regressions."
+      ]
+    }
+  }
 }
