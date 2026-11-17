@@ -38,6 +38,19 @@ def probe(target, work):
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const workers = require('node:worker_threads');
+const workerMode = process.env.STELLAR_PROBE_WORKERS === '1';
+let workerStarts = 0;
+if (workerMode) {
+  const OriginalWorker = workers.Worker;
+  workers.Worker = class extends OriginalWorker {
+    constructor(filename, options) {
+      assert.equal(filename, path.join(__dirname, 'esbuild-reviewed/lib/main.js'));
+      workerStarts++;
+      super(filename, options);
+    }
+  };
+}
 const guard = require('./esbuild-reviewed/lib/reviewed-binary.cjs');
 const original = process.env.ESBUILD_BINARY_PATH;
 for (const candidate of ['', 'relative-path']) {
@@ -69,9 +82,11 @@ assert.throws(() => api.transformSync('const =', {loader: 'js', logLevel: 'silen
   assert.match(built.outputFiles[0].text, /=42/);
   assert.match(built.outputFiles[0].text, /export/);
   await assert.rejects(api.transform('const =', {loader: 'js', logLevel: 'silent'}));
+  if (workerMode) assert.ok(workerStarts > 0, 'synchronous API must exercise the real worker path');
   api.stop();
-  console.log(JSON.stringify({assertions: 14, sync: true, async: true,
-                             invalid_runtime_rejected_before_execution: true, build_write: false}));
+  console.log(JSON.stringify({assertions: workerMode ? 15 : 14, sync: true, async: true,
+                             invalid_runtime_rejected_before_execution: true, build_write: false,
+                             worker_mode: workerMode, worker_started: workerStarts > 0}));
 })().catch(error => { api.stop(); console.error(error); process.exitCode = 1; });
 """)
     env = dict(PATH='/usr/bin:/bin', TMPDIR=str(runtime), LANG='C.UTF-8', TZ='UTC',
@@ -79,17 +94,29 @@ assert.throws(() => api.transformSync('const =', {loader: 'js', logLevel: 'silen
     command = [str(executable), '--permission', '--allow-fs-read=' + str(work),
                '--allow-fs-write=' + str(work), '--allow-child-process', '--no-addons',
                '--disable-sigusr1', '--max-old-space-size=256', str(fixture)]
-    output = tool.run(command, runtime, env, 45)
+    modes = []
+    for worker_mode in (False, True):
+        scoped_env = dict(env, ESBUILD_WORKER_THREADS='1' if worker_mode else '0',
+                          STELLAR_PROBE_WORKERS='1' if worker_mode else '0')
+        scoped_command = command[:]
+        if worker_mode:
+            scoped_command.insert(-1, '--allow-worker')
+        output = tool.run(scoped_command, runtime, scoped_env, 45)
+        result = json.loads(output.splitlines()[-1])
+        expected = {'assertions': 15 if worker_mode else 14, 'sync': True, 'async': True,
+                    'invalid_runtime_rejected_before_execution': True, 'build_write': False,
+                    'worker_mode': worker_mode, 'worker_started': worker_mode}
+        if result != expected:
+            raise ValueError('fixed API probe result drift')
+        modes.append(result)
     for name, expected in records.items():
         tool.verified(runtime / 'npm' / name, expected)
     for name, expected in identity['files_sha256'].items():
         tool.verified(source / name, expected)
     tool.verified(target, '0ec4b4dc642d8786c75ea26419100ac291af95ab1b831e559d1ed62fa6b7cd96')
-    result = json.loads(output.splitlines()[-1])
-    if result != {'assertions': 14, 'sync': True, 'async': True, 'invalid_runtime_rejected_before_execution': True, 'build_write': False}:
-        raise ValueError('fixed API probe result drift')
-    return dict(result=result, source_identity=identity, tool_sources_unchanged=len(records),
+    return dict(results=modes, assertions=sum(item['assertions'] for item in modes),
+                source_identity=identity, tool_sources_unchanged=len(records),
                 child_execution_scope='Exact rebuilt Linux x64 esbuild; invalid copies are never executed.',
                 isolation='Ephemeral CI VM; Node permission model is not a malicious-code OS sandbox.',
-                worker_threads_enabled=False,
+                worker_modes_tested=[False, True],
                 hooks_executed=False, npm_cli_executed=False, application_executed=False, release_approved=False)
