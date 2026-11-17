@@ -253,8 +253,18 @@ def main():
                                                plan['expected_target_sha256'])
             export_check = work / 'export-check'
             export_check.mkdir()
-            exported_api_probe = probe_module.probe(
-                arguments.export_reviewed_runtimes / exported['linux/amd64']['filename'], export_check)
+            exported_linux = arguments.export_reviewed_runtimes / exported['linux/amd64']['filename']
+            exported_bytes = exported_linux.read_bytes()
+            if digest(exported_bytes) != plan['expected_target_sha256']['linux/amd64']:
+                raise ValueError('exported Linux runtime changed before probe staging')
+            # Preserve the existing probe filesystem boundary. Copy the exact
+            # exported bytes into its owned input directory, never grant the
+            # Node process access to the outer export directory or its parent.
+            staged_linux = export_check / 'exported-runtime'
+            with staged_linux.open('xb') as stream:
+                stream.write(exported_bytes)
+            staged_linux.chmod(0o700)
+            exported_api_probe = probe_module.probe(staged_linux, export_check)
         print(json.dumps(dict(sdk_source_files_verified=verified, sdk_version=version,
                               outputs=outputs, source_patch='Go directive 1.25.0 and x/sys v0.44.0; application Rust and JS unchanged',
                               synthetic_tests=synthetic_tests,
