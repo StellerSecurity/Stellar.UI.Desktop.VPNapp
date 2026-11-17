@@ -7,8 +7,8 @@ from pathlib import Path
 import tempfile
 
 ROOT = Path(__file__).resolve().parent
-PACKAGE_SHA = '5e364deee75cf4657e6214f46d7a1d5d4d99e52cf389a1fe4ad1d73e206cc334'
-LOCK_SHA = '81cb1cdf64389c02b9a0edab6ab36ac971f4e8870dc4dc2e5fd6178099335ab4'
+PACKAGE_SHA = 'cc14d9dfd942d17ff05eacb9ca43571806ced7c807126dddb777280260452458'
+LOCK_SHA = '68403a0fd33ecc30c55bce87b9c8898fb79ade8dc115fe53cb3fe91a877f13b2'
 
 
 def load(name, filename):
