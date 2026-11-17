@@ -68,6 +68,9 @@ def probe(exported_binary, work):
     binary.write_bytes(tool.verified(exported_binary, plan['esbuild_linux_sha256']))
     binary.chmod(0o700)
     snapshots = {str(binary): plan['esbuild_linux_sha256']}
+    workspace_fixture = scope / 'package.json'
+    workspace_fixture.write_text('{"name":"stellar-reviewed-frontend-workspace","private":true,"workspaces":["project"]}\n')
+    snapshots[str(workspace_fixture)] = hashlib.sha256(workspace_fixture.read_bytes()).hexdigest()
     project = scope / 'project'
     project.mkdir()
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), tool.NoRedirect())
@@ -132,6 +135,8 @@ def probe(exported_binary, work):
                                      '--project', str(project / 'tsconfig.json')], project, env, 45)
     if typecheck.strip():
         raise ValueError('unexpected TypeScript output')
+    print(json.dumps(dict(frontend_phase='typecheck', passed=True,
+                          application_commit=plan['application_commit'])), flush=True)
     build = tool.run(node_base + ['--allow-fs-write=' + str(project), '--allow-child-process',
                                   '--wasm-max-mem-pages=1024', str(project / 'node_modules/vite/bin/vite.js'),
                                   'build', '--config', str(project / 'vite.config.ts')], project, env, 45)
@@ -153,4 +158,5 @@ def probe(exported_binary, work):
                 app_executed=False, network_allowed=False, credentials_configured=False,
                 npm_cli_executed=False, lifecycle_hooks_executed=False, official_lock_graph_adopted=False,
                 explicit_empty_postcss_fixture=True,
+                explicit_owned_workspace_root=True,
                 native_binary_gate_waived=False, release_approved=False)
