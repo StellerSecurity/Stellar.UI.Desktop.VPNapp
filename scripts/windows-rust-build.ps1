@@ -50,11 +50,8 @@ $rustRoot = Join-Path $env:RUNNER_TEMP 'stellar-reviewed-rust'
 if ($PrepareRustOnly) {
     if (Test-Path -LiteralPath $rustRoot) { throw 'Fresh Rust staging directory required.' }
     [IO.Directory]::CreateDirectory($rustRoot) | Out-Null
-    $tar = Join-Path ([Environment]::SystemDirectory) 'tar.exe'
-    $tarSignature = Get-AuthenticodeSignature -LiteralPath $tar
-    if ($tarSignature.Status -ne 'Valid' -or $tarSignature.SignerCertificate.Subject -notmatch '(^|,\s*)O=Microsoft Corporation(,|$)') {
-        throw 'Microsoft system archive reader signature not verified.'
-    }
+    $python = (Get-Command python.exe -CommandType Application -ErrorAction Stop).Source
+    $extract = Join-Path $PSScriptRoot 'windows-rust-extract.py'
     # Rust 1.99.1 distributions statically verified and approved for this CI job.
     # Stage their runtime directories only. No package installer is invoked.
     $rustArchives = @(
@@ -93,9 +90,9 @@ if ($PrepareRustOnly) {
         if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $pin.sha256) {
             throw 'Rust archive does not match its reviewed SHA-256.'
         }
-        $paths = @($pin.directories | ForEach-Object { $name + '/' + $pin.component + '/' + $_ })
         Write-Host "Extracting the verified $name runtime files."
-        & $tar -xf $archive -C $rustRoot --strip-components 2 @paths
+        $directories = $pin.directories
+        & $python -I $extract $archive $rustRoot $name $pin.component @directories
         if ($LASTEXITCODE -ne 0) { throw 'Rust runtime extraction failed.' }
     }
     return
