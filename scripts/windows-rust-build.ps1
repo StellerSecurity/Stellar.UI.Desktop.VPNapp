@@ -226,6 +226,24 @@ try {
         Compress-Archive -LiteralPath $executable, (Join-Path $output 'build-info.json') -DestinationPath $zip -CompressionLevel Optimal
         "STELLAR_WINDOWS_PREVIEW_ZIP=$zip" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         $proof | ConvertTo-Json -Depth 5 -Compress
+        # Separate unsigned first-party input for the documented local signing flow.
+        $helper = Join-Path $root 'native-preflight/stellar-vpn-service.exe'
+        $helperOutput = Join-Path $env:RUNNER_TEMP 'stellar-windows-unsigned-native-helper'
+        $helperZip = $helperOutput + '.zip'
+        if ((Test-Path -LiteralPath $helperOutput) -or (Test-Path -LiteralPath $helperZip)) { throw 'Fresh helper artifact required.' }
+        if ((Get-AuthenticodeSignature -LiteralPath $helper).Status -ne 'NotSigned') { throw 'Only the unsigned first-party helper may leave CI.' }
+        [IO.Directory]::CreateDirectory($helperOutput) | Out-Null
+        $stagedHelper = Join-Path $helperOutput 'stellar-vpn-service.exe'
+        [IO.File]::Copy($helper, $stagedHelper, $false)
+        $helperProof = [ordered]@{
+            schema = 1; sourceCommit = $SourceCommit; architecture = 'x86_64'; kind = 'unsigned-native-helper'
+            executableSha256 = (Get-FileHash -LiteralPath $stagedHelper -Algorithm SHA256).Hash.ToLowerInvariant()
+            signed = $false; releaseApproved = $false; executed = $false; vpnRuntimeIncluded = $false; driverIncluded = $false
+        }
+        $helperManifest = Join-Path $helperOutput 'build-info.json'
+        [IO.File]::WriteAllText($helperManifest, ($helperProof | ConvertTo-Json), $utf8)
+        Compress-Archive -LiteralPath $stagedHelper, $helperManifest -DestinationPath $helperZip -CompressionLevel Optimal
+        "STELLAR_WINDOWS_HELPER_ZIP=$helperZip" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
     }
     [ordered]@{ suite = 'windows-rust-debug-build-and-tests'; sourceCommit = $SourceCommit; lockedArchivesVerified = $archives.Count; releaseApproved = $false; serviceInstalled = $false; driverInstalled = $false; appExecuted = $false } | ConvertTo-Json -Compress
 } finally { Pop-Location }
