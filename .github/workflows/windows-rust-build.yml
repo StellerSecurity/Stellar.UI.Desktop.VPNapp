@@ -3,7 +3,7 @@ name: Windows Rust build and tests
 on:
   workflow_dispatch:
   push:
-    branches: ['stellar/windows-hosted-inventory']
+    branches: ['stellar/windows-hosted-inventory', 'stellar/mac-login-persistence']
     paths:
       - '.github/workflows/windows-rust-build.yml'
 
