@@ -36,6 +36,10 @@ if ($review.vendoredSourceExecutionApproval.approved -ne $true -or
     throw 'Separate execution approval for the exact vendored source patch is required.'
 }
 if ($review.packages.Count -ne 407) { throw 'Reviewed dependency count changed.' }
+if ($env:GITHUB_ACTIONS -ne 'true' -or $env:GITHUB_WORKFLOW_REF -cne $review.vendoredSourceExecutionApproval.githubWorkflowRef -or
+    $env:GITHUB_SHA -cne $SourceCommit) {
+    throw 'Vendored source execution approval applies only to the recorded GitHub workflow and commit.'
+}
 if ($review.vendoredSourceExecutionApproval.files.Count -ne 7 -or
     @($review.vendoredSourceExecutionApproval.files.path | Sort-Object -Unique).Count -ne 7) { throw 'Exact seven-file vendored source review required.' }
 foreach ($pin in $review.vendoredSourceExecutionApproval.files) {
