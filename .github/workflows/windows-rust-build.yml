@@ -29,7 +29,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           if ($env:SOURCE_COMMIT -notmatch '^[a-f0-9]{40}$') { throw 'Exact source commit required.' }
           $files = @(
-            @{ path = 'scripts/windows-rust-build.ps1'; sha256 = '5ee298b269bb4ecc10a7a91d2d59e61721be0e247e3f8e73243f8df0913f8b4e' },
+            @{ path = 'scripts/windows-rust-build.ps1'; sha256 = 'f189c7e4cf6748e0f199c27e1a968392522bde2dfc803ee2a1e1c0d5a8e5fef2' },
             @{ path = 'scripts/windows-rust-inputs.json'; sha256 = 'f4494d6dc47b6b7b03dd008a44ce5a46bde97c000a81366e187379e280e8f9e1' },
             @{ path = '.github/actions/upload-windows-interface-test/action.yml'; sha256 = 'aa643c5298b83c09698d7f7a55e9eea1f4455f3dc778c78aba9a6d63bac3c617' },
             @{ path = '.github/actions/upload-windows-interface-test/index.mjs'; sha256 = '7e2b0caf7ef9dd91bcfeae88e7228b6c18aaa1de425ae416e0eff17ac3cf4153' }
@@ -54,7 +54,14 @@ jobs:
               if ((Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant() -ne $entry.sha256) { throw 'Build harness hash mismatch.' }
           }
           "STELLAR_RUST_HARNESS=$root" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Prepare hash-pinned Rust 1.99.1
+        timeout-minutes: 10
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          & (Join-Path $env:STELLAR_RUST_HARNESS 'scripts/windows-rust-build.ps1') -SourceCommit $env:SOURCE_COMMIT -PrepareRustOnly
       - name: Verify tools; fetch locked sources; build and test offline
+        timeout-minutes: 15
         env:
           SOURCE_COMMIT: ${{ github.sha }}
         run: |

@@ -1,6 +1,6 @@
 # Exact reviewed hosted Rust/SDK toolchain, locked graph and vendored source only.
 # No installer/driver/service registration, GUI launch or production credentials.
-param([Parameter(Mandatory = $true)][string] $SourceCommit, [switch] $ExportInterfaceTest)
+param([Parameter(Mandatory = $true)][string] $SourceCommit, [switch] $ExportInterfaceTest, [switch] $PrepareRustOnly)
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 if ($SourceCommit -notmatch '^[a-f0-9]{40}$') { throw 'Exact first-party source commit required.' }
@@ -8,8 +8,11 @@ $manifest = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'windows-rust-inpu
 $root = Join-Path $env:RUNNER_TEMP ('stellar-rust-source-' + [Guid]::NewGuid().ToString('N'))
 [IO.Directory]::CreateDirectory($root) | Out-Null
 $utf8 = New-Object Text.UTF8Encoding($false)
+$sourceInputs = if ($PrepareRustOnly) {
+    @($manifest.files | Where-Object path -ceq 'native/windows/rust-build-approval.json')
+} else { $manifest.files }
 Write-Host 'Fetching the pinned first-party Windows inputs.'
-foreach ($entry in $manifest.files) {
+foreach ($entry in $sourceInputs) {
     if ($entry.path -notmatch '^[A-Za-z0-9_.@/-]+$' -or $entry.path -match '(^|/)\.\.(/|$)|\.[mM][dD]$' -or $entry.sha256 -notmatch '^[a-f0-9]{64}$') { throw 'Invalid source input pin.' }
     $destination = Join-Path $root $entry.path
     [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($destination)) | Out-Null
@@ -43,6 +46,60 @@ if ($env:GITHUB_ACTIONS -ne 'true' -or $env:GITHUB_WORKFLOW_REF -cne $review.ven
     $env:GITHUB_SHA -cne $SourceCommit) {
     throw 'Vendored source execution approval applies only to the recorded GitHub workflow and commit.'
 }
+$rustRoot = Join-Path $env:RUNNER_TEMP 'stellar-reviewed-rust'
+if ($PrepareRustOnly) {
+    if (Test-Path -LiteralPath $rustRoot) { throw 'Fresh Rust staging directory required.' }
+    [IO.Directory]::CreateDirectory($rustRoot) | Out-Null
+    $tar = Join-Path ([Environment]::SystemDirectory) 'tar.exe'
+    $tarSignature = Get-AuthenticodeSignature -LiteralPath $tar
+    if ($tarSignature.Status -ne 'Valid' -or $tarSignature.SignerCertificate.Subject -notmatch '(^|,\s*)O=Microsoft Corporation(,|$)') {
+        throw 'Microsoft system archive reader signature not verified.'
+    }
+    # Rust 1.99.1 distributions statically verified and approved for this CI job.
+    # Stage their runtime directories only. No package installer is invoked.
+    $rustArchives = @(
+        @{ name = 'cargo'; component = 'cargo'; bytes = 9881184; sha256 = '4adb46c3707dee790682f7769d86983841148111695f561c843c33daa2af0c9b'; directories = @('bin') },
+        @{ name = 'rustc'; component = 'rustc'; bytes = 77075164; sha256 = '7da83c2af1f209606b0160f25174d2867c7c7b73667c32c9e5fbcef4f5f45348'; directories = @('bin', 'lib', 'libexec') },
+        @{ name = 'rust-std'; component = 'rust-std-x86_64-pc-windows-msvc'; bytes = 23619148; sha256 = '4fe09430ded40b8b3092b49f0a651178eb1f8154ef4d1f1a73f2a3595b2d956f'; directories = @('lib') }
+    )
+    foreach ($pin in $rustArchives) {
+        $name = $pin.name + '-1.99.1-x86_64-pc-windows-msvc'
+        Write-Host "Fetching the pinned $name archive."
+        $archive = Join-Path $root ($name + '.tar.xz')
+        $request = [Net.HttpWebRequest]::Create('https://static.rust-lang.org/dist/2026-10-15/' + $name + '.tar.xz')
+        $request.AllowAutoRedirect = $false
+        $request.Timeout = 30000
+        $request.ReadWriteTimeout = 30000
+        $download = [Diagnostics.Stopwatch]::StartNew()
+        $response = $request.GetResponse()
+        try {
+            if ($response.ContentLength -ne $pin.bytes) { throw 'Rust archive length changed.' }
+            $input = $response.GetResponseStream()
+            try {
+                $output = [IO.File]::Open($archive, [IO.FileMode]::CreateNew)
+                try {
+                    $buffer = New-Object byte[] 65536
+                    $remaining = $pin.bytes
+                    while (($count = $input.Read($buffer, 0, $buffer.Length)) -gt 0) {
+                        if ($download.Elapsed.TotalMinutes -ge 3) { throw 'Rust archive download exceeded three minutes.' }
+                        $remaining -= $count
+                        if ($remaining -lt 0) { throw 'Rust archive exceeds reviewed size.' }
+                        $output.Write($buffer, 0, $count)
+                    }
+                    if ($remaining -ne 0) { throw 'Truncated Rust archive.' }
+                } finally { $output.Dispose() }
+            } finally { $input.Dispose() }
+        } finally { $response.Dispose() }
+        if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $pin.sha256) {
+            throw 'Rust archive does not match its reviewed SHA-256.'
+        }
+        $paths = @($pin.directories | ForEach-Object { $name + '/' + $pin.component + '/' + $_ })
+        Write-Host "Extracting the verified $name runtime files."
+        & $tar -xf $archive -C $rustRoot --strip-components 2 @paths
+        if ($LASTEXITCODE -ne 0) { throw 'Rust runtime extraction failed.' }
+    }
+    return
+}
 if ($review.vendoredSourceExecutionApproval.files.Count -ne 7 -or
     @($review.vendoredSourceExecutionApproval.files.path | Sort-Object -Unique).Count -ne 7) { throw 'Exact seven-file vendored source review required.' }
 foreach ($pin in $review.vendoredSourceExecutionApproval.files) {
@@ -70,56 +127,6 @@ function Verify-Lock {
     if ($hash -ne $review.lockSha256) { throw 'Reviewed dependency graph changed.' }
 }
 Verify-Lock
-$rustRoot = Join-Path $root 'reviewed-rust'
-[IO.Directory]::CreateDirectory($rustRoot) | Out-Null
-$tar = Join-Path ([Environment]::SystemDirectory) 'tar.exe'
-$tarSignature = Get-AuthenticodeSignature -LiteralPath $tar
-if ($tarSignature.Status -ne 'Valid' -or $tarSignature.SignerCertificate.Subject -notmatch '(^|,\s*)O=Microsoft Corporation(,|$)') {
-    throw 'Microsoft system archive reader signature not verified.'
-}
-# Rust 1.99.1 distributions statically verified and approved for this CI job.
-# Stage their runtime directories only. No package installer is invoked.
-$rustArchives = @(
-    @{ name = 'cargo'; component = 'cargo'; bytes = 9881184; sha256 = '4adb46c3707dee790682f7769d86983841148111695f561c843c33daa2af0c9b'; directories = @('bin') },
-    @{ name = 'rustc'; component = 'rustc'; bytes = 77075164; sha256 = '7da83c2af1f209606b0160f25174d2867c7c7b73667c32c9e5fbcef4f5f45348'; directories = @('bin', 'lib', 'libexec') },
-    @{ name = 'rust-std'; component = 'rust-std-x86_64-pc-windows-msvc'; bytes = 23619148; sha256 = '4fe09430ded40b8b3092b49f0a651178eb1f8154ef4d1f1a73f2a3595b2d956f'; directories = @('lib') }
-)
-foreach ($pin in $rustArchives) {
-    $name = $pin.name + '-1.99.1-x86_64-pc-windows-msvc'
-    Write-Host "Fetching the pinned $name archive."
-    $archive = Join-Path $root ($name + '.tar.xz')
-    $request = [Net.HttpWebRequest]::Create('https://static.rust-lang.org/dist/2026-10-15/' + $name + '.tar.xz')
-    $request.AllowAutoRedirect = $false
-    $request.Timeout = 30000
-    $request.ReadWriteTimeout = 30000
-    $download = [Diagnostics.Stopwatch]::StartNew()
-    $response = $request.GetResponse()
-    try {
-        if ($response.ContentLength -ne $pin.bytes) { throw 'Rust archive length changed.' }
-        $input = $response.GetResponseStream()
-        try {
-            $output = [IO.File]::Open($archive, [IO.FileMode]::CreateNew)
-            try {
-                $buffer = New-Object byte[] 65536
-                $remaining = $pin.bytes
-                while (($count = $input.Read($buffer, 0, $buffer.Length)) -gt 0) {
-                    if ($download.Elapsed.TotalMinutes -ge 3) { throw 'Rust archive download exceeded three minutes.' }
-                    $remaining -= $count
-                    if ($remaining -lt 0) { throw 'Rust archive exceeds reviewed size.' }
-                    $output.Write($buffer, 0, $count)
-                }
-                if ($remaining -ne 0) { throw 'Truncated Rust archive.' }
-            } finally { $output.Dispose() }
-        } finally { $input.Dispose() }
-    } finally { $response.Dispose() }
-    if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $pin.sha256) {
-        throw 'Rust archive does not match its reviewed SHA-256.'
-    }
-    $paths = @($pin.directories | ForEach-Object { $name + '/' + $pin.component + '/' + $_ })
-    Write-Host "Extracting the verified $name runtime files."
-    & $tar -xf $archive -C $rustRoot --strip-components 2 @paths
-    if ($LASTEXITCODE -ne 0) { throw 'Rust runtime extraction failed.' }
-}
 $rustBin = Join-Path $rustRoot 'bin'
 foreach ($pin in $review.rust) {
     if ($pin.name -notmatch '^(cargo\.exe|rustc\.exe|rustc_driver-[a-f0-9]+\.dll)$') { throw 'Unexpected Rust component.' }
