@@ -152,7 +152,7 @@ $security = Join-Path $root '.security-review'
 [IO.File]::Copy((Join-Path $root 'native/windows/compile-approval.json'), (Join-Path $security 'windows-native-compile-approval.json'))
 Write-Host 'Windows SDK hashes and signatures verified. Running native compiler checks.'
 # The shared script stages only signed/hash-pinned MSVC and sets INCLUDE/LIB.
-& (Join-Path $root 'scripts/windows-native-compile.ps1') -OutputDirectory (Join-Path $root 'native-preflight')
+& (Join-Path $root 'scripts/windows-native-compile.ps1') -OutputDirectory (Join-Path $root 'native-preflight') -RunSyntheticTests
 $env:PATH = $stagedSdk + ';' + $env:PATH
 $env:RC = Join-Path $stagedSdk 'rc.exe'
 $env:RC_x86_64_pc_windows_msvc = $env:RC
@@ -244,6 +244,23 @@ try {
         [IO.File]::WriteAllText($helperManifest, ($helperProof | ConvertTo-Json), $utf8)
         Compress-Archive -LiteralPath $stagedHelper, $helperManifest -DestinationPath $helperZip -CompressionLevel Optimal
         "STELLAR_WINDOWS_HELPER_ZIP=$helperZip" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+        $nativeTest = Join-Path $root 'native-preflight/native-tests.exe'
+        $testOutput = Join-Path $env:RUNNER_TEMP 'stellar-windows-native-synthetic-test'
+        $testZip = $testOutput + '.zip'
+        if ((Test-Path -LiteralPath $testOutput) -or (Test-Path -LiteralPath $testZip)) { throw 'Fresh native test artifact required.' }
+        [IO.Directory]::CreateDirectory($testOutput) | Out-Null
+        $stagedTest = Join-Path $testOutput 'native-tests.exe'
+        [IO.File]::Copy($nativeTest, $stagedTest, $false)
+        $testManifest = Join-Path $testOutput 'build-info.json'
+        $testProof = [ordered]@{
+            schema = 1; sourceCommit = $SourceCommit; architecture = 'x86_64'; kind = 'native-synthetic-test'
+            executableSha256 = (Get-FileHash -LiteralPath $stagedTest -Algorithm SHA256).Hash.ToLowerInvariant()
+            signed = $false; releaseApproved = $false; serviceInstalled = $false; driverInstalled = $false
+        }
+        [IO.File]::WriteAllText($testManifest, ($testProof | ConvertTo-Json), $utf8)
+        Compress-Archive -LiteralPath $stagedTest, $testManifest -DestinationPath $testZip -CompressionLevel Optimal
+        "STELLAR_WINDOWS_NATIVE_TEST_ZIP=$testZip" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
     }
     [ordered]@{ suite = 'windows-rust-debug-build-and-tests'; sourceCommit = $SourceCommit; lockedArchivesVerified = $archives.Count; releaseApproved = $false; serviceInstalled = $false; driverInstalled = $false; appExecuted = $false } | ConvertTo-Json -Compress
 } finally { Pop-Location }

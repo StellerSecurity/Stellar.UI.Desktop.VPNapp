@@ -25,7 +25,7 @@ export function backendIds(token) {
 }
 export async function uploadZip({ bytes, token, resultsUrl, sourceCommit, kind = 'interface-test', fetcher = fetch }) {
   if (!Buffer.isBuffer(bytes) || bytes.length < 22 || bytes.length > 268435456 || bytes.readUInt32LE(0) !== 0x04034b50 || !/^[a-f0-9]{40}$/.test(sourceCommit)) throw new Error('Unexpected test artifact.');
-  if (kind !== 'interface-test' && kind !== 'unsigned-native-helper') throw new Error('Unexpected artifact kind.');
+  if (!['interface-test', 'unsigned-native-helper', 'native-synthetic-test'].includes(kind)) throw new Error('Unexpected artifact kind.');
   const origin = serviceOrigin(resultsUrl);
   const ids = backendIds(token);
   const name = `Stellar-VPN-Windows-x64-${kind}-${sourceCommit.slice(0, 12)}`;
@@ -55,6 +55,7 @@ async function main() {
   if (process.env.GITHUB_REPOSITORY !== 'StellerSecurity/Stellar.UI.Desktop.VPNapp') throw new Error('Unexpected repository.');
   const exports = [['interface-test', 'STELLAR_WINDOWS_PREVIEW_ZIP']];
   if (process.env.STELLAR_WINDOWS_HELPER_ZIP) exports.push(['unsigned-native-helper', 'STELLAR_WINDOWS_HELPER_ZIP']);
+  if (process.env.STELLAR_WINDOWS_NATIVE_TEST_ZIP) exports.push(['native-synthetic-test', 'STELLAR_WINDOWS_NATIVE_TEST_ZIP']);
   for (const [kind, variable] of exports) {
     const expected = path.resolve(process.env.RUNNER_TEMP, `stellar-windows-${kind}.zip`);
     if (path.resolve(process.env[variable] ?? '') !== expected) throw new Error('Unexpected artifact path.');
