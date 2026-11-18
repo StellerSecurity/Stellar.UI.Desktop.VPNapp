@@ -30,11 +30,11 @@ jobs:
           $ErrorActionPreference = 'Stop'
           if ($env:SOURCE_COMMIT -notmatch '^[a-f0-9]{40}$') { throw 'Exact source commit required.' }
           $files = @(
-            @{ path = 'native/windows/native-tests.cpp'; sha256 = 'e30a7d4b0c8f8b408d4a7c76f3bdfa1892dbc0ce4674bdd71f8be687e2aa07a7' },
+            @{ path = 'native/windows/native-tests.cpp'; sha256 = 'a53d595ac368fbec677a0708b936560509f9d4d81087357dfbd6c3c2c7aded33' },
             @{ path = 'native/windows/common.hpp'; sha256 = '92937e9fe7461ef33fa5e4f7ace913ddf3ec21ef1254ae30902c1167e1a35c2a' },
             @{ path = 'native/windows/firewall.hpp'; sha256 = '1e979937afd0eec239215ef0bb7a938549070ded169679945f68ab944b66fb3a' },
             @{ path = 'native/windows/lifecycle.hpp'; sha256 = '6c364913604a97d0836303b5417986446c28dea0095794c547d2dec4c98d360c' },
-            @{ path = 'native/windows/bridge.cpp'; sha256 = '1576f107b32c2f0cc0accc30f282a70166e5afc1c986995bbec4ea132a4a2f79' },
+            @{ path = 'native/windows/bridge.cpp'; sha256 = '500e72c86babdbb46772f01c8eb5f43efa9364b007d020a038b113d1a423271b' },
             @{ path = 'native/windows/service.cpp'; sha256 = 'e661c40341da631aaa48158cd013e9ec3f75a674212f6bc48088361f84e9ff9e' },
             @{ path = 'native/windows/bridge-link-test.cpp'; sha256 = 'd7ef6820a2804c12bbda5900037f99c14a9a5ca6311d3bc9e234019c4983fed2' },
             @{ path = 'scripts/windows-native-compile.ps1'; sha256 = '0010373606b1bc92280501ceb9e6d47406fadfa4cfb53e79c8b9241543271ffd' },

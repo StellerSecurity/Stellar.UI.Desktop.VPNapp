@@ -87,7 +87,7 @@
     },
     {
       "path": "native/windows/bridge.cpp",
-      "sha256": "1576f107b32c2f0cc0accc30f282a70166e5afc1c986995bbec4ea132a4a2f79"
+      "sha256": "500e72c86babdbb46772f01c8eb5f43efa9364b007d020a038b113d1a423271b"
     },
     {
       "path": "native/windows/common.hpp",
@@ -111,7 +111,7 @@
     },
     {
       "path": "native/windows/native-tests.cpp",
-      "sha256": "e30a7d4b0c8f8b408d4a7c76f3bdfa1892dbc0ce4674bdd71f8be687e2aa07a7"
+      "sha256": "a53d595ac368fbec677a0708b936560509f9d4d81087357dfbd6c3c2c7aded33"
     },
     {
       "path": "native/windows/release-policy.json",
