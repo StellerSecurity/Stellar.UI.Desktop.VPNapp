@@ -31,7 +31,7 @@
     },
     {
       "path": "Cargo.toml",
-      "sha256": "a52d18f0e53e0f2f82634239c6078426c1d6d5652b8d0f065cf8c9395c81bfef"
+      "sha256": "2cadf77f657cad5f07824a40e93998a72fad6394643409733b7c1eae52d329c5"
     },
     {
       "path": "crates/stellar-core/Cargo.toml",
@@ -343,7 +343,7 @@
     },
     {
       "path": "vendor/glib-0.18.5/Cargo.toml",
-      "sha256": "bcd52d812b4c111864ae8e88ba6c0a8311eb0cf781b5e81634950b4619592132"
+      "sha256": "57e94ee91ef5a7489bae40cb16b98c11b8ecff15a39316a9b328536447df9bbd"
     },
     {
       "path": "vendor/glib-0.18.5/LICENSE",
@@ -351,7 +351,7 @@
     },
     {
       "path": "vendor/glib-0.18.5/src/lib.rs",
-      "sha256": "70abc92bf0d02f3c4989034501065cdf64d70901e511f6720d8cd65fcbb662e1"
+      "sha256": "5b71def7d15f146270681e5b163d6da463fe45e8a6e6c579b2e1666e8a9efd2c"
     },
     {
       "path": "crates/stellar-vpn-helper/src/macos_client.rs",
