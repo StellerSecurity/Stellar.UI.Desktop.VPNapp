@@ -9,6 +9,7 @@ pub struct DesktopService {
     preferences: Box<dyn PreferencesRepository>,
     engine: Box<dyn VpnEngine>,
     session_expires_at: Option<u64>,
+    remembered_login: bool,
     subscription_access: Option<SubscriptionAccess>,
     subscription_stopped: bool,
     subscription_deadline: Option<std::time::Instant>,
@@ -26,7 +27,7 @@ impl DesktopService {
         settings.validate()?;
         let selected_server_id = preferences.load_selected_server()?.unwrap_or_else(|| "cz-1".into());
         if !valid_server_id(&selected_server_id) { return Err(AppError::new("invalid_server", "Invalid saved location")); }
-        Ok(Self { selected_server_id, settings, session, connection: ConnectionSnapshot::default(), preferences, engine, session_expires_at: None, subscription_access: None, subscription_stopped: false, subscription_deadline: None, rotation: Default::default(), rotation_target: None, recovery: Default::default() })
+        Ok(Self { selected_server_id, settings, session, connection: ConnectionSnapshot::default(), preferences, engine, session_expires_at: None, remembered_login: false, subscription_access: None, subscription_stopped: false, subscription_deadline: None, rotation: Default::default(), rotation_target: None, recovery: Default::default() })
     }
     pub fn accept_account_session(&mut self, expires_at: u64) -> Result<Session, AppError> {
         let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
@@ -36,25 +37,52 @@ impl DesktopService {
         self.rotation_target = None;
         self.engine.set_session_expiry(expires_at);
         self.session_expires_at = Some(expires_at);
+        self.remembered_login = false;
         self.subscription_access = None;
         self.subscription_stopped = false;
         self.subscription_deadline = None;
         self.session = Session { authenticated: true, onboarding_complete: false };
         Ok(self.session.clone())
     }
+    pub fn remember_login(&mut self) { self.remembered_login = true; }
+    pub fn restore_remembered_identity(&mut self) -> Result<Session, AppError> {
+        // Restoring account identity must not depend on an available VPN helper.
+        self.engine.clear_credentials(); self.recovery.cancel();
+        self.rotation.reset(false, false, std::time::Instant::now()); self.rotation_target = None;
+        self.session_expires_at = None; self.subscription_access = None;
+        self.subscription_stopped = false; self.subscription_deadline = None;
+        self.remembered_login = true;
+        self.session = Session { authenticated: true, onboarding_complete: false };
+        Ok(self.session.clone())
+    }
+    pub fn restore_remembered_session(&mut self, expires_at: u64) -> Result<Session, AppError> {
+        self.restore_remembered_identity()?;
+        if expires_at > Self::now() {
+            self.renew_account_session(expires_at)?;
+        }
+        Ok(self.session.clone())
+    }
+    pub fn renew_account_session(&mut self, expires_at: u64) -> Result<(), AppError> {
+        if !self.session.authenticated || !self.remembered_login || expires_at <= Self::now() {
+            return Err(AppError::new("invalid_session", "Session changed."));
+        }
+        self.session_expires_at = Some(expires_at);
+        self.engine.set_session_expiry(expires_at.min(self.subscription_access.as_ref().and_then(|a| a.expires_at).unwrap_or(u64::MAX)));
+        Ok(())
+    }
     pub fn accept_vpn_credentials(&mut self, credentials: crate::openvpn::VpnCredentials) -> Result<(), AppError> {
         self.expire_session()?;
-        if !self.session.authenticated { return Err(AppError::new("unauthenticated", "Please log in.")); }
+        if !self.session.authenticated || !self.session_expires_at.is_some_and(|expiry| expiry > Self::now()) { return Err(AppError::new("unauthenticated", "Please log in.")); }
         self.engine.set_credentials(credentials)
     }
     pub fn prepare_vpn_server(&mut self, server_id: &str, config: crate::openvpn::ValidatedConfig) -> Result<(), AppError> {
         self.expire_session()?;
-        if !self.session.authenticated { return Err(AppError::new("unauthenticated", "Please log in.")); }
+        if !self.session.authenticated || !self.session_expires_at.is_some_and(|expiry| expiry > Self::now()) { return Err(AppError::new("unauthenticated", "Please log in.")); }
         self.engine.prepare(server_id, config)
     }
     pub fn refresh_connection(&mut self) -> Result<(), AppError> {
         self.enforce_subscription(Self::now())?;
-        if self.session.authenticated { if let Some(connection) = self.engine.poll()? {
+        if self.session.authenticated && self.session_expires_at.is_some_and(|expiry| expiry > Self::now()) { if let Some(connection) = self.engine.poll()? {
             if self.connection.status == ConnectionStatus::Connected && connection.status != ConnectionStatus::Connected { self.recovery.lost(std::time::Instant::now()); }
             if connection.status != ConnectionStatus::Connected { self.rotation.reset(false, false, std::time::Instant::now()); }
             self.connection = connection;
@@ -123,8 +151,9 @@ impl DesktopService {
             self.rotation.reset(false, false, std::time::Instant::now());
             self.rotation_target = None;
             self.engine.clear_credentials();
-            self.session = Session::default();
+            self.session = Session { authenticated: self.remembered_login, onboarding_complete: self.session.onboarding_complete };
             self.session_expires_at = None;
+            self.subscription_access = None;
             self.preferences.save(&self.settings, &self.session)?;
         }
         Ok(())
@@ -183,7 +212,7 @@ impl DesktopService {
     fn now() -> u64 { std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs() }
     pub fn update_subscription_access(&mut self, access: SubscriptionAccess) -> Result<(), AppError> {
         self.expire_session()?;
-        if !self.session.authenticated { return Err(AppError::new("unauthenticated", "Please log in.")); }
+        if !self.session.authenticated || !self.session_expires_at.is_some_and(|expiry| expiry > Self::now()) { return Err(AppError::new("unauthenticated", "Please log in.")); }
         let expiry = self.session_expires_at.unwrap_or(u64::MAX).min(access.expires_at.unwrap_or(u64::MAX));
         self.engine.set_session_expiry(expiry);
         self.subscription_stopped = false;
@@ -192,6 +221,7 @@ impl DesktopService {
         self.enforce_subscription(Self::now())
     }
     fn require_subscription(&self) -> Result<(), AppError> {
+        if !self.session_expires_at.is_some_and(|expiry| expiry > Self::now()) { return Err(AppError::new("session_renewal_required", "Reconnect to Stellar to renew your session.")); }
         match &self.subscription_access {
             Some(access) if access.active && !access.expires_at.is_some_and(|expiry| expiry <= Self::now()) && !self.subscription_deadline.is_some_and(|deadline| deadline <= std::time::Instant::now()) => Ok(()),
             Some(_) => Err(AppError::new("subscription_required", "An active VPN subscription is required.")),
@@ -228,12 +258,8 @@ impl DesktopService {
         self.settings = settings;
         Ok(self.settings.clone())
     }
-    pub fn create_preview_session(&mut self) -> Result<Session, AppError> {
-        let next = Session { authenticated: true, onboarding_complete: false };
-        self.preferences.save(&self.settings, &next)?;
-        self.session = next;
-        Ok(self.session.clone())
-    }
+    #[cfg(test)]
+    pub fn create_preview_session(&mut self) -> Result<Session, AppError> { self.accept_account_session(u64::MAX) }
     pub fn complete_onboarding(&mut self) -> Result<Session, AppError> {
         self.expire_session()?;
         if !self.session.authenticated { return Err(AppError::new("unauthenticated", "Log in before continuing")); }
@@ -243,14 +269,16 @@ impl DesktopService {
         Ok(self.session.clone())
     }
     pub fn logout(&mut self) -> Result<Session, AppError> {
-        self.disconnect()?;
+        self.remembered_login = false;
+        let disconnected = self.disconnect();
         self.engine.clear_credentials();
         self.rotation_target = None;
         let next = Session::default();
-        self.preferences.save(&self.settings, &next)?;
         self.session = next;
         self.session_expires_at = None;
         self.subscription_access = None; self.subscription_stopped = false; self.subscription_deadline = None;
+        let persisted = self.preferences.save(&self.settings, &self.session);
+        disconnected?; persisted?;
         Ok(self.session.clone())
     }
 }
@@ -261,6 +289,61 @@ fn valid_server_id(id: &str) -> bool { !id.is_empty() && id.len() <= 64 && id.by
 mod tests {
     use super::*;
     fn grant(service: &mut DesktopService) { service.update_subscription_access(SubscriptionAccess { active: true, expires_at: None }).unwrap(); }
+    #[test] fn account_logout_and_identity_restore_do_not_depend_on_a_working_transport() {
+        struct Unavailable;
+        impl VpnEngine for Unavailable {
+            fn connect(&mut self, _: &str) -> Result<ConnectionSnapshot, AppError> { Err(AppError::new("vpn_unavailable", "Unavailable")) }
+            fn disconnect(&mut self) -> Result<ConnectionSnapshot, AppError> { Err(AppError::new("vpn_unavailable", "Unavailable")) }
+        }
+        let mut service = DesktopService::new(Box::new(MemoryPreferences), Box::new(Unavailable)).unwrap();
+        service.restore_remembered_identity().unwrap(); assert!(service.snapshot().session.authenticated);
+        assert!(service.logout().is_err()); assert!(!service.snapshot().session.authenticated);
+        assert!(service.renew_account_session(u64::MAX).is_err());
+    }
+    #[test]
+    fn remembered_restart_does_not_call_an_unavailable_transport() {
+        struct Unavailable;
+        impl VpnEngine for Unavailable {
+            fn connect(&mut self, _: &str) -> Result<ConnectionSnapshot, AppError> {
+                Err(AppError::new("vpn_unavailable", "Unavailable"))
+            }
+            fn disconnect(&mut self) -> Result<ConnectionSnapshot, AppError> {
+                panic!("restoring an account must not disconnect through the helper");
+            }
+        }
+        for expires_at in [1, u64::MAX] {
+            let mut service = DesktopService::new(Box::new(MemoryPreferences), Box::new(Unavailable)).unwrap();
+            let session = service.restore_remembered_session(expires_at).unwrap();
+            assert!(session.authenticated);
+            assert!(service.snapshot().session.authenticated);
+            // Restored identity alone never grants a tunnel or subscription.
+            assert!(service.connect("dk-1").is_err());
+            if expires_at == 1 {
+                assert!(service.update_subscription_access(SubscriptionAccess { active: true, expires_at: None }).is_err());
+            }
+        }
+    }
+    #[test] fn remembered_login_survives_access_expiry_without_granting_vpn_access() {
+        let mut service = DesktopService::new(Box::new(MemoryPreferences), Box::new(Engine)).unwrap();
+        service.accept_account_session(u64::MAX).unwrap(); service.remember_login(); grant(&mut service);
+        service.session_expires_at = Some(0); service.expire_session().unwrap();
+        assert!(service.snapshot().session.authenticated);
+        assert!(service.connect("dk-1").is_err());
+        assert!(service.update_subscription_access(SubscriptionAccess { active: true, expires_at: None }).is_err());
+        service.renew_account_session(u64::MAX).unwrap(); grant(&mut service);
+        assert!(service.connect("dk-1").is_ok());
+        service.logout().unwrap(); assert!(!service.snapshot().session.authenticated);
+        assert!(service.renew_account_session(u64::MAX).is_err());
+    }
+    #[test] fn offline_restored_identity_has_no_access_until_server_renewal() {
+        let mut service = DesktopService::new(Box::new(MemoryPreferences), Box::new(Engine)).unwrap();
+        service.restore_remembered_identity().unwrap();
+        assert!(service.snapshot().session.authenticated);
+        assert!(service.connect("dk-1").is_err());
+        service.renew_account_session(u64::MAX).unwrap();
+        assert!(service.connect("dk-1").is_err()); // fresh subscription is still required
+        grant(&mut service); assert!(service.connect("dk-1").is_ok());
+    }
     #[test] fn subscription_access_is_required_and_account_login_is_not_a_subscription() {
         let mut service = DesktopService::new(Box::new(MemoryPreferences), Box::new(Engine)).unwrap();
         service.accept_account_session(u64::MAX).unwrap();

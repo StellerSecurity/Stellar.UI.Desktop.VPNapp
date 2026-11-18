@@ -5,7 +5,7 @@
   "license": "proprietary",
   "require": {
     "php": "^8.2",
-    "laravel/framework": "12.69.0",
+    "laravel/framework": "12.71.0",
     "stellarsecurity/user-laravel": "1.0.5"
   },
   "autoload": {

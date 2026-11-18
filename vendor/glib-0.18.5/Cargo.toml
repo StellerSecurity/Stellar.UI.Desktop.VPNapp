@@ -19,7 +19,7 @@ exclude = ["gir-files/*"]
 description = "Rust bindings for the GLib library"
 homepage = "https://gtk-rs.org/"
 documentation = "https://gtk-rs.org/gtk-rs-core/stable/latest/docs/glib/"
-readme = "README.md"
+readme = false
 keywords = [
     "glib",
     "gtk-rs",

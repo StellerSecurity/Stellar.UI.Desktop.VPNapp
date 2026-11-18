@@ -23,11 +23,12 @@ export function backendIds(token) {
   if (ids?.length !== 2 || !ids.every(x => /^[a-f0-9-]{36}$/i.test(x))) throw new Error('Artifact scope unavailable.');
   return { workflow_run_backend_id: ids[0], workflow_job_run_backend_id: ids[1] };
 }
-export async function uploadZip({ bytes, token, resultsUrl, sourceCommit, fetcher = fetch }) {
+export async function uploadZip({ bytes, token, resultsUrl, sourceCommit, kind = 'interface-test', fetcher = fetch }) {
   if (!Buffer.isBuffer(bytes) || bytes.length < 22 || bytes.length > 268435456 || bytes.readUInt32LE(0) !== 0x04034b50 || !/^[a-f0-9]{40}$/.test(sourceCommit)) throw new Error('Unexpected test artifact.');
+  if (!['interface-test', 'unsigned-native-helper', 'native-synthetic-test'].includes(kind)) throw new Error('Unexpected artifact kind.');
   const origin = serviceOrigin(resultsUrl);
   const ids = backendIds(token);
-  const name = 'Stellar-VPN-Windows-x64-interface-test-' + sourceCommit.slice(0, 12);
+  const name = `Stellar-VPN-Windows-x64-${kind}-${sourceCommit.slice(0, 12)}`;
   const digest = createHash('sha256').update(bytes).digest('hex');
   async function rpc(method, body) {
     const response = await fetcher(origin + '/twirp/github.actions.results.api.v1.ArtifactService/' + method, {
@@ -52,15 +53,20 @@ export async function uploadZip({ bytes, token, resultsUrl, sourceCommit, fetche
 }
 async function main() {
   if (process.env.GITHUB_REPOSITORY !== 'StellerSecurity/Stellar.UI.Desktop.VPNapp') throw new Error('Unexpected repository.');
-  const expected = path.resolve(process.env.RUNNER_TEMP, 'stellar-windows-interface-test.zip');
-  if (path.resolve(process.env.STELLAR_WINDOWS_PREVIEW_ZIP ?? '') !== expected) throw new Error('Unexpected artifact path.');
-  const stat = await lstat(expected);
-  if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 268435456) throw new Error('Unexpected artifact file.');
-  const result = await uploadZip({ bytes: await readFile(expected), token: process.env.ACTIONS_RUNTIME_TOKEN,
-    resultsUrl: process.env.ACTIONS_RESULTS_URL, sourceCommit: process.env.GITHUB_SHA });
-  console.log(JSON.stringify(result));
+  const exports = [['interface-test', 'STELLAR_WINDOWS_PREVIEW_ZIP']];
+  if (process.env.STELLAR_WINDOWS_HELPER_ZIP) exports.push(['unsigned-native-helper', 'STELLAR_WINDOWS_HELPER_ZIP']);
+  if (process.env.STELLAR_WINDOWS_NATIVE_TEST_ZIP) exports.push(['native-synthetic-test', 'STELLAR_WINDOWS_NATIVE_TEST_ZIP']);
+  for (const [kind, variable] of exports) {
+    const expected = path.resolve(process.env.RUNNER_TEMP, `stellar-windows-${kind}.zip`);
+    if (path.resolve(process.env[variable] ?? '') !== expected) throw new Error('Unexpected artifact path.');
+    const stat = await lstat(expected);
+    if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 268435456) throw new Error('Unexpected artifact file.');
+    const result = await uploadZip({ bytes: await readFile(expected), token: process.env.ACTIONS_RUNTIME_TOKEN,
+      resultsUrl: process.env.ACTIONS_RESULTS_URL, sourceCommit: process.env.GITHUB_SHA, kind });
+    console.log(JSON.stringify(result));
+  }
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   // Never print request errors, bearer tokens, JWT claims or signed storage URLs.
-  main().catch(() => { console.error('Windows interface artifact upload failed; no credentials logged.'); process.exitCode = 1; });
+  main().catch(() => { console.error('Windows artifact upload failed; no credentials logged.'); process.exitCode = 1; });
 }

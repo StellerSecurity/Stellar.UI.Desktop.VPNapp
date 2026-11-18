@@ -1,9 +1,12 @@
+import type { DeviceLoginsPage } from '../../features/devices/domain/DeviceSession';
 import type { DesktopSnapshot } from '../../contracts/desktop';
 import type { ConnectionPort } from '../../features/connection/domain/Connection';
 import type { SettingsPort } from '../../features/settings/domain/Settings';
 import type { SessionPort } from '../../features/auth/domain/Auth';
 import type { AccountRepository } from '../../features/account/domain/Account';
 export interface DesktopPort extends ConnectionPort, SettingsPort, SessionPort, AccountRepository {
+  listDeviceSessions?(after?: string): Promise<DeviceLoginsPage>;
+  revokeDeviceSession?(id: string): Promise<void>;
   bootstrap(): Promise<DesktopSnapshot>;
   openExternal(url: string): Promise<void>;
   subscribe?(changed: (snapshot: DesktopSnapshot) => void): Promise<() => void>;

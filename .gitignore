@@ -26,3 +26,4 @@ src-tauri/resources/NetworkHelper.sha256
 src-tauri/resources/NetworkHelper.arch.json
 src-tauri/resources/openvpn-runtime-x86_64/
 src-tauri/resources/windows/
+/.stellar-build-tools/

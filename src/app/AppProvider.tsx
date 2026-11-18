@@ -28,6 +28,7 @@ function useAppState(container: Container, surface: 'main' | 'tray') {
   const [accountError, setAccountError] = useState('');
   const [accountAttempt, setAccountAttempt] = useState(0);
   const accountRefresh = useRef(new AccountRefresh());
+  const accountIdentity = useRef<number | undefined>(undefined);
   const [screen, setScreen] = useState<Screen>('booting');
   const [view, setView] = useState<View>('connection');
   const navigateView = usePanelNavigation(view, setView);
@@ -176,6 +177,9 @@ function useAppState(container: Container, surface: 'main' | 'tray') {
     if (!snapshot?.session.authenticated) {
       setAccount(null); setAccountStatus('idle'); setAccountError(''); return;
     }
+    if (accountIdentity.current !== snapshot.session.identityRevision) {
+      setAccount(null); accountIdentity.current = snapshot.session.identityRevision;
+    }
     // Warm the account cache after sign-in, independently of navigation.
     if (surface !== 'main') return;
     let live = true;
@@ -191,7 +195,7 @@ function useAppState(container: Container, surface: 'main' | 'tray') {
       } catch (error) { if (live) { setAccountStatus('error'); setAccountError(errorMessage(error)); } }
     })();
     return () => { live = false; };
-  }, [container, surface, snapshot?.session.authenticated, accountAttempt]);
+  }, [container, surface, snapshot?.session.authenticated, snapshot?.session.identityRevision, accountAttempt]);
   useEffect(() => {
     if (surface !== 'main' || !snapshot?.session.authenticated) return;
     const refresh = () => { if (accountRefresh.current.request(Date.now())) setAccountAttempt(attempt => attempt + 1); };
@@ -329,19 +333,28 @@ function useAppState(container: Container, surface: 'main' | 'tray') {
   }
   async function logout() {
     try {
-      await container.connection.disconnect();
+      // The session adapter performs guarded transport cleanup and local logout together.
       const session = await container.session.logout();
-      setSnapshot(state => state && { ...state, session, connection: { status: 'disconnected', serverId: null, connectedAt: null } });
-      setDialog(null); setPending(false); setView('connection'); setScreen('auth'); autoConnected.current = false;
+      setSnapshot(state => state && { ...state, session, connection: session.authenticated ? state.connection : { status: 'disconnected', serverId: null, connectedAt: null } });
+      setDialog(null); setPending(false); setView('connection'); setScreen(session.authenticated ? 'app' : 'auth'); autoConnected.current = false;
       setConnectionError(''); setConnectionErrorKind(null);
-      if (session.revocationPending) notify('You are logged out locally. Stellar could not confirm server revocation; the remote session expires automatically.');
+      if (!session.authenticated && session.revocationPending) notify('You are logged out locally. Stellar could not confirm server revocation.');
     } catch (error) { notify(errorMessage(error)); }
   }
-  return { snapshot, account, accountStatus, accountError, update, checkUpdate, downloadUpdate, installUpdate, cancelUpdate: () => container.updates.cancel(), refreshAccount: () => setAccountAttempt(attempt => attempt + 1), screen, setScreen, view, setView: navigateView, servers, selectedId,
+  return { snapshot, account: accountIdentity.current === snapshot?.session.identityRevision ? account : null, accountStatus, accountError, update, checkUpdate, downloadUpdate, installUpdate, cancelUpdate: () => container.updates.cancel(), refreshAccount: () => setAccountAttempt(attempt => attempt + 1), screen, setScreen, view, setView: navigateView, servers, selectedId,
     catalogStatus, catalogError, retryCatalog: () => setCatalogAttempt(attempt => attempt + 1),
     selected: servers.find(server => server.id === selectedId), pending, pendingAction, pendingSince, cancelling, connectionError, connectionErrorKind, cancelConnect, collapsed, setCollapsed, settingsPending,
     favoriteIds, toggleFavorite: (id: string) => setFavoriteIds(ids => ids.includes(id) ? ids.filter(item => item !== id) : [...ids, id]),
     dialog, setDialog, toast, notify, bootError, connect, disconnect, selectServer, activateMarker, saveSettings, toggleSetting,
+    deviceLoginsAvailable: !!container.desktop.listDeviceSessions && snapshot?.session.remembered === true,
+    listDeviceSessions: (after?: string) => {
+      if (!container.desktop.listDeviceSessions) throw new Error('Session management is unavailable.');
+      return container.desktop.listDeviceSessions(after);
+    },
+    revokeDeviceSession: (id: string) => {
+      if (!container.desktop.revokeDeviceSession) throw new Error('Session management is unavailable.');
+      return container.desktop.revokeDeviceSession(id);
+    },
     authenticate, createAnonymousAccount: () => container.session.createAnonymousAccount(), finishOnboarding, logout, activateCode, loadWorldMap: container.loadWorldMap,
     showMain: () => container.desktop.showMain?.(), showLocations: () => container.desktop.showLocations?.(), hideTray: () => container.desktop.hideTray?.(), quit: () => container.desktop.quit?.(),
     openExternal: (url: string) => { void container.desktop.openExternal(url).catch(error => notify(errorMessage(error))); } };

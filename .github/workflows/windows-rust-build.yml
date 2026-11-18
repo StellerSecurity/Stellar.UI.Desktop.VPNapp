@@ -3,7 +3,7 @@ name: Windows Rust build and tests
 on:
   workflow_dispatch:
   push:
-    branches: ['stellar/windows-hosted-inventory']
+    branches: ['stellar/windows-hosted-inventory', 'stellar/mac-login-persistence']
     paths:
       - '.github/workflows/windows-rust-build.yml'
 
@@ -29,10 +29,11 @@ jobs:
           $ErrorActionPreference = 'Stop'
           if ($env:SOURCE_COMMIT -notmatch '^[a-f0-9]{40}$') { throw 'Exact source commit required.' }
           $files = @(
-            @{ path = 'scripts/windows-rust-build.ps1'; sha256 = 'd2a65ca39e3d9aec61e359224aa3601d268f2b1d824b010a94b8819d3fde51f4' },
-            @{ path = 'scripts/windows-rust-inputs.json'; sha256 = '8a95a198367e91e4c9d2c75d46dde1588453758839e47d8cea850e5e780d6c91' },
+            @{ path = 'scripts/windows-rust-build.ps1'; sha256 = 'a6a3b443a0995b5680f697b7642c7c539a34d93a7e2190477bbb8c08c83e233e' },
+            @{ path = 'scripts/windows-rust-extract.py'; sha256 = 'f2d095f48d9235bb52865a0b09160eae5871bdc6f5deb37df4820e179b74c69e' },
+            @{ path = 'scripts/windows-rust-inputs.json'; sha256 = '91e9263ed95e76cef42bce6d8695cb7cfd580b9975ea5ead92aa6c1a48a4978d' },
             @{ path = '.github/actions/upload-windows-interface-test/action.yml'; sha256 = 'aa643c5298b83c09698d7f7a55e9eea1f4455f3dc778c78aba9a6d63bac3c617' },
-            @{ path = '.github/actions/upload-windows-interface-test/index.mjs'; sha256 = '7e2b0caf7ef9dd91bcfeae88e7228b6c18aaa1de425ae416e0eff17ac3cf4153' }
+            @{ path = '.github/actions/upload-windows-interface-test/index.mjs'; sha256 = 'd23e3a3a932c676a4ebd1307dd678ccfeb9816731fa374803ea41f67292891b6' }
           )
           $root = Join-Path $env:RUNNER_TEMP 'stellar-rust-harness'
           [IO.Directory]::CreateDirectory($root) | Out-Null
@@ -54,10 +55,17 @@ jobs:
               if ((Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant() -ne $entry.sha256) { throw 'Build harness hash mismatch.' }
           }
           "STELLAR_RUST_HARNESS=$root" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Prepare hash-pinned Rust 1.99.1
+        timeout-minutes: 10
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          & (Join-Path $env:STELLAR_RUST_HARNESS 'scripts/windows-rust-build.ps1') -SourceCommit $env:SOURCE_COMMIT -PrepareRustOnly
       - name: Verify tools; fetch locked sources; build and test offline
+        timeout-minutes: 15
         env:
           SOURCE_COMMIT: ${{ github.sha }}
         run: |
           & (Join-Path $env:STELLAR_RUST_HARNESS 'scripts/windows-rust-build.ps1') -SourceCommit $env:SOURCE_COMMIT -ExportInterfaceTest
-      - name: Save only the first-party interface test and its build manifest
+      - name: Save first-party Windows test and helper artifacts
         uses: ./.github/actions/upload-windows-interface-test
