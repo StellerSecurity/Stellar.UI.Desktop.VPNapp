@@ -8,6 +8,7 @@ $manifest = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'windows-rust-inpu
 $root = Join-Path $env:RUNNER_TEMP ('stellar-rust-source-' + [Guid]::NewGuid().ToString('N'))
 [IO.Directory]::CreateDirectory($root) | Out-Null
 $utf8 = New-Object Text.UTF8Encoding($false)
+Write-Host 'Fetching the pinned first-party Windows inputs.'
 foreach ($entry in $manifest.files) {
     if ($entry.path -notmatch '^[A-Za-z0-9_.@/-]+$' -or $entry.path -match '(^|/)\.\.(/|$)|\.[mM][dD]$' -or $entry.sha256 -notmatch '^[a-f0-9]{64}$') { throw 'Invalid source input pin.' }
     $destination = Join-Path $root $entry.path
@@ -15,6 +16,7 @@ foreach ($entry in $manifest.files) {
     $url = 'https://raw.githubusercontent.com/StellerSecurity/Stellar.UI.Desktop.VPNapp/' + $SourceCommit + '/' + $entry.path
     $request = [Net.HttpWebRequest]::Create($url)
     $request.AllowAutoRedirect = $false; $request.Timeout = 30000
+    $request.ReadWriteTimeout = 30000
     $response = $request.GetResponse()
     try {
         if ($response.ContentLength -gt 8MB) { throw 'Unexpected source file size.' }
@@ -23,6 +25,7 @@ foreach ($entry in $manifest.files) {
     } finally { $response.Dispose() }
     if ((Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant() -ne $entry.sha256) { throw ('First-party source hash mismatch: ' + $entry.path) }
 }
+Write-Host 'First-party Windows input hashes verified.'
 $review = Get-Content -LiteralPath (Join-Path $root 'native/windows/rust-build-approval.json') -Raw | ConvertFrom-Json
 if ($review.approved -ne $true -or $review.scope -ne 'windows-rust-debug-build-and-synthetic-tests' -or $review.releaseApproved -ne $false) { throw 'Exact Rust build execution approval required.' }
 if ($review.sdkExecutionApproval.approved -ne $true -or
@@ -83,10 +86,13 @@ $rustArchives = @(
 )
 foreach ($pin in $rustArchives) {
     $name = $pin.name + '-1.99.1-x86_64-pc-windows-msvc'
+    Write-Host "Fetching the pinned $name archive."
     $archive = Join-Path $root ($name + '.tar.xz')
     $request = [Net.HttpWebRequest]::Create('https://static.rust-lang.org/dist/2026-10-15/' + $name + '.tar.xz')
     $request.AllowAutoRedirect = $false
     $request.Timeout = 30000
+    $request.ReadWriteTimeout = 30000
+    $download = [Diagnostics.Stopwatch]::StartNew()
     $response = $request.GetResponse()
     try {
         if ($response.ContentLength -ne $pin.bytes) { throw 'Rust archive length changed.' }
@@ -97,6 +103,7 @@ foreach ($pin in $rustArchives) {
                 $buffer = New-Object byte[] 65536
                 $remaining = $pin.bytes
                 while (($count = $input.Read($buffer, 0, $buffer.Length)) -gt 0) {
+                    if ($download.Elapsed.TotalMinutes -ge 3) { throw 'Rust archive download exceeded three minutes.' }
                     $remaining -= $count
                     if ($remaining -lt 0) { throw 'Rust archive exceeds reviewed size.' }
                     $output.Write($buffer, 0, $count)
@@ -109,6 +116,7 @@ foreach ($pin in $rustArchives) {
         throw 'Rust archive does not match its reviewed SHA-256.'
     }
     $paths = @($pin.directories | ForEach-Object { $name + '/' + $pin.component + '/' + $_ })
+    Write-Host "Extracting the verified $name runtime files."
     & $tar -xf $archive -C $rustRoot --strip-components 2 @paths
     if ($LASTEXITCODE -ne 0) { throw 'Rust runtime extraction failed.' }
 }
@@ -120,6 +128,7 @@ foreach ($pin in $review.rust) {
     if ((Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant() -ne $pin.sha256) { throw 'Rust tool hash changed; re-review required.' }
 }
 if ((Get-Item -LiteralPath (Join-Path $rustBin 'rustc.exe')).VersionInfo.ProductVersion -ne $review.rustVersion) { throw 'Rust compiler version changed.' }
+Write-Host 'Rust executable and compiler DLL hashes verified. Checking the pinned Windows SDK.'
 $sdkBin = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin\10.0.26100.0\x64'
 $stagedSdk = Join-Path $root 'reviewed-sdk'
 [IO.Directory]::CreateDirectory($stagedSdk) | Out-Null
@@ -137,6 +146,7 @@ foreach ($pin in $review.sdk) {
 $security = Join-Path $root '.security-review'
 [IO.Directory]::CreateDirectory($security) | Out-Null
 [IO.File]::Copy((Join-Path $root 'native/windows/compile-approval.json'), (Join-Path $security 'windows-native-compile-approval.json'))
+Write-Host 'Windows SDK hashes and signatures verified. Running native compiler checks.'
 # The shared script stages only signed/hash-pinned MSVC and sets INCLUDE/LIB.
 & (Join-Path $root 'scripts/windows-native-compile.ps1') -OutputDirectory (Join-Path $root 'native-preflight')
 $env:PATH = $stagedSdk + ';' + $env:PATH
@@ -150,11 +160,14 @@ $env:CARGO_TARGET_DIR = Join-Path $root 'target'
 [IO.Directory]::CreateDirectory($env:CARGO_HOME) | Out-Null
 $env:CARGO_REGISTRIES_CRATES_IO_PROTOCOL = 'sparse'
 $env:CARGO_NET_GIT_FETCH_WITH_CLI = 'false'
+$env:CARGO_HTTP_TIMEOUT = '30'
+$env:CARGO_NET_RETRY = '1'
 foreach ($name in @('RUSTC_WRAPPER', 'RUSTC_WORKSPACE_WRAPPER', 'RUSTFLAGS', 'CARGO_ENCODED_RUSTFLAGS', 'CARGO_REGISTRY_TOKEN', 'CARGO_REGISTRIES_CRATES_IO_TOKEN', 'CARGO_BUILD_RUSTC_WRAPPER', 'CARGO_BUILD_RUSTC_WORKSPACE_WRAPPER', 'RUSTDOCFLAGS')) {
     Remove-Item -LiteralPath ('Env:' + $name) -ErrorAction SilentlyContinue
 }
 Push-Location $root
 try {
+    Write-Host 'Fetching the locked Cargo dependency set.'
     & $cargo fetch --locked --target x86_64-pc-windows-msvc
     if ($LASTEXITCODE -ne 0) { throw 'Locked dependency fetch failed.' }
     Verify-Lock
