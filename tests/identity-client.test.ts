@@ -151,6 +151,31 @@ test('expired or malformed vault sessions cannot authenticate and offline verifi
   client.restore({ accessToken: token, accountId: '42', expiresAt: Date.parse(session.expires_at) });
   await assert.rejects(client.verifyRestoredSession()); assert.ok(client.active);
 });
+test('an expired access token stays remembered while offline and renews when connectivity returns', async () => {
+  const renewal = `d1${'a'.repeat(32)}|${'b'.repeat(64)}`;
+  const renewed = `43|${'c'.repeat(40)}`;
+  let online = false;
+  let calls = 0;
+  const client = new HttpIdentityClient(async (url, options) => {
+    calls++;
+    assert.ok(String(url).endsWith('/auth/renew'));
+    assert.equal((options?.headers as Record<string, string>).Authorization, `Bearer ${renewal}`);
+    if (!online) throw new TypeError('offline');
+    return reply({ access_token: renewed, account_id: '42', token_type: 'Bearer', expires_at: new Date(Date.now() + 86_400_000).toISOString() });
+  });
+  client.restore({ accessToken: token, accountId: '42', expiresAt: 1, renewalToken: renewal });
+  assert.equal(client.active, false);
+  assert.equal(client.remembered, true);
+  await assert.rejects(client.renewSession(), /Could not reach Stellar/);
+  assert.equal(client.active, false);
+  assert.equal(client.remembered, true);
+  assert.equal(client.sessionId, renewal.split('|')[0]);
+  online = true;
+  await client.renewSession();
+  assert.equal(client.active, true);
+  assert.equal(client.remembered, true);
+  assert.equal(calls, 4);
+});
 test('revoked restored sessions are rejected by the API instead of being extended locally', async () => {
   const client = new HttpIdentityClient(async () => new Response(JSON.stringify({ error: { code: 'invalid_session' }, meta: { api_version: 'v2' } }), { status: 401, headers: { 'Content-Type': 'application/json' } }));
   client.restore({ accessToken: token, accountId: '42', expiresAt: Date.parse(session.expires_at) });
