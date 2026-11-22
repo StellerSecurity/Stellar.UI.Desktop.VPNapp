@@ -13,5 +13,9 @@ test("desktop release manifests agree on version 0.5.1", async () => {
 
   assert.equal(JSON.parse(packageJson).version, releaseVersion);
   assert.equal(JSON.parse(tauriConfig).version, releaseVersion);
-  assert.match(cargoManifest, /^version = "0\.5\.1"$/m);
+  const packageSection = cargoManifest
+    .split(/^\[/m)
+    .find((section) => section.startsWith("package]\n"));
+  assert.ok(packageSection, "src-tauri/Cargo.toml must contain a package section");
+  assert.match(packageSection, /^version = "0\.5\.1"$/m);
 });
