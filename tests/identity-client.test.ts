@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { HttpIdentityClient } from '../src/infrastructure/auth/HttpIdentityClient.ts';
+import { HttpIdentityClient, SessionRejected } from '../src/infrastructure/auth/HttpIdentityClient.ts';
 const token = '42|' + 'a'.repeat(40);
 const reply = (data: unknown, status = 200) => new Response(JSON.stringify({ data, meta: { api_version: 'v2', mode: 'fixture' } }), { status, headers: { 'Content-Type': 'application/json' } });
 const session = { access_token: token, token_type: 'Bearer', account_id: '42', expires_at: '2099-01-01T00:00:00Z' };
@@ -151,8 +151,73 @@ test('expired or malformed vault sessions cannot authenticate and offline verifi
   client.restore({ accessToken: token, accountId: '42', expiresAt: Date.parse(session.expires_at) });
   await assert.rejects(client.verifyRestoredSession()); assert.ok(client.active);
 });
+test('an expired access token stays remembered while offline and renews when connectivity returns', async () => {
+  const renewal = `d1${'a'.repeat(32)}|${'b'.repeat(64)}`;
+  const renewed = `43|${'c'.repeat(40)}`;
+  let online = false;
+  let calls = 0;
+  const client = new HttpIdentityClient(async (url, options) => {
+    calls++;
+    assert.ok(String(url).endsWith('/auth/renew'));
+    assert.equal((options?.headers as Record<string, string>).Authorization, `Bearer ${renewal}`);
+    if (!online) throw new TypeError('offline');
+    return reply({ access_token: renewed, account_id: '42', token_type: 'Bearer', expires_at: new Date(Date.now() + 86_400_000).toISOString() });
+  });
+  client.restore({ accessToken: token, accountId: '42', expiresAt: 1, renewalToken: renewal });
+  assert.equal(client.active, false);
+  assert.equal(client.remembered, true);
+  await assert.rejects(client.renewSession(), /Could not reach Stellar/);
+  assert.equal(client.active, false);
+  assert.equal(client.remembered, true);
+  assert.equal(client.sessionId, renewal.split('|')[0]);
+  online = true;
+  await client.renewSession();
+  assert.equal(client.active, true);
+  assert.equal(client.remembered, true);
+  assert.equal(calls, 4);
+});
 test('revoked restored sessions are rejected by the API instead of being extended locally', async () => {
   const client = new HttpIdentityClient(async () => new Response(JSON.stringify({ error: { code: 'invalid_session' }, meta: { api_version: 'v2' } }), { status: 401, headers: { 'Content-Type': 'application/json' } }));
   client.restore({ accessToken: token, accountId: '42', expiresAt: Date.parse(session.expires_at) });
   await assert.rejects(client.verifyRestoredSession()); assert.ok(!client.active);
+});
+
+test('integration and authorization errors do not erase a saved login as if its token were revoked', async () => {
+  for (const [status, code] of [[403, 'origin_not_allowed'], [403, 'subscription_required'], [401, 'integration_unavailable']] as const) {
+    const client = new HttpIdentityClient(async () => new Response(JSON.stringify({ error: { code }, meta: { api_version: 'v2' } }), {
+      status, headers: { 'Content-Type': 'application/json' },
+    }));
+    client.restore({ accessToken: token, accountId: '42', expiresAt: Date.parse(session.expires_at) });
+    await assert.rejects(client.verifyRestoredSession(), error => {
+      assert.ok(!(error instanceof SessionRejected));
+      return true;
+    });
+    assert.equal(client.active, true);
+  }
+});
+
+test('explicit token rejection still invalidates the restored session', async () => {
+  for (const status of [401, 403]) {
+    for (const code of ['invalid_session', 'unauthenticated']) {
+      const client = new HttpIdentityClient(async () => new Response(JSON.stringify({ error: { code }, meta: { api_version: 'v2' } }), {
+        status, headers: { 'Content-Type': 'application/json' },
+      }));
+      client.restore({ accessToken: token, accountId: '42', expiresAt: Date.parse(session.expires_at) });
+      await assert.rejects(client.verifyRestoredSession(), SessionRejected);
+      assert.equal(client.active, false);
+    }
+  }
+});
+
+test('a delayed rejection from an older session cannot log out a newer login', async () => {
+  let rejectOld!: (response: Response) => void;
+  const client = new HttpIdentityClient(() => new Promise<Response>(resolve => { rejectOld = resolve; }));
+  client.restore({ accessToken: token, accountId: '42', expiresAt: Date.parse(session.expires_at) });
+  const pending = client.verifyRestoredSession();
+  client.restore({ accessToken: '43|' + 'b'.repeat(40), accountId: '43', expiresAt: Date.parse(session.expires_at) });
+  rejectOld(new Response(JSON.stringify({ error: { code: 'invalid_session' }, meta: { api_version: 'v2' } }), {
+    status: 401, headers: { 'Content-Type': 'application/json' },
+  }));
+  await assert.rejects(pending, error => !(error instanceof SessionRejected));
+  assert.equal(client.active, true);
 });
