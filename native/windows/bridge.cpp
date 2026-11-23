@@ -232,6 +232,12 @@ extern "C" int stellar_windows_legacy_replace(const wchar_t* path, const unsigne
         check(ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl.c_str(), SDDL_REVISION_1, &descriptor.value, nullptr));
         SECURITY_ATTRIBUTES attributes{sizeof(attributes), descriptor.value, FALSE}; auto nonce = random_hex();
         temporary = std::filesystem::path(path).parent_path() / (L".stellar-migration-" + std::wstring(nonce.begin(), nonce.end()));
+        const auto temp_path = temporary.make_preferred().native();
+        if (temp_path.size() >= MAX_PATH && !temp_path.starts_with(L"\\\\?\\")) {
+            check(!temp_path.starts_with(L"\\\\.\\"));
+            // The temporary filename is longer than the legacy filename.
+            temporary = temp_path.starts_with(L"\\\\") ? L"\\\\?\\UNC\\" + temp_path.substr(2) : L"\\\\?\\" + temp_path;
+        }
         {
             handle file(CreateFileW(temporary.c_str(), GENERIC_WRITE, 0, &attributes, CREATE_NEW, FILE_FLAG_WRITE_THROUGH, nullptr));
             check(file.value != INVALID_HANDLE_VALUE); DWORD written = 0;

@@ -9,8 +9,13 @@ $approvalPath = Join-Path $root '.security-review\windows-native-compile-approva
 if (-not (Test-Path -LiteralPath $approvalPath -PathType Leaf)) { throw 'Explicit reviewed toolchain execution approval is missing.' }
 $review = Get-Content -LiteralPath $approvalPath -Raw | ConvertFrom-Json
 if ($review.approved -ne $true -or $review.scope -ne 'native-cpp-compile-only' -or
-    $review.compilerVersion -ne '14.44.35229.0' -or $review.sdkDirectory -ne '10.0.26100.0') {
+    $review.compilerVersion -ne '14.44.35230.0' -or $review.sdkDirectory -ne '10.0.26100.0') {
     throw 'This exact compiler/SDK pair is not approved for native compilation.'
+}
+if ($review.toolchainExecutionApproval.approved -ne $true -or
+    $review.toolchainExecutionApproval.scope -ne 'exact-installed-msvc-debug-build-and-synthetic-tests' -or
+    $review.toolchainExecutionApproval.version -ne $review.compilerVersion) {
+    throw 'Exact changed MSVC execution approval required.'
 }
 $vc = Join-Path ${env:ProgramFiles} 'Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.44.35207'
 $bin = Join-Path $vc 'bin\Hostx64\x64'

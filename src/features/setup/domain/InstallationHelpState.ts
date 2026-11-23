@@ -5,6 +5,8 @@ import type { InstallationStatus } from './Installation.ts';
 export function installationHelpState(status: InstallationStatus | null, error: boolean, openError: boolean, opened: boolean) {
   const issue = status?.platform === 'windows' ? status.setupIssue : undefined;
   const blocked = !!issue;
+  // An unavailable read-only probe does not establish a missing installation.
+  const retryOnly = blocked || error || status?.helper === 'unavailable';
   const description = issue === 'unsupported_architecture'
     ? 'This x64 Windows build cannot connect on Windows ARM. It needs an ARM64 VPN driver and a compatible installer. Retrying administrator approval will not fix this.'
     : issue === 'installer_required'
@@ -22,8 +24,8 @@ export function installationHelpState(status: InstallationStatus | null, error: 
       : issue === 'installer_required' ? 'Complete installation required'
         : issue === 'helper_untrusted' ? 'Network helper needs verification' : 'Get Stellar VPN ready',
     description, diagnostic, alert: !blocked && (error || openError),
-    retryOnly: blocked,
-    button: blocked ? 'Check again' : opened ? 'Try again' : 'Install network helper',
+    retryOnly,
+    button: retryOnly ? 'Check again' : opened ? 'Try again' : 'Install network helper',
     footnote: blocked ? 'This build cannot enable VPN protection on this Windows installation.'
       : 'macOS will ask for administrator approval. A local firewall check may briefly interrupt your network.',
   };

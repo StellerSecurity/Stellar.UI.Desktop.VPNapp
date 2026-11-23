@@ -19,7 +19,7 @@ const fixtureNow = Date.now() - 1000;
 let state = { contractVersion: 1, runtime: 'browser-preview', selectedServerId: initialServerId,
   ...(params.get('presentation') === '1' ? { capabilities: { killSwitch: true, autoRotate: true } } : {}),
   subscriptionAccess: { active: params.get('access') !== 'inactive', expiresAt: null },
-  session: { authenticated: params.get('auth') !== '1', onboardingComplete: true }, settings: { ...defaultSettings, language: params.get('lang') || 'English', autoConnect: false, autoRotate: params.get('rotate') === '1', killSwitch: params.get('presentation') === '1' || defaultSettings.killSwitch },
+  session: { authenticated: params.get('auth') !== '1', onboardingComplete: true, remembered: params.get('sessions') === '1', identityRevision: 1 }, settings: { ...defaultSettings, language: params.get('lang') || 'English', autoConnect: false, autoRotate: params.get('rotate') === '1', killSwitch: params.get('presentation') === '1' || defaultSettings.killSwitch },
   connection: { status: params.get('auth') === '1' || params.get('state') === 'disconnected' || params.get('state') === 'blocked' ? 'disconnected' : 'connected',
     trafficBlocked: params.get('state') === 'blocked', serverId: initialServerId, connectedAt: Date.now() - 193000, downloadMbps: 12.6, uploadMbps: 2.1 } };
 const settle = () => new Promise(resolve => setTimeout(resolve, params.get('slow') === '1' ? 15000 : 550));
@@ -34,6 +34,14 @@ const desktop = {
   disconnect: async () => { await settle(); state.connection = { status: 'disconnected', serverId: null, connectedAt: null }; return { ...state.connection }; },
   openExternal: async () => {},
 };
+if (params.get('sessions') === '1') {
+  const logins = [
+    { id: 'd1' + 'a'.repeat(32), current: true, createdAt: '2026-11-08T00:00:00Z', revoked: false },
+    { id: 'd1' + 'b'.repeat(32), current: false, createdAt: '2026-11-07T11:00:00Z', revoked: false },
+  ];
+  desktop.listDeviceSessions = async () => { await settle(); return { sessions: structuredClone(logins), nextCursor: null }; };
+  desktop.revokeDeviceSession = async id => { await settle(); const row = logins.find(item => item.id === id); if (row) row.revoked = true; };
+}
 if (params.get('expire') === '1') setTimeout(() => { state.subscriptionAccess.active = false; state.connection = { status:'disconnected', serverId:null, connectedAt:null, trafficBlocked:state.settings.killSwitch }; }, 4000);
 const container = { desktop, connection: new ConnectionService(desktop), loadWorldMap,
   servers: { cached: () => servers, list: async () => servers },

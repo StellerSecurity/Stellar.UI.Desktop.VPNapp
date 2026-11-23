@@ -1,0 +1,127 @@
+{
+  "schema": 1,
+  "package_version": "2.12.4",
+  "source_commit": "993038c49185307dfc895ab7657d77ca0d5ed7c7",
+  "review": {
+    "publisher": "Tauri Programme within The Commons Conservancy",
+    "registry": "https://registry.npmjs.org/",
+    "osv_matches": 0,
+    "github_advisory_matches": 0,
+    "lifecycle_scripts_executed": false,
+    "native_code_semantic_review_complete": false,
+    "risk_classification": "MEDIUM",
+    "scope": "Only one host-matching runtime with exact archive and member hashes. No PATH fallback, install hook or automatic download."
+  },
+  "targets": {
+    "darwin-arm64": {
+      "package": "@tauri-apps/cli-darwin-arm64",
+      "url": "https://registry.npmjs.org/@tauri-apps/cli-darwin-arm64/-/cli-darwin-arm64-2.12.4.tgz",
+      "integrity": "sha512-OxqKSckIkoJ6vX2AjifIJpTasFC0Hbdoo7gEiCmAjauABO3U8m2MRsLWe+QTiBwDx1mIrvgA+rvI7tvDnbnHVg==",
+      "archive_sha256": "dd2f29df11547a231352815cab38d5d626cd32dafa669e3e027a76419e71d59f",
+      "member": "package/cli.darwin-arm64.node",
+      "filename": "cli.darwin-arm64.node",
+      "bytes": 15020176,
+      "sha256": "a8f098a245f75ce6aafd2332284e59fd3fc9ed0a88a298b5e207d306b1f3d002"
+    },
+    "darwin-x64": {
+      "package": "@tauri-apps/cli-darwin-x64",
+      "url": "https://registry.npmjs.org/@tauri-apps/cli-darwin-x64/-/cli-darwin-x64-2.12.4.tgz",
+      "integrity": "sha512-fz76/77wMMJOaaUN6n3CybRG0P/MTEjjqYk81mGPyhi9m6Ue5T+LWBnJP/AkPooNatBPI2vtulGqomyMJ44lCQ==",
+      "archive_sha256": "e916dbef4b5fe4b7ce483530f692f21b64295940b3b755b401c4b82421652f60",
+      "member": "package/cli.darwin-x64.node",
+      "filename": "cli.darwin-x64.node",
+      "bytes": 16761144,
+      "sha256": "fd8ceb948644e6222e7100e6d398288448d8261c6c8d59d91699866f0fef0d60"
+    },
+    "linux-arm-gnu": {
+      "package": "@tauri-apps/cli-linux-arm-gnueabihf",
+      "url": "https://registry.npmjs.org/@tauri-apps/cli-linux-arm-gnueabihf/-/cli-linux-arm-gnueabihf-2.12.4.tgz",
+      "integrity": "sha512-K0w8Bof6Lt8QKLAYhRy0yy36ZH5iA/35VuSOvnxyjvCUZ+A3JKsUTlALviH/sVgAlisaPzzmeJSH8XOn4Q2HBA==",
+      "archive_sha256": "c4ba228079bb107ff20bb8e376c1edd660c1d0229285ab87b0e235363dd6a1db",
+      "member": "package/cli.linux-arm-gnueabihf.node",
+      "filename": "cli.linux-arm-gnueabihf.node",
+      "bytes": 17803284,
+      "sha256": "25f86624ed34a479c9b7e8b2507643baf255de2d0e7fe05dcc96b71b88829229"
+    },
+    "linux-arm64-gnu": {
+      "package": "@tauri-apps/cli-linux-arm64-gnu",
+      "url": "https://registry.npmjs.org/@tauri-apps/cli-linux-arm64-gnu/-/cli-linux-arm64-gnu-2.12.4.tgz",
+      "integrity": "sha512-j5rOnjmRUwWrm1oosf0zBYl4D+fqydgUROFCk0hvKZxvbTT8SOERes0QB7rBV/XWNy+kM6pCKzb3oSm2sRglzg==",
+      "archive_sha256": "6e87aebdc75fbe267f775edbcfc2beab8e7ece0865a0f549413b8d53ff9945d7",
+      "member": "package/cli.linux-arm64-gnu.node",
+      "filename": "cli.linux-arm64-gnu.node",
+      "bytes": 17845008,
+      "sha256": "53a38495a63a2d12d0e1c22d9908b580a8bd3b98b8edcd74b8ad030e519be843"
+    },
+    "linux-arm64-musl": {
+      "package": "@tauri-apps/cli-linux-arm64-musl",
+      "url": "https://registry.npmjs.org/@tauri-apps/cli-linux-arm64-musl/-/cli-linux-arm64-musl-2.12.4.tgz",
+      "integrity": "sha512-aOue3Fy6Jb7+oWcfAVUsVHfeTybSCt2CZoU06aO4jv4d2Ks/KnaTPwMAK3CLEduGOvBLY1lbBBrIyomqLLH5Sg==",
+      "archive_sha256": "96998096f467de5f2d38e3c91318a8647f71e9218d682acb71ee49f12b1720eb",
+      "member": "package/cli.linux-arm64-musl.node",
+      "filename": "cli.linux-arm64-musl.node",
+      "bytes": 17842000,
+      "sha256": "2feb516227f026866adc2c2e968b5c5baf54a55c90ea5b2b68e6217aa79aef60"
+    },
+    "linux-riscv64-gnu": {
+      "package": "@tauri-apps/cli-linux-riscv64-gnu",
+      "url": "https://registry.npmjs.org/@tauri-apps/cli-linux-riscv64-gnu/-/cli-linux-riscv64-gnu-2.12.4.tgz",
+      "integrity": "sha512-Fx6GShY/RvST+t6LMlTHAwd66+1tEaAAGrnU7cysVfaiRP1BKng5Vl6rVmO6rSLOA1Sp1dRzNYM4f0OWQGb7qA==",
+      "archive_sha256": "fa214d5e9c091cffb80fef24fa811c73bd06cb2b68b87a05cee86b7ecd815302",
+      "member": "package/cli.linux-riscv64-gnu.node",
+      "filename": "cli.linux-riscv64-gnu.node",
+      "bytes": 17389944,
+      "sha256": "52eaa41fbaa8a7684386de5925edeba36b92d3801d3dab04370cb565174a4931"
+    },
+    "linux-x64-gnu": {
+      "package": "@tauri-apps/cli-linux-x64-gnu",
+      "url": "https://registry.npmjs.org/@tauri-apps/cli-linux-x64-gnu/-/cli-linux-x64-gnu-2.12.4.tgz",
+      "integrity": "sha512-tNzZSa79Z1nRpHxEpQ38lsAFpKlFlYvoXzjTV+lRRn/zSf3wrdUC3wnLcq2XEadchPu4ttK0zivhYzr+XGD19Q==",
+      "archive_sha256": "dab2f2b42875e612f24ee0c4c6cae553900b8722631e0306613e8e783f959321",
+      "member": "package/cli.linux-x64-gnu.node",
+      "filename": "cli.linux-x64-gnu.node",
+      "bytes": 19881856,
+      "sha256": "957512456d56f1d62a6fe8325e584f4c22cf66f681c1bc3d966f427a9616fe75"
+    },
+    "linux-x64-musl": {
+      "package": "@tauri-apps/cli-linux-x64-musl",
+      "url": "https://registry.npmjs.org/@tauri-apps/cli-linux-x64-musl/-/cli-linux-x64-musl-2.12.4.tgz",
+      "integrity": "sha512-jmZ1pr0xEqUhuEusWtt9Yt+GF6lCnGHUmIL+KIknpbjK/XQ2qkhDBhaxK/JMHM2A8dAacVXCxXJk2EXpwhQUfA==",
+      "archive_sha256": "32adb70671258d996ac751ba63e7ad504b5c1ae4c5746166896465a6f0961a19",
+      "member": "package/cli.linux-x64-musl.node",
+      "filename": "cli.linux-x64-musl.node",
+      "bytes": 19883344,
+      "sha256": "9ce6def816f25d515b10fcdb6f3111850025f406cb7847b68947485eb26c0872"
+    },
+    "win32-arm64": {
+      "package": "@tauri-apps/cli-win32-arm64-msvc",
+      "url": "https://registry.npmjs.org/@tauri-apps/cli-win32-arm64-msvc/-/cli-win32-arm64-msvc-2.12.4.tgz",
+      "integrity": "sha512-fGo8pgEHZxdSYgZ/J98m1usJ7NHKmKbq7k6uT0x1rpOq6Bg2YVzzpaAblWk710f5LHYBJIL5QIFS5IrD+4gmTg==",
+      "archive_sha256": "5eb4144f7651cb6a9dcbe638b395e8a3e889805df4a10f0a28799ff61e65d179",
+      "member": "package/cli.win32-arm64-msvc.node",
+      "filename": "cli.win32-arm64-msvc.node",
+      "bytes": 14472192,
+      "sha256": "aac60680c5b2fbf17d94e67573adce97e1180edabb1f9bc2350055e21c195be3"
+    },
+    "win32-ia32": {
+      "package": "@tauri-apps/cli-win32-ia32-msvc",
+      "url": "https://registry.npmjs.org/@tauri-apps/cli-win32-ia32-msvc/-/cli-win32-ia32-msvc-2.12.4.tgz",
+      "integrity": "sha512-ezl8sQIcjYsye3TUnTH5VcWmWzccZASlQm7hlZt0dYyj1XD0qpVW47u2xYVrIKui0F8uQv/7QGZixdWiClBsbg==",
+      "archive_sha256": "aa4327d57ac0478621569e339a9677aa2b9a0d9c071af1635c4ac68981f6df45",
+      "member": "package/cli.win32-ia32-msvc.node",
+      "filename": "cli.win32-ia32-msvc.node",
+      "bytes": 14468096,
+      "sha256": "590afbe3e1718f48c97a63cad57f249c13b6c1c826def80cf6debde7ab90403a"
+    },
+    "win32-x64": {
+      "package": "@tauri-apps/cli-win32-x64-msvc",
+      "url": "https://registry.npmjs.org/@tauri-apps/cli-win32-x64-msvc/-/cli-win32-x64-msvc-2.12.4.tgz",
+      "integrity": "sha512-DJhDeCqjLDNMWYFy7ZS8cfeAHX2RK0RbQMLiA3bMVVkXRDJ4NBYiHriGqsUhsr9iG41aTb+dJGkFPmPw1gWwVw==",
+      "archive_sha256": "01c37f9e8e7b5dfeb69a9759f68fe4fd7a53a300c812bc104c3bd77c247e8bea",
+      "member": "package/cli.win32-x64-msvc.node",
+      "filename": "cli.win32-x64-msvc.node",
+      "bytes": 16078848,
+      "sha256": "1362ea4e49f3468e2991ecb08b3b2f27491cbeb6f3eec5fa83e5c1589d8c62d7"
+    }
+  }
+}

@@ -1,5 +1,7 @@
 #[cfg(target_os = "macos")]
 mod macos;
+#[cfg(target_os = "macos")]
+mod macos_client;
 mod firewall;
 #[cfg(target_os = "macos")]
 mod macos_firewall;

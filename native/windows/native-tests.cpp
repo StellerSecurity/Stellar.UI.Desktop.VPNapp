@@ -23,16 +23,27 @@ static std::string configuration(const std::string& protocol = "udp") {
         "<ca>\nSYNTHETIC\n</ca>\n<cert>\nSYNTHETIC\n</cert>\n<key>\nSYNTHETIC\n</key>\n";
 }
 struct fixture {
-    std::filesystem::path directory, file, hardlink;
-    fixture() {
+    std::filesystem::path root, directory, file, hardlink;
+    explicit fixture(bool long_path = false) {
         wchar_t temporary[32768]{};
         auto count = GetTempPathW(32768, temporary); check(count && count < 32768);
         auto suffix = random_hex();
-        directory = std::filesystem::path(temporary) / (L"stellar-native-test-" + std::wstring(suffix.begin(), suffix.end()));
-        check(CreateDirectoryW(directory.c_str(), nullptr));
+        root = std::filesystem::path(temporary) / (L"stellar-native-test-" + std::wstring(suffix.begin(), suffix.end()));
+        check(CreateDirectoryW(root.c_str(), nullptr));
+        directory = root;
+        if (long_path) {
+            constexpr size_t parent_length = 225;
+            check(root.native().size() + 1 < parent_length);
+            directory /= std::wstring(parent_length - root.native().size() - 1, L'x');
+            check(CreateDirectoryW(directory.c_str(), nullptr));
+        }
         file = directory / L".stellar-vpn.dat"; hardlink = directory / L"synthetic-hardlink";
     }
-    ~fixture() { DeleteFileW(hardlink.c_str()); DeleteFileW(file.c_str()); RemoveDirectoryW(directory.c_str()); }
+    ~fixture() {
+        DeleteFileW(hardlink.c_str()); DeleteFileW(file.c_str());
+        if (directory != root) RemoveDirectoryW(directory.c_str());
+        RemoveDirectoryW(root.c_str());
+    }
     void write(const std::string& value) {
         std::ofstream output(file, std::ios::binary | std::ios::trunc); check(output.good());
         output.write(value.data(), static_cast<std::streamsize>(value.size())); output.close(); check(output.good());
@@ -78,8 +89,8 @@ static void parser_tests() {
         rejects([&] { number(invalid, UINT64_MAX); }, "invalid number accepted");
     rejects([] { remaining(GetTickCount64()); }, "expired deadline did not fail closed");
 }
-static void migration_tests() {
-    fixture data;
+static void migration_tests(bool long_path = false) {
+    fixture data(long_path);
     std::vector<unsigned char> bytes(65536);
     expect(stellar_windows_legacy_read(data.file.c_str(), bytes.data(), bytes.size()) == 0, "missing synthetic legacy file is not empty");
     const std::string old = "{\"synthetic-token\":\"old\"}", next = "{\"synthetic-token\":\"new\"}";
@@ -137,9 +148,24 @@ static void bridge_tests() {
     auto again = stellar_windows_instance(); expect(again > 0, "process lock not released"); stellar_windows_close_instance(again);
     expect(stellar_windows_autostart(0) == 1 && stellar_windows_autostart(1) == 1, "development runner did not skip autostart registration");
 }
+static void client_identity_tests() {
+    rejects([] { verify_client_process(INVALID_HANDLE_VALUE); }, "invalid pipe client accepted");
+    auto suffix = random_hex();
+    auto name = L"\\\\.\\pipe\\stellar-client-auth-test-" + std::wstring(suffix.begin(), suffix.end());
+    handle server(CreateNamedPipeW(name.c_str(), PIPE_ACCESS_DUPLEX | FILE_FLAG_FIRST_PIPE_INSTANCE,
+        PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS, 1, 1024, 1024, 0, nullptr));
+    check(server.value != INVALID_HANDLE_VALUE);
+    handle client(CreateFileW(name.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr));
+    check(client.value != INVALID_HANDLE_VALUE);
+    ULONG pid = 0;
+    expect(GetNamedPipeClientProcessId(server, &pid) && pid == GetCurrentProcessId(), "synthetic pipe peer lookup failed");
+    rejects([&] { verify_client_process(server); }, "uninstalled same-user client accepted");
+    DisconnectNamedPipe(server);
+}
+
 int main() {
     try {
-        parser_tests(); migration_tests(); bridge_tests();
+        parser_tests(); migration_tests(); migration_tests(true); bridge_tests(); client_identity_tests();
         std::cout << "{\"suite\":\"windows-native-synthetic\",\"assertionsPassed\":" << passed
             << ",\"serviceInstalled\":false,\"firewallChanged\":false,\"externalRequests\":false}" << std::endl;
         return 0;

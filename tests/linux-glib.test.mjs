@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { verifyLinuxGlib } from '../scripts/check-linux-glib.mjs';
 
@@ -46,4 +47,17 @@ test('unreviewed extra source files fail closed', t => {
   const directory = fixture(t);
   fs.writeFileSync(path.join(directory, 'vendor/glib-0.18.5/build.rs'), 'fn main() {}');
   assert.throws(() => verifyLinuxGlib(directory), /Unreviewed glib file/);
+});
+
+test('a self-consistent manifest cannot hide a missing compile-time document', t => {
+  const directory = fixture(t);
+  const root = path.join(directory, 'vendor/glib-0.18.5');
+  const source = path.join(root, 'src/lib.rs');
+  const manifest = path.join(root, 'stellar-backport.json');
+  const contents = '#![doc = include_str!("../README.md")]\n' + fs.readFileSync(source, 'utf8');
+  fs.writeFileSync(source, contents);
+  const provenance = JSON.parse(fs.readFileSync(manifest, 'utf8'));
+  provenance.files['src/lib.rs'] = createHash('sha256').update(contents).digest('hex');
+  fs.writeFileSync(manifest, JSON.stringify(provenance));
+  assert.throws(() => verifyLinuxGlib(directory), /Unreviewed or missing glib compile-time include/);
 });

@@ -440,6 +440,12 @@ mod tests {
         assert!(platform::load().unwrap().is_none());
         platform::save(b"stellar-session-roundtrip-fixture").unwrap();
         assert!(platform::load().unwrap().unwrap() == b"stellar-session-roundtrip-fixture");
+        // A rejected short read still releases its OS allocation; it must not
+        // corrupt or remove the separately persisted Credential Manager item.
+        for _ in 0..16 {
+            assert!(platform::load_for(SERVICE, 4).is_err());
+            assert_eq!(platform::load().unwrap().unwrap(), b"stellar-session-roundtrip-fixture");
+        }
         platform::remove().unwrap();
         assert!(platform::load().unwrap().is_none());
     }
@@ -466,6 +472,12 @@ mod tests {
         assert!(platform::load().unwrap().is_none());
         platform::save(b"stellar-session-roundtrip-fixture").unwrap();
         assert!(platform::load().unwrap().unwrap() == b"stellar-session-roundtrip-fixture");
+        // A rejected short read still releases its OS allocation; it must not
+        // corrupt or remove the separately persisted Credential Manager item.
+        for _ in 0..16 {
+            assert!(platform::load_for(SERVICE, 4).is_err());
+            assert_eq!(platform::load().unwrap().unwrap(), b"stellar-session-roundtrip-fixture");
+        }
         platform::remove().unwrap();
         assert!(platform::load().unwrap().is_none());
     }
