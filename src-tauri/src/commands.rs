@@ -395,7 +395,14 @@ pub async fn logout(expected_token: Option<String>, expected_session_id: Option<
         if connected { notice(&app, Notice::Disconnecting); }
         let result = service.logout();
         if connected { notice(&app, if result.is_ok() { Notice::Disconnected } else { Notice::DisconnectFailed }); }
-        result
+        // Explicit logout is a local security boundary. A helper/transport
+        // failure may leave tunnel cleanup for recovery, but it must not make
+        // the UI or the protected session vault remain authenticated.
+        match result {
+            Ok(session) => Ok(session),
+            Err(_) if !service.snapshot().session.authenticated => Ok(service.snapshot().session),
+            Err(error) => Err(error),
+        }
     }).await
 }
 #[tauri::command]

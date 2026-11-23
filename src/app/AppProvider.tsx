@@ -45,6 +45,7 @@ function useAppState(container: Container, surface: 'main' | 'tray') {
   const [connectionErrorKind, setConnectionErrorKind] = useState<'subscription' | null>(null);
   const [pendingAction, setPendingAction] = useState<'connect' | 'disconnect'>('connect');
   const [settingsPending, setSettingsPending] = useState(false);
+  const [settingsDraft, setSettingsDraft] = useState<Settings | null>(null);
   const settingsSaving = useRef(false);
   const [collapsed, setCollapsed] = useState(compactConnectionLayout);
   const [favoriteIds, setFavoriteIds] = useState<string[]>(() => container.favorites.load());
@@ -291,17 +292,21 @@ function useAppState(container: Container, surface: 'main' | 'tray') {
   }
   function saveSettings(settings: Settings) {
     if (settingsSaving.current) return;
-    settingsSaving.current = true; setSettingsPending(true);
-    // Especially for firewall changes, intent is not confirmation. Keep the
-    // last acknowledged settings until the native operation succeeds.
+    settingsSaving.current = true; setSettingsDraft(settings); setSettingsPending(true);
+    // Reflect intent immediately so switches never feel stuck. The busy state
+    // prevents another change until native confirmation; failures reconcile
+    // from the authoritative snapshot and roll the optimistic value back.
     void container.settings.save(settings).then(result => {
       if (result.current) setSnapshot(state => state && { ...state, settings: result.value });
     }).catch(async error => {
         try { const current = await container.desktop.bootstrap(); setSnapshot(state => state && { ...state, settings: current.settings }); } catch { /* Keep the last visible values; retry remains possible. */ }
         notify(errorMessage(error));
-    }).finally(() => { settingsSaving.current = false; setSettingsPending(false); });
+    }).finally(() => { settingsSaving.current = false; setSettingsDraft(null); setSettingsPending(false); });
   }
-  function toggleSetting(key: BooleanSetting) { if (snapshot) saveSettings({ ...snapshot.settings, [key]: !snapshot.settings[key] }); }
+  function toggleSetting(key: BooleanSetting) {
+    const settings = settingsDraft ?? snapshot?.settings;
+    if (settings) saveSettings({ ...settings, [key]: !settings[key] });
+  }
   async function authenticate(operation: 'login' | 'register' | 'account', email: string, password: string) {
     setConnectionError(''); setConnectionErrorKind(null);
     setAccount(null); setAccountStatus('idle');
@@ -343,7 +348,7 @@ function useAppState(container: Container, surface: 'main' | 'tray') {
   }
   return { snapshot, account: accountIdentity.current === snapshot?.session.identityRevision ? account : null, accountStatus, accountError, update, checkUpdate, downloadUpdate, installUpdate, cancelUpdate: () => container.updates.cancel(), refreshAccount: () => setAccountAttempt(attempt => attempt + 1), screen, setScreen, view, setView: navigateView, servers, selectedId,
     catalogStatus, catalogError, retryCatalog: () => setCatalogAttempt(attempt => attempt + 1),
-    selected: servers.find(server => server.id === selectedId), pending, pendingAction, pendingSince, cancelling, connectionError, connectionErrorKind, cancelConnect, collapsed, setCollapsed, settingsPending,
+    selected: servers.find(server => server.id === selectedId), pending, pendingAction, pendingSince, cancelling, connectionError, connectionErrorKind, cancelConnect, collapsed, setCollapsed, settingsPending, settingsDraft,
     favoriteIds, toggleFavorite: (id: string) => setFavoriteIds(ids => ids.includes(id) ? ids.filter(item => item !== id) : [...ids, id]),
     dialog, setDialog, toast, notify, bootError, connect, disconnect, selectServer, activateMarker, saveSettings, toggleSetting,
     deviceLoginsAvailable: !!container.desktop.listDeviceSessions && snapshot?.session.remembered === true,
@@ -363,7 +368,7 @@ type AppState = ReturnType<typeof useAppState>;
 const AppContext = createContext<AppState | null>(null);
 export function AppProvider({ container, children, surface = 'main' }: { container: Container; children: ReactNode; surface?: 'main' | 'tray' }) {
   const state = useAppState(container, surface);
-  return <AppContext.Provider value={state}><I18nProvider language={state.snapshot?.settings.language || 'English'}>{children}</I18nProvider></AppContext.Provider>;
+  return <AppContext.Provider value={state}><I18nProvider language={state.settingsDraft?.language || state.snapshot?.settings.language || 'English'}>{children}</I18nProvider></AppContext.Provider>;
 }
 export function useApp() {
   const state = useContext(AppContext);

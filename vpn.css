@@ -1233,6 +1233,7 @@ body.auth-open .app { visibility: hidden; }
   padding: 3px;
   background: var(--stellar-neutral-200);
   border-radius: 999px;
+  transition: background-color 0.2s ease-out, box-shadow 0.2s ease-out;
 }
 
 .toggle::before {
@@ -1248,6 +1249,7 @@ body.auth-open .app { visibility: hidden; }
 
 .toggle[aria-checked="true"] { background: var(--stellar-blue); }
 .toggle[aria-checked="true"]::before { transform: translateX(18px); }
+.toggle[data-pending="true"] { cursor: wait; box-shadow: 0 0 0 3px #2761fc14; }
 
 .selector { position: relative; flex: none; }
 .selector-trigger {
@@ -2171,7 +2173,7 @@ body.onboarding-open .app {
 
 @media (prefers-reduced-motion: reduce) {
   .auth-loading::before { animation: none; }
-  .toggle::before { transition: none; }
+  .toggle, .toggle::before { transition: none; }
   .route-layer,
   .route-arrow-layer { display: none; }
   .server-row.connecting .selected-check::after { border: 0; background: currentColor; }
