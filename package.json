@@ -40,9 +40,11 @@
     "@types/react-dom": "19.2.7",
     "typescript": "5.9.3",
     "vite": "7.3.8",
-    "esbuild": "file:vendor/esbuild-reviewed"
+    "esbuild": "file:vendor/esbuild-reviewed",
+    "rollup": "file:vendor/rollup-wasm-reviewed"
   },
   "overrides": {
-    "esbuild": "$esbuild"
+    "esbuild": "$esbuild",
+    "rollup": "$rollup"
   }
 }

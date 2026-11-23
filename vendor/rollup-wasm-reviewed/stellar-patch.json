@@ -1,0 +1,148 @@
+{
+  "schema": 1,
+  "upstream": {
+    "name": "@rollup/wasm-node",
+    "version": "4.65.1",
+    "npm_sha512": "05ef71d299c54bdd70b40b25cf47f1dc79cb6ea42e578105d972de9b08f3f011aa2e332bc3db42ceeeef22e5a0a63084b0c42032d6751485872715fde59c0193",
+    "npm_archive_sha256": "8fd2e64dfeaa6334a683ce198e4b6487df44c63f02f3b7843339300b3e5f459a",
+    "release_commit": "7879c65994dd591d287b177b8d0b88d7d76c2a49",
+    "slsa_workflow": "https://github.com/rollup/rollup/.github/workflows/build-and-tests.yml@refs/tags/v4.65.1"
+  },
+  "modifications": [
+    "Expose the reviewed WASM package under the rollup package name expected by Vite.",
+    "Remove development metadata and optional native fsevents and LZMA packages.",
+    "Retain the upstream JavaScript API, type declarations and attested WASM parser."
+  ],
+  "review": {
+    "registry_age_since": "2023-08-23",
+    "weekly_downloads_at_review": 1459113,
+    "osv_matches": 0,
+    "github_advisory_matches": 0,
+    "lifecycle_scripts": [],
+    "provenance_verified": true,
+    "wasm_type_validation": true,
+    "parser_regression_assertions": 16,
+    "network_allowed_during_parser_tests": false
+  },
+  "native_packages_removed": true,
+  "binary_files_committed": true,
+  "binary_scope": "One exact upstream-attested WASM parser; no native executable or install hook.",
+  "files": {
+    "LICENSE.txt": {
+      "sha256": "fa1bd040c5bdeefe65b3821cebf474f2733ce65df13089bd151dda1778e62fe8",
+      "bytes": 35231
+    },
+    "dist/bin/rollup": {
+      "sha256": "efb202530b0f35ebc34f742650401d08f3466618816ca5380b2dc6d63bc0b698",
+      "bytes": 87972
+    },
+    "dist/es/getLogFilter.js": {
+      "sha256": "55b00355bbafeda7ee87301db60dab2864ed47ea3b770d88bdadc54a1f9c548c",
+      "bytes": 2164
+    },
+    "dist/es/package.json": {
+      "sha256": "6dc1b06d6b093e9cccb20bee06a93836eee0420ae26803ca2ce4065d82f070d1",
+      "bytes": 17
+    },
+    "dist/es/parseAst.js": {
+      "sha256": "5e1ffe689af681540f18187947f5250f8e742dbcd7b10b69e5f058b1b91a7cb8",
+      "bytes": 293
+    },
+    "dist/es/rollup.js": {
+      "sha256": "99ac37fb7cedd5da83147ce7ace27925015e4b830ca7742f0671dffebdb828b8",
+      "bytes": 430
+    },
+    "dist/es/shared/node-entry.js": {
+      "sha256": "83b5011ea74fb6e75106c0955d25154b9a618503d0d5eb5212cc819bdf110ba6",
+      "bytes": 1000699
+    },
+    "dist/es/shared/parseAst.js": {
+      "sha256": "30969665cb537af464b905cd7f40b229971ace65e1f9553cc45164f589ad1cd1",
+      "bytes": 87124
+    },
+    "dist/es/shared/watch.js": {
+      "sha256": "8f46efa10d33eaccd26ee2d3a3fb0f4b35fab9a1772e03c130597f748dd9bed6",
+      "bytes": 266267
+    },
+    "dist/getLogFilter.d.ts": {
+      "sha256": "e7cbf7017d77efd5099e08d85bf58c7658f29edfce5ab0db8faccb86fe9736fa",
+      "bytes": 171
+    },
+    "dist/getLogFilter.js": {
+      "sha256": "4465b64308114fd45fe417b764dc2a2ad2b0deb06016bb6f69a770afbd4ab9a1",
+      "bytes": 2306
+    },
+    "dist/loadConfigFile.d.ts": {
+      "sha256": "da9f07c6be066d7b02671ee64ac78bd56cd1a57d98f1ad6b2ef54f685ca146cf",
+      "bytes": 471
+    },
+    "dist/loadConfigFile.js": {
+      "sha256": "fc8a6542f46b6c3f6913d75060f8b93d286087f6fe8c03fd29a191ab50624e3f",
+      "bytes": 705
+    },
+    "dist/native.js": {
+      "sha256": "d8ab4aee0129b3dc9d8274617b015ab8dbdc9661207fe5b80749606e87093992",
+      "bytes": 933
+    },
+    "dist/parseAst.d.ts": {
+      "sha256": "a660aa95476042d3fdcc1343cf6bb8fdf24772d31712b1db321c5a4dcc325434",
+      "bytes": 134
+    },
+    "dist/parseAst.js": {
+      "sha256": "d99a66495c060828444e8a5bd9603a8858a79832578405567f6d94b60aa7e49a",
+      "bytes": 506
+    },
+    "dist/rollup.d.ts": {
+      "sha256": "1687ffc301558b6088bb048945a81c0cc5318b889e2bc8b4eee26f66b0e56685",
+      "bytes": 36112
+    },
+    "dist/rollup.js": {
+      "sha256": "363a12706a1952131e4bfb5c98af7f02016fc98ebea749222f240945e5ab0203",
+      "bytes": 778
+    },
+    "dist/shared/fsevents-importer.js": {
+      "sha256": "650af128365bcb351ffd5555a6aa7d11735767eae82ade059ab5c70f8491a6cb",
+      "bytes": 884
+    },
+    "dist/shared/index.js": {
+      "sha256": "d6b6a1296784c9287d9e137bca7c575d37697762c3d16953af0effa5441225db",
+      "bytes": 254206
+    },
+    "dist/shared/loadConfigFile.js": {
+      "sha256": "7bc27a1558b96f28ac9cecb2101082463c35017bca27d70dcde4f7700cde2a8e",
+      "bytes": 22927
+    },
+    "dist/shared/node-entry.js": {
+      "sha256": "e88bea972b26b5d4893a3d5b017f9b8a7c4556f6cc0198f7d60f3c693dbe16f6",
+      "bytes": 5342
+    },
+    "dist/shared/parseAst.js": {
+      "sha256": "4695889fabab161bf5c473f17976f5204a1a814d08a33b3a394ebd04aad6d1d2",
+      "bytes": 96232
+    },
+    "dist/shared/rollup.js": {
+      "sha256": "be1db2c047983d4592379e0806a07e6c808feaabd8a32ca80f1176ba0675bdef",
+      "bytes": 999004
+    },
+    "dist/shared/watch-cli.js": {
+      "sha256": "15cfe1bd3f783f73a431a84e3a6625185f97d6cdc4ed81bddeeaf6061f5e28b1",
+      "bytes": 19092
+    },
+    "dist/shared/watch.js": {
+      "sha256": "e5daeead2191381cacf1c3ae74878ccb9892376eed52cdf230968ee826402cfd",
+      "bytes": 12793
+    },
+    "dist/wasm-node/bindings_wasm.js": {
+      "sha256": "e9ab446ab348930a5f29520dcd04cdc1d17ff1e557481161c0b693e4d6d5c432",
+      "bytes": 7967
+    },
+    "dist/wasm-node/bindings_wasm_bg.wasm": {
+      "sha256": "7099c59e9da5c0d690356ba986bf02a89dd21b35e578684758ecbdac4aca0c8d",
+      "bytes": 588077
+    },
+    "package.json": {
+      "sha256": "918f1a870e7bd4097ea2d9af296ea526388c033aa5ad18ea016ade04f18d277a",
+      "bytes": 1113
+    }
+  }
+}
