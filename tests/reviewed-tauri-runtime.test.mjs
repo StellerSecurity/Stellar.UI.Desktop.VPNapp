@@ -67,4 +67,7 @@ test('provisioning is separate, explicit and cannot run package lifecycle hooks'
   assert.doesNotMatch(desktop, /provision-reviewed-tauri/);
   assert.match(macBuilder, /runReviewedTauri/);
   assert.doesNotMatch(macBuilder, /node_modules\/\@tauri-apps\/cli/);
+  assert.match(macBuilder, /APPLE_CERTIFICATE_PASSWORD/);
+  assert.match(macBuilder, /delete process\.env\[key\]/);
+  assert.ok(macBuilder.indexOf('delete process.env[key]') < macBuilder.indexOf('await runReviewedTauri'));
 });
