@@ -57,6 +57,7 @@ test('runtime verification rejects changed size, bytes and symbolic links', asyn
 test('provisioning is separate, explicit and cannot run package lifecycle hooks', async () => {
   const provisioner = await readFile(path.join(root, 'scripts/provision-reviewed-tauri.py'), 'utf8');
   const desktop = await readFile(path.join(root, 'scripts/desktop.mjs'), 'utf8');
+  const macBuilder = await readFile(path.join(root, 'scripts/build-macos-test.mjs'), 'utf8');
   assert.match(provisioner, /--approve-reviewed-download/);
   assert.match(provisioner, /registry\.npmjs\.org\/\@tauri-apps\/cli-/);
   assert.match(provisioner, /archive_sha256/);
@@ -64,4 +65,6 @@ test('provisioning is separate, explicit and cannot run package lifecycle hooks'
   assert.match(desktop, /runReviewedTauri/);
   assert.doesNotMatch(desktop, /node_modules\/\@tauri-apps\/cli/);
   assert.doesNotMatch(desktop, /provision-reviewed-tauri/);
+  assert.match(macBuilder, /runReviewedTauri/);
+  assert.doesNotMatch(macBuilder, /node_modules\/\@tauri-apps\/cli/);
 });
