@@ -3,7 +3,7 @@
   "approved": true,
   "scope": "windows-rust-debug-build-and-synthetic-tests",
   "userApproval": "Explicit user approval after exact Rust/SDK/locked dependency review on 2026-10-31",
-  "lockSha256": "65c4efabddf0584b59211eb4ded82946b6c9bb7701a31da2a6987e71e08cdee2",
+  "lockSha256": "5e3c4cdc49cb24737c79c710d20cb587fab10cded0aadc78d179dff11f79cf9e",
   "rustVersion": "1.99.1 (58cf8f9c3 2026-10-13)",
   "rust": [
     {
@@ -208,11 +208,6 @@
       "name": "cesu8",
       "version": "1.1.0",
       "checksum": "6d43a04d8753f35258c91f8ec639f792891f748a1edbd759cf1dcea3382ad83c"
-    },
-    {
-      "name": "cfb",
-      "version": "0.14.0",
-      "checksum": "a347dcabdae9c31b0825fd6a8bed285ec9c2acb89c47827126d52fa4f59cece3"
     },
     {
       "name": "cfg-expr",
@@ -2081,7 +2076,7 @@
     }
   ],
   "releaseApproved": false,
-  "sourceLockSha256": "192bf14cc9c1772501a36a0ef7493e019e5d4ba954324bc9dd9aa71ddd100029",
+  "sourceLockSha256": "04a5766c1d5914bb857907b93a14b6d193d2f49d07f6e781c42b1258d4ffb7d2",
   "firstPartyLockVersion": {
     "name": "stellar-vpn-desktop",
     "from": "0.1.0",
@@ -2102,7 +2097,7 @@
     "patchRevision": 1,
     "sourcePlanSha256": "32c2344d561eaefef9d3a09010b0158804a36e62fd2b63b219562f066728c289",
     "reason": "Explicit user approval on 2026-11-18 for the exact hash-verified source patch in PR #13's locked Windows debug build and synthetic GitHub Actions tests only.",
-    "githubWorkflowRef": "StellerSecurity/Stellar.UI.Desktop.VPNapp/.github/workflows/windows-rust-build.yml@refs/heads/stellar/mac-login-persistence",
+    "githubWorkflowRef": "StellerSecurity/Stellar.UI.Desktop.VPNapp/.github/workflows/windows-rust-build.yml@refs/heads/stellar/release-0.5.1-integration",
     "files": [
       {
         "path": "vendor/embed-resource-3.0.12/Cargo.toml",
@@ -2131,6 +2126,117 @@
       {
         "path": "vendor/embed-resource-3.0.12/stellar-patch.json",
         "sha256": "49bd57112a147e13a3eea9fd8ddc9f1f1342774a21c0dcdd67cf0948dce829a9"
+      }
+    ]
+  },
+  "cfbSourceExecutionApproval": {
+    "approved": true,
+    "scope": "exact-cfb-0.14.0-source-only-stellar-revision-1-debug-build-and-synthetic-tests",
+    "package": "cfb",
+    "version": "0.14.0",
+    "patchRevision": 1,
+    "sourcePlanSha256": "4b1c0727a2262fdb05fe650f5c13903891edd3114b1dac54aa86a3b99963168e",
+    "reason": "Exact source-only package already reviewed and regression-tested in dev and release profiles; external fuzz documents are excluded and changed or extra files fail closed.",
+    "files": [
+      {
+        "path": "vendor/cfb-0.14.0/Cargo.toml",
+        "sha256": "0f8806463355e0d162aa203e437a72ba6c5ec8b6e4e43cbe1a31c554e7ce4a5c"
+      },
+      {
+        "path": "vendor/cfb-0.14.0/LICENSE",
+        "sha256": "ebaac853b53fec0ed475796f533ce676912a4df9ad9d8a621fa76d5060591e10"
+      },
+      {
+        "path": "vendor/cfb-0.14.0/src/internal/alloc.rs",
+        "sha256": "fe07845aafb877bb2e84a6ce73c4400c9fcf61018e7f3bb884f0b9a31472047e"
+      },
+      {
+        "path": "vendor/cfb-0.14.0/src/internal/chain.rs",
+        "sha256": "17aee271635269501f764211c67678ea312a1e98fdf44e74973f56cda466ea9a"
+      },
+      {
+        "path": "vendor/cfb-0.14.0/src/internal/color.rs",
+        "sha256": "3fc3490b8e0247c711d72db54c8730e04650718b1d1f9118f174c124eb74435e"
+      },
+      {
+        "path": "vendor/cfb-0.14.0/src/internal/consts.rs",
+        "sha256": "227004a75831bcd81f8be135284c2aef965586f3f32937ddb1a7379e6d584d47"
+      },
+      {
+        "path": "vendor/cfb-0.14.0/src/internal/directory.rs",
+        "sha256": "595c9dca907ce7019b3c5f232cc1e734a86ec5d1a00d3b7c005269e72579ec96"
+      },
+      {
+        "path": "vendor/cfb-0.14.0/src/internal/direntry.rs",
+        "sha256": "dabffca35b89fad0df7557956a4e89195cba87da585df45a08b6c7cef6c6c389"
+      },
+      {
+        "path": "vendor/cfb-0.14.0/src/internal/entry.rs",
+        "sha256": "03347874e06e911545557b8965f6a7e454c29828128262c31c5eb02d8e5effc1"
+      },
+      {
+        "path": "vendor/cfb-0.14.0/src/internal/header.rs",
+        "sha256": "4425af4fff42ba54b970b15c0bd6ad2ecbed137285b87968b8c6cc9f1dbe3cae"
+      },
+      {
+        "path": "vendor/cfb-0.14.0/src/internal/macros.rs",
+        "sha256": "6de9179f363146e9b288a68b9457078564c521968e893dabeab5b629b4ec1b10"
+      },
+      {
+        "path": "vendor/cfb-0.14.0/src/internal/minialloc.rs",
+        "sha256": "7e7043b6f1a9b7950b267e388b982981ed0307c18413ce045c2713ae3bbfd731"
+      },
+      {
+        "path": "vendor/cfb-0.14.0/src/internal/minichain.rs",
+        "sha256": "8676a62449bff5d3ed7e4841844845060bdbfd45be8402ffcdd1558ddddc63fb"
+      },
+      {
+        "path": "vendor/cfb-0.14.0/src/internal/mod.rs",
+        "sha256": "5d3d66abd315d091f0c826ba1f4557f5b36b82b09c15101c9a92fc98c080065b"
+      },
+      {
+        "path": "vendor/cfb-0.14.0/src/internal/objtype.rs",
+        "sha256": "9c9fa154198cfc75dd5547c6b51f34db5c2a581c5a023e6d75692357b38b3232"
+      },
+      {
+        "path": "vendor/cfb-0.14.0/src/internal/path.rs",
+        "sha256": "ff35e74a21ad96330929c552b3963a67131709c756e96a8b84ebb0fc26ca05e0"
+      },
+      {
+        "path": "vendor/cfb-0.14.0/src/internal/sector.rs",
+        "sha256": "5c075110f1c298a6d8421c18af40655cb5b9df2693f006218f3c6d35cd57f3e2"
+      },
+      {
+        "path": "vendor/cfb-0.14.0/src/internal/stream.rs",
+        "sha256": "7e4b5e4c4cd32ffc95011286d5902add693a27616544c1624aa9d6197614d787"
+      },
+      {
+        "path": "vendor/cfb-0.14.0/src/internal/stream_buffer.rs",
+        "sha256": "ae42f1e1572b6ea019c3cd7047af0659e00c21e63482c95feb27432cde445c81"
+      },
+      {
+        "path": "vendor/cfb-0.14.0/src/internal/timestamp.rs",
+        "sha256": "96868ab1facdadae53b1c001c2bb3590b62bfea35ebb61768208f5b177ee13a8"
+      },
+      {
+        "path": "vendor/cfb-0.14.0/src/internal/uppercase.txt",
+        "sha256": "80cf923668b40ea692322624619b47d778075cef526fa6904f0e347a5afbd9e8"
+      },
+      {
+        "path": "vendor/cfb-0.14.0/src/internal/validate.rs",
+        "sha256": "768002175f56b616e7da06208a6dff59e5997c4aedff981502c751bd21a4302f"
+      },
+      {
+        "path": "vendor/cfb-0.14.0/src/internal/version.rs",
+        "sha256": "82790e31d416035b37ecdabf398c4af590d2abdbbbdbc7472cc49fcc54fb419e"
+      },
+      {
+        "path": "vendor/cfb-0.14.0/src/lib.rs",
+        "sha256": "ed5ff85ebe513398f5a28b0ca3378ccd82432f8b457503c807db9197f4ffc7a3"
+      },
+      {
+        "path": "vendor/cfb-0.14.0/stellar-source-only.json",
+        "sha256": "4b1c0727a2262fdb05fe650f5c13903891edd3114b1dac54aa86a3b99963168e"
       }
     ]
   }

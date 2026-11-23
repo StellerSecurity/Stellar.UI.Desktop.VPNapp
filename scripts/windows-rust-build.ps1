@@ -41,7 +41,14 @@ if ($review.vendoredSourceExecutionApproval.approved -ne $true -or
     $review.vendoredSourceExecutionApproval.sourcePlanSha256 -ne '32c2344d561eaefef9d3a09010b0158804a36e62fd2b63b219562f066728c289') {
     throw 'Separate execution approval for the exact vendored source patch is required.'
 }
-if ($review.packages.Count -ne 407) { throw 'Reviewed dependency count changed.' }
+if ($review.cfbSourceExecutionApproval.approved -ne $true -or
+    $review.cfbSourceExecutionApproval.scope -ne 'exact-cfb-0.14.0-source-only-stellar-revision-1-debug-build-and-synthetic-tests' -or
+    $review.cfbSourceExecutionApproval.sourcePlanSha256 -ne '4b1c0727a2262fdb05fe650f5c13903891edd3114b1dac54aa86a3b99963168e') {
+    throw 'Separate execution approval for the exact source-only CFB patch is required.'
+}
+if ($review.packages.Count -ne 406 -or @($review.packages | Where-Object name -ceq 'cfb').Count -ne 0) {
+    throw 'Reviewed registry dependency count changed.'
+}
 if ($env:GITHUB_ACTIONS -ne 'true' -or $env:GITHUB_WORKFLOW_REF -cne $review.vendoredSourceExecutionApproval.githubWorkflowRef -or
     $env:GITHUB_SHA -cne $SourceCommit) {
     throw 'Vendored source execution approval applies only to the recorded GitHub workflow and commit.'
@@ -103,6 +110,17 @@ foreach ($pin in $review.vendoredSourceExecutionApproval.files) {
     if ($pin.path -notmatch '^vendor/embed-resource-3\.0\.12/(Cargo\.toml|LICENSE|stellar-patch\.json|src/(lib|windows_msvc|windows_not_msvc|non_windows)\.rs)$' -or
         $pin.sha256 -notmatch '^[a-f0-9]{64}$') { throw 'Unexpected vendored source input.' }
     if ((Get-FileHash -LiteralPath (Join-Path $root $pin.path) -Algorithm SHA256).Hash.ToLowerInvariant() -ne $pin.sha256) { throw 'Reviewed vendored source changed.' }
+}
+if ($review.cfbSourceExecutionApproval.files.Count -ne 25 -or
+    @($review.cfbSourceExecutionApproval.files.path | Sort-Object -Unique).Count -ne 25) {
+    throw 'Exact 25-file source-only CFB review required.'
+}
+foreach ($pin in $review.cfbSourceExecutionApproval.files) {
+    if ($pin.path -notmatch '^vendor/cfb-0\.14\.0/(Cargo\.toml|LICENSE|stellar-source-only\.json|src/(lib\.rs|internal/[A-Za-z0-9_.-]+))$' -or
+        $pin.sha256 -notmatch '^[a-f0-9]{64}$') { throw 'Unexpected source-only CFB input.' }
+    if ((Get-FileHash -LiteralPath (Join-Path $root $pin.path) -Algorithm SHA256).Hash.ToLowerInvariant() -ne $pin.sha256) {
+        throw 'Reviewed source-only CFB file changed.'
+    }
 }
 function Verify-Lock {
     $lockPath = Join-Path $root 'Cargo.lock'

@@ -2,7 +2,7 @@
 members = ["src-tauri", "crates/stellar-core", "crates/stellar-vpn-helper"]
 resolver = "2"
 # Path patches stay dependencies; they are not independent workspace members.
-exclude = ["vendor/glib-0.18.5", "vendor/embed-resource-3.0.12"]
+exclude = ["vendor/cfb-0.14.0", "vendor/glib-0.18.5", "vendor/embed-resource-3.0.12"]
 
 [workspace.package]
 edition = "2021"
@@ -15,6 +15,7 @@ serde = { version = "=1.0.228", features = ["derive"] }
 # Compatible GTK3 backport of upstream gtk-rs-core PR #1343.
 # Provenance and integrity checks: vendor/glib-0.18.5/stellar-backport.json.
 [patch.crates-io]
+cfb = { path = "vendor/cfb-0.14.0" }
 embed-resource = { path = "vendor/embed-resource-3.0.12" }
 glib = { path = "vendor/glib-0.18.5" }
 

@@ -7,7 +7,8 @@ test('Windows Rust job pins only the approved graph and first-party source input
   const approval = JSON.parse(read('native/windows/rust-build-approval.json'));
   assert.equal(approval.approved, true);
   assert.equal(approval.releaseApproved, false);
-  assert.equal(approval.packages.length, 407);
+  assert.equal(approval.packages.length, 406);
+  assert(!approval.packages.some(pkg => pkg.name === 'cfb'));
   assert(!approval.packages.some(pkg => ['embed-resource', 'vswhom', 'vswhom-sys'].includes(pkg.name)));
   const vendor = approval.vendoredSourceExecutionApproval;
   assert.equal(typeof vendor.approved, 'boolean');
@@ -18,6 +19,16 @@ test('Windows Rust job pins only the approved graph and first-party source input
   for (const file of vendor.files) {
     assert.match(file.path, /^vendor\/embed-resource-3\.0\.12\/(Cargo\.toml|LICENSE|stellar-patch\.json|src\/(lib|windows_msvc|windows_not_msvc|non_windows)\.rs)$/);
     assert.equal(createHash('sha256').update(read(file.path)).digest('hex'), file.sha256);
+  }
+  const cfb = approval.cfbSourceExecutionApproval;
+  assert.equal(cfb.approved, true);
+  assert.equal(cfb.scope, 'exact-cfb-0.14.0-source-only-stellar-revision-1-debug-build-and-synthetic-tests');
+  assert.equal(cfb.sourcePlanSha256, '4b1c0727a2262fdb05fe650f5c13903891edd3114b1dac54aa86a3b99963168e');
+  assert.equal(cfb.files.length, 25);
+  assert.equal(new Set(cfb.files.map(file => file.path)).size, 25);
+  for (const file of cfb.files) {
+    assert.match(file.path, /^vendor\/cfb-0\.14\.0\/(Cargo\.toml|LICENSE|stellar-source-only\.json|src\/(lib\.rs|internal\/[A-Za-z0-9_.-]+))$/);
+    assert.equal(createHash('sha256').update(fs.readFileSync(new URL('../' + file.path, import.meta.url))).digest('hex'), file.sha256);
   }
   assert.equal(approval.sdkVersion, '10.0.26100.9457');
   assert.equal(typeof approval.sdkExecutionApproval.approved, 'boolean');
@@ -35,6 +46,9 @@ test('Windows Rust job pins only the approved graph and first-party source input
   for (const file of vendor.files) {
     assert.deepEqual(manifest.files.find(input => input.path === file.path), file);
   }
+  for (const file of cfb.files) {
+    assert.deepEqual(manifest.files.find(input => input.path === file.path), file);
+  }
   for (const file of manifest.files) {
     assert(!/\.md$/i.test(file.path), file.path);
     assert(!file.path.includes('..') && !/\.env|credentials|node_modules|\/Runtime\//.test(file.path), file.path);
@@ -49,7 +63,7 @@ test('Rust workflow validates the harness and uses only its pinned first-party e
   for (const [, name, hash] of workflow.matchAll(/path = '([^']+)'; sha256 = '([a-f0-9]{64})'/g))
     assert.equal(createHash('sha256').update(read(name)).digest('hex'), hash, name);
   const script = read('scripts/windows-rust-build.ps1');
-  for (const guard of ['Get-FileHash', 'Get-AuthenticodeSignature', 'RUSTC_WORKSPACE_WRAPPER', 'CARGO_HOME', 'Verify-Lock', 'CARGO_NET_OFFLINE', 'cargo test --locked --offline', 'cargo build --locked --offline']) assert(script.includes(guard), guard);
+  for (const guard of ['Get-FileHash', 'Get-AuthenticodeSignature', 'RUSTC_WORKSPACE_WRAPPER', 'CARGO_HOME', 'Verify-Lock', 'CARGO_NET_OFFLINE', 'cargo test --locked --offline', 'cargo build --locked --offline', 'Exact 25-file source-only CFB review required.']) assert(script.includes(guard), guard);
   assert(!/&\s*[^\n]*rustup|\bnpm\b|\bwinget\b|\bchoco\b|\bpnputil\b|New-Service|Start-Service|Start-Process|Invoke-Expression/.test(script));
   assert(script.includes('--features tauri/custom-protocol'));
   assert(script.includes('Exact six-file frontend snapshot required.'));

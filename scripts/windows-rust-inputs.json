@@ -2,36 +2,12 @@
   "schema": 1,
   "files": [
     {
-      "path": "native/windows/preview-ui/assets/app-icon-CXXrWLgr.png",
-      "sha256": "46da88c5724492c5f3a49a73ff1937e38cd6ad1dffd2f70433c36fa193b5f34e"
-    },
-    {
-      "path": "native/windows/preview-ui/assets/index-BpioyA79.js",
-      "sha256": "414577e50c17402b276c9a1abbd350542bd956f9621507f212cd42433a033322"
-    },
-    {
-      "path": "native/windows/preview-ui/assets/index-B2WNdMPG.css",
-      "sha256": "9eef281cbca3d6c79b9c240fa1a55897cc1da03a6a623a10649613e86227136f"
-    },
-    {
-      "path": "native/windows/preview-ui/assets/stellar-vpn-logo-DlzHSNow.png",
-      "sha256": "010a384eeaf7254ade811c77c8f8ad854a6c80b49c1ca41526c17b64cdf6cb8d"
-    },
-    {
-      "path": "native/windows/preview-ui/assets/world-countries-Bwle1vj3.geojson",
-      "sha256": "a4d67eac9c75d5b6f20170d2b07bb53ea791536b0c8e5ebae3ba94df093f76e0"
-    },
-    {
-      "path": "native/windows/preview-ui/index.html",
-      "sha256": "0ee80a8d42be540ef23ad081658c4ff580aca37426b4c940d68c3914ba8d7853"
-    },
-    {
       "path": "Cargo.lock",
-      "sha256": "192bf14cc9c1772501a36a0ef7493e019e5d4ba954324bc9dd9aa71ddd100029"
+      "sha256": "04a5766c1d5914bb857907b93a14b6d193d2f49d07f6e781c42b1258d4ffb7d2"
     },
     {
       "path": "Cargo.toml",
-      "sha256": "2cadf77f657cad5f07824a40e93998a72fad6394643409733b7c1eae52d329c5"
+      "sha256": "b5b5bf0c5893c7aea3fa4a83abd05ef9020d719e9c8ce65a2aa2ec4f454c9d4e"
     },
     {
       "path": "crates/stellar-core/Cargo.toml",
@@ -78,6 +54,10 @@
       "sha256": "0e576bd08d89d3a588f09b6f760fba1866d56b8d63c429f74944a1cc9f7dc37d"
     },
     {
+      "path": "crates/stellar-vpn-helper/src/macos_client.rs",
+      "sha256": "10dab2472b52bf30ee924bfd83e0ceaf50fa726c19404fd5173e150ff92eff51"
+    },
+    {
       "path": "crates/stellar-vpn-helper/src/main.rs",
       "sha256": "f88405b8bd0803d2336a7911d797d3e999d07258e3a5ee960b0b3ca6846f93ff"
     },
@@ -114,12 +94,36 @@
       "sha256": "a53d595ac368fbec677a0708b936560509f9d4d81087357dfbd6c3c2c7aded33"
     },
     {
+      "path": "native/windows/preview-ui/assets/app-icon-CXXrWLgr.png",
+      "sha256": "46da88c5724492c5f3a49a73ff1937e38cd6ad1dffd2f70433c36fa193b5f34e"
+    },
+    {
+      "path": "native/windows/preview-ui/assets/index-B2WNdMPG.css",
+      "sha256": "9eef281cbca3d6c79b9c240fa1a55897cc1da03a6a623a10649613e86227136f"
+    },
+    {
+      "path": "native/windows/preview-ui/assets/index-BpioyA79.js",
+      "sha256": "414577e50c17402b276c9a1abbd350542bd956f9621507f212cd42433a033322"
+    },
+    {
+      "path": "native/windows/preview-ui/assets/stellar-vpn-logo-DlzHSNow.png",
+      "sha256": "010a384eeaf7254ade811c77c8f8ad854a6c80b49c1ca41526c17b64cdf6cb8d"
+    },
+    {
+      "path": "native/windows/preview-ui/assets/world-countries-Bwle1vj3.geojson",
+      "sha256": "a4d67eac9c75d5b6f20170d2b07bb53ea791536b0c8e5ebae3ba94df093f76e0"
+    },
+    {
+      "path": "native/windows/preview-ui/index.html",
+      "sha256": "0ee80a8d42be540ef23ad081658c4ff580aca37426b4c940d68c3914ba8d7853"
+    },
+    {
       "path": "native/windows/release-policy.json",
       "sha256": "5fd5dd736a75925cd453e5b67d8835bc8a0fa47d1c6b19b560fbc7314dcbadf6"
     },
     {
       "path": "native/windows/rust-build-approval.json",
-      "sha256": "f2aaba31b76e59e073ce1fdb973ce65949da85643ca6b87a88bce55d425eefb3"
+      "sha256": "a954c56acf17f5c3e58b8ddabb9eeccb503c3fa11aa905f3fbb80bc8599be58f"
     },
     {
       "path": "native/windows/service.cpp",
@@ -128,10 +132,6 @@
     {
       "path": "scripts/windows-native-compile.ps1",
       "sha256": "0010373606b1bc92280501ceb9e6d47406fadfa4cfb53e79c8b9241543271ffd"
-    },
-    {
-      "path": "src-tauri/Cargo.toml",
-      "sha256": "6888ae247c5bcee879cd33f6c855b5b33e2c90412b17830b0dce5ceb9452c819"
     },
     {
       "path": "src-tauri/build.rs",
@@ -144,6 +144,10 @@
     {
       "path": "src-tauri/capabilities/updates.json",
       "sha256": "189ae2bb21b50215195ff8af912d1230a93837f34e7d0e242ed14ada24980a5f"
+    },
+    {
+      "path": "src-tauri/Cargo.toml",
+      "sha256": "6888ae247c5bcee879cd33f6c855b5b33e2c90412b17830b0dce5ceb9452c819"
     },
     {
       "path": "src-tauri/icons/128x128.png",
@@ -160,6 +164,18 @@
     {
       "path": "src-tauri/icons/64x64.png",
       "sha256": "56f1d657dacb5ea77004894ca0d9e3b8970a45f4506da541757b54dab195ee94"
+    },
+    {
+      "path": "src-tauri/icons/icon.icns",
+      "sha256": "abe2bfcc78bddb23b861c3313d74c8b0b16ec81e954a1f49eae72ad812a40c9c"
+    },
+    {
+      "path": "src-tauri/icons/icon.ico",
+      "sha256": "2e171ce63930b1368098ea5cbf62a64e2d1b05bc06c86e4fb0572b86d4a58bbc"
+    },
+    {
+      "path": "src-tauri/icons/icon.png",
+      "sha256": "93cd9aa76c2f11bc570a232092ae659ad3afdab1b49aea38153aa5e29b434613"
     },
     {
       "path": "src-tauri/icons/Square107x107Logo.png",
@@ -202,18 +218,6 @@
       "sha256": "9ca15d6e162673cd8d7d7787cadd17877aef8dbb6aec1d91c4fb13986177eb16"
     },
     {
-      "path": "src-tauri/icons/icon.icns",
-      "sha256": "abe2bfcc78bddb23b861c3313d74c8b0b16ec81e954a1f49eae72ad812a40c9c"
-    },
-    {
-      "path": "src-tauri/icons/icon.ico",
-      "sha256": "2e171ce63930b1368098ea5cbf62a64e2d1b05bc06c86e4fb0572b86d4a58bbc"
-    },
-    {
-      "path": "src-tauri/icons/icon.png",
-      "sha256": "93cd9aa76c2f11bc570a232092ae659ad3afdab1b49aea38153aa5e29b434613"
-    },
-    {
       "path": "src-tauri/icons/tray.rgba",
       "sha256": "0fb6bceefdffb9c79c5f0331e037eef0c28ab29307dad367d3136385bcef181c"
     },
@@ -230,12 +234,12 @@
       "sha256": "b415961544a04a8de946af03da917273a590463caf0378c2abf39de8310ec3b2"
     },
     {
-      "path": "src-tauri/src/Info.plist",
-      "sha256": "972a4327230c39a0b99cf88006cf2e3dfd811590a7af203c474d1c8b08a76a4f"
-    },
-    {
       "path": "src-tauri/src/commands.rs",
       "sha256": "2b62a7b0371b0da615ce998681f5e8f814bb3da5b5f3eadb54d025689097446a"
+    },
+    {
+      "path": "src-tauri/src/Info.plist",
+      "sha256": "972a4327230c39a0b99cf88006cf2e3dfd811590a7af203c474d1c8b08a76a4f"
     },
     {
       "path": "src-tauri/src/infrastructure/legacy_login.rs",
@@ -262,12 +266,12 @@
       "sha256": "dc05277153bf7a51563e2351097b103b813769ff4a4dc0149f31efbe6fcea7ee"
     },
     {
-      "path": "src-tauri/src/infrastructure/session.rs",
-      "sha256": "317cf3be29d7092b3c06b38539ae7521b20a9b30ab3b5fdd957d393c1c370fc3"
-    },
-    {
       "path": "src-tauri/src/infrastructure/session_windows.rs",
       "sha256": "ab368f8e5e6f821172fc4980e903c538ef649547258f2919ac4c87d6b3c8b5a3"
+    },
+    {
+      "path": "src-tauri/src/infrastructure/session.rs",
+      "sha256": "317cf3be29d7092b3c06b38539ae7521b20a9b30ab3b5fdd957d393c1c370fc3"
     },
     {
       "path": "src-tauri/src/infrastructure/startup.rs",
@@ -278,16 +282,16 @@
       "sha256": "1fd629fe5391a2886da55954bf55957b168ab1b069d96fd5c17214965f9d0066"
     },
     {
-      "path": "src-tauri/src/infrastructure/windows.rs",
-      "sha256": "6509a7be03cd9caa87c5082fc297296036a4b59d39df276fb4948262e5a405f2"
-    },
-    {
       "path": "src-tauri/src/infrastructure/windows_engine_tests.rs",
       "sha256": "978d52a66e4250fd68ae9404ebc72a89b304cbc94ded0a83b252db8883330880"
     },
     {
       "path": "src-tauri/src/infrastructure/windows_vpn.rs",
       "sha256": "ea645735036ab0df16f6df73f8cdbbf7d73c73720ed750e2d9fd1bf88cf8e723"
+    },
+    {
+      "path": "src-tauri/src/infrastructure/windows.rs",
+      "sha256": "6509a7be03cd9caa87c5082fc297296036a4b59d39df276fb4948262e5a405f2"
     },
     {
       "path": "src-tauri/src/lib.rs",
@@ -338,24 +342,104 @@
       "sha256": "09a3bddf84221681cdafe3a87cd9e71f97f0853e2488d93799ba8830b0e0ae39"
     },
     {
-      "path": "vendor/glib-0.18.5/COPYRIGHT",
-      "sha256": "dae402989de65164815b7e2b6bc2b9576285434c3785934c8b6ece0fa055960d"
+      "path": "vendor/cfb-0.14.0/Cargo.toml",
+      "sha256": "0f8806463355e0d162aa203e437a72ba6c5ec8b6e4e43cbe1a31c554e7ce4a5c"
     },
     {
-      "path": "vendor/glib-0.18.5/Cargo.toml",
-      "sha256": "57e94ee91ef5a7489bae40cb16b98c11b8ecff15a39316a9b328536447df9bbd"
+      "path": "vendor/cfb-0.14.0/LICENSE",
+      "sha256": "ebaac853b53fec0ed475796f533ce676912a4df9ad9d8a621fa76d5060591e10"
     },
     {
-      "path": "vendor/glib-0.18.5/LICENSE",
-      "sha256": "8cf56d10131ce201cf69ab74b111d3ebac1acca3833d7efb39ae357224b70edb"
+      "path": "vendor/cfb-0.14.0/src/internal/alloc.rs",
+      "sha256": "fe07845aafb877bb2e84a6ce73c4400c9fcf61018e7f3bb884f0b9a31472047e"
     },
     {
-      "path": "vendor/glib-0.18.5/src/lib.rs",
-      "sha256": "5b71def7d15f146270681e5b163d6da463fe45e8a6e6c579b2e1666e8a9efd2c"
+      "path": "vendor/cfb-0.14.0/src/internal/chain.rs",
+      "sha256": "17aee271635269501f764211c67678ea312a1e98fdf44e74973f56cda466ea9a"
     },
     {
-      "path": "crates/stellar-vpn-helper/src/macos_client.rs",
-      "sha256": "10dab2472b52bf30ee924bfd83e0ceaf50fa726c19404fd5173e150ff92eff51"
+      "path": "vendor/cfb-0.14.0/src/internal/color.rs",
+      "sha256": "3fc3490b8e0247c711d72db54c8730e04650718b1d1f9118f174c124eb74435e"
+    },
+    {
+      "path": "vendor/cfb-0.14.0/src/internal/consts.rs",
+      "sha256": "227004a75831bcd81f8be135284c2aef965586f3f32937ddb1a7379e6d584d47"
+    },
+    {
+      "path": "vendor/cfb-0.14.0/src/internal/directory.rs",
+      "sha256": "595c9dca907ce7019b3c5f232cc1e734a86ec5d1a00d3b7c005269e72579ec96"
+    },
+    {
+      "path": "vendor/cfb-0.14.0/src/internal/direntry.rs",
+      "sha256": "dabffca35b89fad0df7557956a4e89195cba87da585df45a08b6c7cef6c6c389"
+    },
+    {
+      "path": "vendor/cfb-0.14.0/src/internal/entry.rs",
+      "sha256": "03347874e06e911545557b8965f6a7e454c29828128262c31c5eb02d8e5effc1"
+    },
+    {
+      "path": "vendor/cfb-0.14.0/src/internal/header.rs",
+      "sha256": "4425af4fff42ba54b970b15c0bd6ad2ecbed137285b87968b8c6cc9f1dbe3cae"
+    },
+    {
+      "path": "vendor/cfb-0.14.0/src/internal/macros.rs",
+      "sha256": "6de9179f363146e9b288a68b9457078564c521968e893dabeab5b629b4ec1b10"
+    },
+    {
+      "path": "vendor/cfb-0.14.0/src/internal/minialloc.rs",
+      "sha256": "7e7043b6f1a9b7950b267e388b982981ed0307c18413ce045c2713ae3bbfd731"
+    },
+    {
+      "path": "vendor/cfb-0.14.0/src/internal/minichain.rs",
+      "sha256": "8676a62449bff5d3ed7e4841844845060bdbfd45be8402ffcdd1558ddddc63fb"
+    },
+    {
+      "path": "vendor/cfb-0.14.0/src/internal/mod.rs",
+      "sha256": "5d3d66abd315d091f0c826ba1f4557f5b36b82b09c15101c9a92fc98c080065b"
+    },
+    {
+      "path": "vendor/cfb-0.14.0/src/internal/objtype.rs",
+      "sha256": "9c9fa154198cfc75dd5547c6b51f34db5c2a581c5a023e6d75692357b38b3232"
+    },
+    {
+      "path": "vendor/cfb-0.14.0/src/internal/path.rs",
+      "sha256": "ff35e74a21ad96330929c552b3963a67131709c756e96a8b84ebb0fc26ca05e0"
+    },
+    {
+      "path": "vendor/cfb-0.14.0/src/internal/sector.rs",
+      "sha256": "5c075110f1c298a6d8421c18af40655cb5b9df2693f006218f3c6d35cd57f3e2"
+    },
+    {
+      "path": "vendor/cfb-0.14.0/src/internal/stream_buffer.rs",
+      "sha256": "ae42f1e1572b6ea019c3cd7047af0659e00c21e63482c95feb27432cde445c81"
+    },
+    {
+      "path": "vendor/cfb-0.14.0/src/internal/stream.rs",
+      "sha256": "7e4b5e4c4cd32ffc95011286d5902add693a27616544c1624aa9d6197614d787"
+    },
+    {
+      "path": "vendor/cfb-0.14.0/src/internal/timestamp.rs",
+      "sha256": "96868ab1facdadae53b1c001c2bb3590b62bfea35ebb61768208f5b177ee13a8"
+    },
+    {
+      "path": "vendor/cfb-0.14.0/src/internal/uppercase.txt",
+      "sha256": "80cf923668b40ea692322624619b47d778075cef526fa6904f0e347a5afbd9e8"
+    },
+    {
+      "path": "vendor/cfb-0.14.0/src/internal/validate.rs",
+      "sha256": "768002175f56b616e7da06208a6dff59e5997c4aedff981502c751bd21a4302f"
+    },
+    {
+      "path": "vendor/cfb-0.14.0/src/internal/version.rs",
+      "sha256": "82790e31d416035b37ecdabf398c4af590d2abdbbbdbc7472cc49fcc54fb419e"
+    },
+    {
+      "path": "vendor/cfb-0.14.0/src/lib.rs",
+      "sha256": "ed5ff85ebe513398f5a28b0ca3378ccd82432f8b457503c807db9197f4ffc7a3"
+    },
+    {
+      "path": "vendor/cfb-0.14.0/stellar-source-only.json",
+      "sha256": "4b1c0727a2262fdb05fe650f5c13903891edd3114b1dac54aa86a3b99963168e"
     },
     {
       "path": "vendor/embed-resource-3.0.12/Cargo.toml",
@@ -384,6 +468,22 @@
     {
       "path": "vendor/embed-resource-3.0.12/stellar-patch.json",
       "sha256": "49bd57112a147e13a3eea9fd8ddc9f1f1342774a21c0dcdd67cf0948dce829a9"
+    },
+    {
+      "path": "vendor/glib-0.18.5/Cargo.toml",
+      "sha256": "57e94ee91ef5a7489bae40cb16b98c11b8ecff15a39316a9b328536447df9bbd"
+    },
+    {
+      "path": "vendor/glib-0.18.5/COPYRIGHT",
+      "sha256": "dae402989de65164815b7e2b6bc2b9576285434c3785934c8b6ece0fa055960d"
+    },
+    {
+      "path": "vendor/glib-0.18.5/LICENSE",
+      "sha256": "8cf56d10131ce201cf69ab74b111d3ebac1acca3833d7efb39ae357224b70edb"
+    },
+    {
+      "path": "vendor/glib-0.18.5/src/lib.rs",
+      "sha256": "5b71def7d15f146270681e5b163d6da463fe45e8a6e6c579b2e1666e8a9efd2c"
     }
   ]
 }
