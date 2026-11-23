@@ -40,7 +40,7 @@
     "typescript": "5.9.3",
     "vite": "7.3.8",
     "esbuild": "file:vendor/esbuild-reviewed",
-    "rollup": "file:vendor/rollup-wasm-reviewed"
+    "rollup": "npm:@rollup/wasm-node@4.65.1"
   },
   "overrides": {
     "esbuild": "$esbuild",
