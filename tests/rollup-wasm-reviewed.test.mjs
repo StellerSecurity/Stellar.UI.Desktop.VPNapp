@@ -30,4 +30,5 @@ test('Rollup resolves to the reviewed WASM package without native optional packa
       || entry === 'node_modules/@napi-rs/lzma-linux-x64-gnu'
   ));
   assert.deepEqual(forbidden, []);
+  assert.equal(JSON.stringify(lock).includes('vendor/rollup-wasm-reviewed'), false);
 });
