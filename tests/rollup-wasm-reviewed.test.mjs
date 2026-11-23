@@ -83,3 +83,25 @@ test('reviewed Rollup package matches its exact attested inventory', async () =>
     bytes: 588077,
   });
 });
+
+test('reviewed Rollup WASM parser preserves the JavaScript bundler API used by Vite', async () => {
+  const { rollup } = await import('../vendor/rollup-wasm-reviewed/dist/es/rollup.js');
+  const bundle = await rollup({
+    input: 'fixture-entry.js',
+    plugins: [{
+      name: 'fixture',
+      resolveId(id) {
+        return id === 'fixture-entry.js' ? id : null;
+      },
+      load(id) {
+        return id === 'fixture-entry.js' ? 'export const answer = 40 + 2;' : null;
+      },
+    }],
+  });
+  const { output } = await bundle.generate({ format: 'es' });
+  await bundle.close();
+
+  assert.equal(output.length, 1);
+  assert.equal(output[0].type, 'chunk');
+  assert.match(output[0].code, /export \{ answer \}/);
+});
