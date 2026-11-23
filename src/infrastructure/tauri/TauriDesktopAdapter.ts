@@ -236,13 +236,18 @@ export class TauriDesktopAdapter implements DesktopPort {
   async logout() {
     let failed = false;
     const expectedSessionId = this.identity.sessionId;
-    if (!expectedSessionId) throw new Error('The action could not be completed. Please try again.');
-    // Never discard the only revocation credential if the vault cannot queue it.
-    await invoke('queue_session_revocation', { expectedSessionId });
-    try {
-      await this.identity.logout(expectedSessionId);
+    // Queue server cleanup first when possible, but never make an explicit local
+    // logout depend on network access or an optional cleanup outbox.
+    if (expectedSessionId) {
+      await invoke('queue_session_revocation', { expectedSessionId }).catch(() => { failed = true; });
+    }
+    // HttpIdentityClient clears its in-memory identity synchronously before the
+    // returned promise waits for server revocation. Start that cleanup, then
+    // erase the native vault immediately instead of waiting for the network.
+    const revocation = this.identity.logout(expectedSessionId).then(async () => {
       if (expectedSessionId) await invoke('acknowledge_session_revocation', { sessionId: expectedSessionId }).catch(() => {});
-    } catch { failed = true; }
+    }).catch(() => {});
+    void revocation;
     const session = await invoke<Session>('logout', { expectedSessionId: expectedSessionId ?? null });
     await this.synchronizeIdentity();
     return { ...session, identityRevision: this.identity.identityRevision, ...(failed ? { revocationPending: true } : {}) };

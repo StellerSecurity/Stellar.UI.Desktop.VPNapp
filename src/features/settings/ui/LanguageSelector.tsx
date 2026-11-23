@@ -6,8 +6,9 @@ import { languages as supportedLanguages, searchLanguages } from '../../../share
 const languages = supportedLanguages.map(language => [language.name, language.flag]);
 export function LanguageSelector() {
   const app = useApp();
-  return <LanguagePicker value={app.snapshot?.settings.language || 'English'} disabled={app.settingsPending} onChange={name => {
-    if (app.snapshot) app.saveSettings({ ...app.snapshot.settings, language: name });
+  const settings = app.settingsDraft ?? app.snapshot?.settings;
+  return <LanguagePicker value={settings?.language || 'English'} disabled={app.settingsPending} onChange={name => {
+    if (settings) app.saveSettings({ ...settings, language: name });
     app.notify('Language preference saved');
   }} />;
 }

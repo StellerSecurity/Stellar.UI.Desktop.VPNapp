@@ -63,13 +63,14 @@ export class BrowserDesktopAdapter implements DesktopPort {
     return { ...settings };
   }
   async logout() {
-    let failed = false;
-    try { await this.identity.logout(); } catch { failed = true; }
+    // Clear the identity immediately; server revocation is best-effort and must
+    // not keep an offline user logged in locally.
+    void this.identity.logout().catch(() => {});
     await this.disconnect();
     this.state.session = { authenticated: false, onboardingComplete: false };
     this.storage.write('authenticated', false);
     this.storage.write('onboarding-complete', false);
-    return { ...this.state.session, ...(failed ? { revocationPending: true } : {}) };
+    return { ...this.state.session };
   }
   async completeOnboarding() {
     await this.bootstrap();

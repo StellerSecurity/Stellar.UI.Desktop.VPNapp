@@ -54,6 +54,18 @@ test('logout revokes the renewal credential even when the access token is alread
   });
   client.restore(expired); await client.logout(); assert.equal(client.remembered, false);
 });
+test('offline logout clears the local identity before server revocation settles', async () => {
+  let reject!: (error: Error) => void;
+  const client = new HttpIdentityClient(() => new Promise((_, fail) => { reject = fail; }));
+  client.restore(expired);
+  const pending = client.logout();
+  assert.equal(client.remembered, false);
+  assert.equal(client.active, false);
+  reject(new Error('offline'));
+  await assert.rejects(pending, /Could not reach Stellar/);
+  assert.equal(client.remembered, false);
+  assert.equal(client.active, false);
+});
 test('a renewal completing after logout cannot restore the identity', async () => {
   let finish!: (response: Response) => void;
   const client = new HttpIdentityClient(async url => String(url).endsWith('/device-logout') ? reply({ revoked: true }) : new Promise(resolve => { finish = resolve; }), undefined, undefined, async () => { assert.fail('late persistence'); });
