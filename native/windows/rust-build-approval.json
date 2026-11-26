@@ -2096,8 +2096,9 @@
     "version": "3.0.12",
     "patchRevision": 1,
     "sourcePlanSha256": "32c2344d561eaefef9d3a09010b0158804a36e62fd2b63b219562f066728c289",
-    "reason": "Explicit user approval on 2026-11-26 to reuse the unchanged hash-verified source patch in the locked 0.5.3 Windows debug build and synthetic GitHub Actions tests only.",
+    "reason": "Explicit user approval on 2026-11-26 to reuse the unchanged hash-verified source patch in the locked 0.5.3 Windows debug build and synthetic CI tests only.",
     "githubWorkflowRef": "StellerSecurity/Stellar.UI.Desktop.VPNapp/.github/workflows/windows-rust-build.yml@refs/heads/stellar/release-0.5.3-ovpn-mtu",
+    "azurePipelineRef": "StellerSecurity/Stellar.UI.Desktop.VPNapp/azure-pipelines.yml@refs/heads/stellar/release-0.5.3-ovpn-mtu",
     "files": [
       {
         "path": "vendor/embed-resource-3.0.12/Cargo.toml",

@@ -134,3 +134,55 @@ stages:
                 /usr/bin/shasum -a 256 "$tool"
               done
             displayName: Record Apple tool identities
+
+  - stage: WindowsCandidate
+    displayName: Windows unsigned candidate
+    dependsOn: NativeAgentInventory
+    jobs:
+      - job: BuildWindowsX64
+        displayName: Build reviewed Windows x64 candidate
+        timeoutInMinutes: 45
+        pool:
+          vmImage: windows-2022
+        steps:
+          - checkout: self
+            clean: true
+            fetchDepth: 1
+            persistCredentials: false
+
+          - powershell: |
+              Set-StrictMode -Version Latest
+              $ErrorActionPreference = 'Stop'
+              node scripts/verify-release-frontend.mjs
+              $env:RUNNER_TEMP = '$(Agent.TempDirectory)'
+              powershell -NoProfile -NonInteractive -File scripts/windows-rust-build.ps1 -SourceCommit '$(Build.SourceVersion)' -PrepareRustOnly
+              if ($LASTEXITCODE -ne 0) { throw 'Reviewed Windows Rust staging failed.' }
+              powershell -NoProfile -NonInteractive -File scripts/windows-rust-build.ps1 -SourceCommit '$(Build.SourceVersion)' -ExportInterfaceTest
+              if ($LASTEXITCODE -ne 0) { throw 'Reviewed Windows candidate build failed.' }
+            displayName: Test and build reviewed Windows candidate
+
+          - powershell: |
+              Set-StrictMode -Version Latest
+              $ErrorActionPreference = 'Stop'
+              $staging = Join-Path '$(Build.ArtifactStagingDirectory)' 'windows'
+              [IO.Directory]::CreateDirectory($staging) | Out-Null
+              $artifacts = @(
+                'stellar-windows-interface-test.zip',
+                'stellar-windows-unsigned-native-helper.zip',
+                'stellar-windows-native-synthetic-test.zip'
+              )
+              foreach ($name in $artifacts) {
+                $source = Join-Path '$(Agent.TempDirectory)' $name
+                if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { throw ('Missing Windows artifact: ' + $name) }
+                [IO.File]::Copy($source, (Join-Path $staging $name), $false)
+              }
+              Get-ChildItem -LiteralPath $staging -File | ForEach-Object {
+                ((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() + '  ' + $_.Name)
+              } | Set-Content -LiteralPath (Join-Path $staging 'SHA256SUMS') -Encoding ascii
+            displayName: Stage Windows candidates and hashes
+
+          - task: PublishPipelineArtifact@1
+            displayName: Publish unsigned Windows candidates
+            inputs:
+              targetPath: '$(Build.ArtifactStagingDirectory)/windows'
+              artifactName: 'stellar-vpn-windows-unsigned'

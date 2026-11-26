@@ -49,9 +49,16 @@ if ($review.cfbSourceExecutionApproval.approved -ne $true -or
 if ($review.packages.Count -ne 406 -or @($review.packages | Where-Object name -ceq 'cfb').Count -ne 0) {
     throw 'Reviewed registry dependency count changed.'
 }
-if ($env:GITHUB_ACTIONS -ne 'true' -or $env:GITHUB_WORKFLOW_REF -cne $review.vendoredSourceExecutionApproval.githubWorkflowRef -or
-    $env:GITHUB_SHA -cne $SourceCommit) {
-    throw 'Vendored source execution approval applies only to the recorded GitHub workflow and commit.'
+$githubContext = $env:GITHUB_ACTIONS -eq 'true' -and
+    $env:GITHUB_WORKFLOW_REF -ceq $review.vendoredSourceExecutionApproval.githubWorkflowRef -and
+    $env:GITHUB_SHA -ceq $SourceCommit
+$azureRef = $env:BUILD_REPOSITORY_NAME + '/azure-pipelines.yml@' + $env:BUILD_SOURCEBRANCH
+$azureContext = $env:TF_BUILD -eq 'True' -and
+    $env:BUILD_REPOSITORY_NAME -ceq 'StellerSecurity/Stellar.UI.Desktop.VPNapp' -and
+    $azureRef -ceq $review.vendoredSourceExecutionApproval.azurePipelineRef -and
+    $env:BUILD_SOURCEVERSION -ceq $SourceCommit
+if (-not ($githubContext -or $azureContext)) {
+    throw 'Vendored source execution approval applies only to the recorded CI workflow, branch and commit.'
 }
 $rustRoot = Join-Path $env:RUNNER_TEMP 'stellar-reviewed-rust'
 if ($PrepareRustOnly) {
@@ -242,7 +249,7 @@ try {
         $zip = Join-Path $env:RUNNER_TEMP 'stellar-windows-interface-test.zip'
         if (Test-Path -LiteralPath $zip) { throw 'Fresh interface artifact required.' }
         Compress-Archive -LiteralPath $executable, (Join-Path $output 'build-info.json') -DestinationPath $zip -CompressionLevel Optimal
-        "STELLAR_WINDOWS_PREVIEW_ZIP=$zip" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        if ($githubContext) { "STELLAR_WINDOWS_PREVIEW_ZIP=$zip" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append }
         $proof | ConvertTo-Json -Depth 5 -Compress
         # Separate unsigned first-party input for the documented local signing flow.
         $helper = Join-Path $root 'native-preflight/stellar-vpn-service.exe'
@@ -261,7 +268,7 @@ try {
         $helperManifest = Join-Path $helperOutput 'build-info.json'
         [IO.File]::WriteAllText($helperManifest, ($helperProof | ConvertTo-Json), $utf8)
         Compress-Archive -LiteralPath $stagedHelper, $helperManifest -DestinationPath $helperZip -CompressionLevel Optimal
-        "STELLAR_WINDOWS_HELPER_ZIP=$helperZip" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        if ($githubContext) { "STELLAR_WINDOWS_HELPER_ZIP=$helperZip" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append }
 
         $nativeTest = Join-Path $root 'native-preflight/native-tests.exe'
         $testOutput = Join-Path $env:RUNNER_TEMP 'stellar-windows-native-synthetic-test'
@@ -278,7 +285,7 @@ try {
         }
         [IO.File]::WriteAllText($testManifest, ($testProof | ConvertTo-Json), $utf8)
         Compress-Archive -LiteralPath $stagedTest, $testManifest -DestinationPath $testZip -CompressionLevel Optimal
-        "STELLAR_WINDOWS_NATIVE_TEST_ZIP=$testZip" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        if ($githubContext) { "STELLAR_WINDOWS_NATIVE_TEST_ZIP=$testZip" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append }
     }
     [ordered]@{ suite = 'windows-rust-debug-build-and-tests'; sourceCommit = $SourceCommit; lockedArchivesVerified = $archives.Count; releaseApproved = $false; serviceInstalled = $false; driverInstalled = $false; appExecuted = $false } | ConvertTo-Json -Compress
 } finally { Pop-Location }
