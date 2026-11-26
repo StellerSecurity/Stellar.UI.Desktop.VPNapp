@@ -95,7 +95,7 @@ jobs:
               if test -f "$destination/$script"; then
                 printf 'MAINTAINER_SCRIPT %s %s\n' "$name" "$script"
                 sed -n '1,400p' "$destination/$script"
-                if grep -Eini '(curl|wget|/dev/tcp|nc[[:space:]]|ssh[[:space:]]|\.ssh|\.gnupg|\.aws|\.azure|browser|cookie|password|token|launchctl|cron|systemctl|eval[[:space:]]|base64[[:space:]]+-d|https?://)' "$destination/$script"; then
+                if grep -Eini '(curl|wget|urlopen|urllib|requests\.|fetch[[:space:]]|apt(-get)?[[:space:]]|git[[:space:]]+clone|/dev/tcp|nc[[:space:]]|ssh[[:space:]]|\.ssh|\.gnupg|\.aws|\.azure|browser|cookie|password|token|launchctl|cron|systemctl|eval[[:space:]]|base64[[:space:]]+-d)' "$destination/$script"; then
                   echo "Suspicious maintainer-script capability requires separate review: $name/$script" >&2
                   exit 1
                 fi
