@@ -1,8 +1,17 @@
 {
+  "build": {
+    "beforeBuildCommand": ""
+  },
   "bundle": {
     "targets": ["deb"],
     "linux": {
       "deb": {
+        "depends": [
+          "openvpn (= 2.6.19-0ubuntu0.24.04.5)",
+          "nftables (= 1.0.9-1ubuntu0.1)",
+          "iproute2 (= 6.1.0-1ubuntu6.4)",
+          "systemd-resolved (= 255.4-1ubuntu8.19)"
+        ],
         "files": {
           "/usr/lib/stellar-vpn/stellar-vpn-helper": "../target/release/stellar-vpn-helper",
           "/lib/systemd/system/stellar-vpn@.service": "../scripts/linux/stellar-vpn@.service"

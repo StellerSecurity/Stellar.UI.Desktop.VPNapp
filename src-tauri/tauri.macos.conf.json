@@ -1,4 +1,7 @@
 {
+  "build": {
+    "beforeBuildCommand": ""
+  },
   "bundle": {
     "resources": {
       "resources/NetworkHelper.pkg": "NetworkHelper.pkg",
