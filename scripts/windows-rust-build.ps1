@@ -219,6 +219,20 @@ try {
     & $cargo build --locked --offline --target x86_64-pc-windows-msvc -p stellar-vpn-desktop
     if ($LASTEXITCODE -ne 0) { throw 'Windows desktop debug build failed.' }
     Verify-Lock
+    $uiFiles = @()
+    if ($ExportReleaseInput -or $ExportInterfaceTest) {
+        # Both the release binary and standalone UI test use the same pinned
+        # frontend snapshot. Stage it before either custom-protocol build so
+        # Tauri's generate_context! can resolve frontendDist.
+        $uiFiles = @($manifest.files | Where-Object { $_.path.StartsWith('native/windows/preview-ui/') })
+        if ($uiFiles.Count -ne 6) { throw 'Exact six-file frontend snapshot required.' }
+        foreach ($entry in $uiFiles) {
+            $relative = $entry.path.Substring('native/windows/preview-ui/'.Length)
+            $destination = Join-Path $root ('dist/' + $relative)
+            [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($destination)) | Out-Null
+            [IO.File]::Copy((Join-Path $root $entry.path), $destination, $false)
+        }
+    }
     if ($ExportReleaseInput) {
         if ($review.releaseBinaryExecutionApproval.approved -ne $true -or
             $review.releaseBinaryExecutionApproval.scope -ne 'exact-reviewed-windows-release-binary-build') { throw 'Exact Windows release-binary execution approval required.' }
@@ -255,15 +269,6 @@ try {
     if ($ExportInterfaceTest) {
         # A standalone UI test, not the installer or VPN runtime. Embed the
         # pinned frontend snapshot instead of depending on a localhost server.
-        $uiRoot = Join-Path $root 'native/windows/preview-ui'
-        $uiFiles = @($manifest.files | Where-Object { $_.path.StartsWith('native/windows/preview-ui/') })
-        if ($uiFiles.Count -ne 6) { throw 'Exact six-file frontend snapshot required.' }
-        foreach ($entry in $uiFiles) {
-            $relative = $entry.path.Substring('native/windows/preview-ui/'.Length)
-            $destination = Join-Path $root ('dist/' + $relative)
-            [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($destination)) | Out-Null
-            [IO.File]::Copy((Join-Path $root $entry.path), $destination)
-        }
         & $cargo build --locked --offline --target x86_64-pc-windows-msvc -p stellar-vpn-desktop --features tauri/custom-protocol
         if ($LASTEXITCODE -ne 0) { throw 'Standalone Windows interface build failed.' }
         Verify-Lock
