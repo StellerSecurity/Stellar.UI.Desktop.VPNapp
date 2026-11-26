@@ -2,6 +2,12 @@ name: Linux release readiness
 
 on:
   workflow_dispatch:
+    inputs:
+      install_reviewed_packages:
+        description: Install only after the download-only package/control review has passed
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -53,10 +59,79 @@ jobs:
           done
           dpkg-query -W -f='${binary:Package} ${Version}\n' libglib2.0-0t64 libgtk-3-0t64 libwebkit2gtk-4.1-0 libayatana-appindicator3-1 librsvg2-2 patchelf 2>/dev/null || true
 
+      - name: Download and inspect the exact Ubuntu dependency closure
+        run: |
+          set -euo pipefail
+          cache="$RUNNER_TEMP/stellar-ubuntu-package-review"
+          controls="$RUNNER_TEMP/stellar-ubuntu-package-controls"
+          mkdir -p "$cache/partial" "$controls"
+          sudo apt-get \
+            -o "Dir::Cache::archives=$cache" \
+            --download-only --no-install-recommends -y install \
+            libglib2.0-dev=2.80.0-6ubuntu3.10 \
+            libgtk-3-dev=3.24.41-4ubuntu1.3 \
+            libwebkit2gtk-4.1-dev=2.52.6-0ubuntu0.24.04.1 \
+            libayatana-appindicator3-dev=0.5.93-1build3 \
+            librsvg2-dev=2.58.0+dfsg-1ubuntu0.1
+          shopt -s nullglob
+          packages=("$cache"/*.deb)
+          test "${#packages[@]}" -gt 0
+          package_rows="$RUNNER_TEMP/stellar-ubuntu-package-rows.txt"
+          : > "$package_rows"
+          for package in "${packages[@]}"; do
+            name="$(dpkg-deb -f "$package" Package)"
+            version="$(dpkg-deb -f "$package" Version)"
+            test -n "$name"
+            test -n "$version"
+            destination="$controls/${name//:/_}"
+            mkdir "$destination"
+            dpkg-deb --control "$package" "$destination"
+            printf 'PACKAGE %s %s\n' "$name" "$version" | tee -a "$package_rows"
+            sha256sum "$package"
+            dpkg-deb --contents "$package"
+            for script in preinst postinst prerm postrm config triggers; do
+              if test -f "$destination/$script"; then
+                printf 'MAINTAINER_SCRIPT %s %s\n' "$name" "$script"
+                sed -n '1,400p' "$destination/$script"
+                if grep -Eini '(curl|wget|/dev/tcp|nc[[:space:]]|ssh[[:space:]]|\.ssh|\.gnupg|\.aws|\.azure|browser|cookie|password|token|launchctl|cron|systemctl|eval[[:space:]]|base64[[:space:]]+-d|https?://)' "$destination/$script"; then
+                  echo "Suspicious maintainer-script capability requires separate review: $name/$script" >&2
+                  exit 1
+                fi
+              fi
+            done
+          done
+          for required in \
+            'libglib2.0-dev 2.80.0-6ubuntu3.10' \
+            'libgtk-3-dev 3.24.41-4ubuntu1.3' \
+            'libwebkit2gtk-4.1-dev 2.52.6-0ubuntu0.24.04.1' \
+            'libayatana-appindicator3-dev 0.5.93-1build3' \
+            'librsvg2-dev 2.58.0+dfsg-1ubuntu0.1'; do
+            grep -Fxq "PACKAGE $required" "$package_rows"
+          done
+
+      - name: Install the inspected exact Ubuntu packages
+        if: ${{ inputs.install_reviewed_packages }}
+        run: |
+          set -euo pipefail
+          cache="$RUNNER_TEMP/stellar-ubuntu-package-review"
+          sudo apt-get \
+            -o "Dir::Cache::archives=$cache" \
+            --no-download --no-install-recommends -y install \
+            libglib2.0-dev=2.80.0-6ubuntu3.10 \
+            libgtk-3-dev=3.24.41-4ubuntu1.3 \
+            libwebkit2gtk-4.1-dev=2.52.6-0ubuntu0.24.04.1 \
+            libayatana-appindicator3-dev=0.5.93-1build3 \
+            librsvg2-dev=2.58.0+dfsg-1ubuntu0.1
+          dpkg-query -W -f='${binary:Package} ${Version}\n' \
+            libglib2.0-dev libgtk-3-dev libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev librsvg2-dev
+
       - name: Fetch the unchanged locked dependency graph
+        if: ${{ inputs.install_reviewed_packages }}
         run: cargo fetch --locked
 
       - name: Run native Linux debug and release regressions offline
+        if: ${{ inputs.install_reviewed_packages }}
         env:
           CARGO_NET_OFFLINE: 'true'
         run: |
