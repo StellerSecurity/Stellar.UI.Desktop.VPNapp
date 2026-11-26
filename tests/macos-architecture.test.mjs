@@ -31,11 +31,17 @@ test('Node and Rust architecture names map explicitly; unknown targets fail clos
   assert.throws(() => packageOptions(['--runtime'])); assert.throws(() => packageOptions(['--arch','arm64','--arch','x64']));
   assert.match(packageOptions(['--arch','x86_64']).runtime, /openvpn-runtime-x86_64$/);
 });
-test('Azure macOS build disables Rust auto-install and selects the preinstalled toolchain', () => {
+test('macOS candidate uses native Apple Silicon without installing a Rust target', () => {
   const pipeline = fs.readFileSync(new URL('../azure-pipelines.yml', import.meta.url), 'utf8');
-  const macStage = pipeline.slice(pipeline.indexOf('  - stage: MacCandidate'));
-  assert.match(macStage, /export RUSTUP_AUTO_INSTALL=0\n\s+export RUSTUP_TOOLCHAIN=stable/);
-  assert.match(macStage, /node scripts\/build-macos-test\.mjs --arch arm64/);
+  const workflow = fs.readFileSync(new URL('../.github/workflows/macos-arm64-release-candidate.yml', import.meta.url), 'utf8');
+  assert(!pipeline.includes('stage: MacCandidate'));
+  assert.match(workflow, /runs-on: macos-15/);
+  assert.match(workflow, /test "\$\(uname -m\)" = 'arm64'/);
+  assert.match(workflow, /export RUSTUP_AUTO_INSTALL=0/);
+  assert.match(workflow, /node scripts\/build-macos-test\.mjs --arch arm64/);
+  assert(!/rustup\s+(?:target|toolchain)\s+(?:add|install)/.test(workflow));
+  assert(!/uses:/.test(workflow));
+  assert.match(workflow, /gh release create "\$tag" --target "\$SOURCE_COMMIT" --draft/);
 });
 test('deployment targets are read from bytes and newer runtimes fail even with matching hashes', t => {
   const { directory, manifest } = runtime(t, 'arm64');

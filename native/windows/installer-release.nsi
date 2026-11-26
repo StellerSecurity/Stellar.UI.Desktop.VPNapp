@@ -51,8 +51,8 @@ Section "Stellar VPN" SecMain
   !insertmacro NSIS_HOOK_PREINSTALL
 
   SetOutPath "$INSTDIR"
-  File /oname="Stellar VPN.exe" "${STELLAR_STAGE}\Stellar VPN.exe"
-  File /oname="stellar-vpn-service.exe" "${STELLAR_STAGE}\stellar-vpn-service.exe"
+  File "${STELLAR_STAGE}\Stellar VPN.exe"
+  File "${STELLAR_STAGE}\stellar-vpn-service.exe"
   SetOutPath "$INSTDIR\Runtime"
   File /r "${STELLAR_STAGE}\Runtime\*.*"
 

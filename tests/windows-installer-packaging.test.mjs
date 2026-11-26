@@ -28,6 +28,9 @@ test('NSIS installer is fixed per-machine and owns only Stellar paths', () => {
   assert(installer.includes('!insertmacro NSIS_HOOK_POSTINSTALL'));
   assert(installer.includes('!insertmacro NSIS_HOOK_PREUNINSTALL'));
   assert(installer.includes('File /r "${STELLAR_STAGE}\\Runtime\\*.*"'));
+  assert(installer.includes('File "${STELLAR_STAGE}\\Stellar VPN.exe"'));
+  assert(installer.includes('File "${STELLAR_STAGE}\\stellar-vpn-service.exe"'));
+  assert(!installer.includes('File /oname='));
   assert(installer.includes('WriteUninstaller "$INSTDIR\\Uninstall.exe"'));
   assert(!/ExecShell|nsExec|cmd\.exe|powershell|pnputil|netsh|sc\.exe|taskkill/i.test(installer));
   assert(!/RMDir \/r "\$(?!INSTDIR\\Runtime)/.test(installer));

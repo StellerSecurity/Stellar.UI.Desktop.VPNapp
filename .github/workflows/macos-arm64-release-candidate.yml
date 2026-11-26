@@ -1,0 +1,80 @@
+name: macOS ARM64 release candidate
+
+on:
+  push:
+    branches:
+      - stellar/release-0.5.3-ovpn-mtu
+
+permissions:
+  contents: write
+
+concurrency:
+  group: macos-arm64-release-candidate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-signing-input:
+    if: github.repository == 'StellerSecurity/Stellar.UI.Desktop.VPNapp'
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - name: Fetch exact first-party source
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test "$SOURCE_COMMIT" = "$(printf '%s' "$SOURCE_COMMIT" | tr -cd 'a-f0-9')"
+          test "${#SOURCE_COMMIT}" -eq 40
+          git init .
+          git remote add origin https://github.com/StellerSecurity/Stellar.UI.Desktop.VPNapp.git
+          git -c protocol.version=2 fetch --no-tags --depth=1 origin "$SOURCE_COMMIT"
+          git checkout --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "$SOURCE_COMMIT"
+
+      - name: Test and build reviewed macOS ARM64 candidate
+        run: |
+          set -euo pipefail
+          test "$(uname -s)" = 'Darwin'
+          test "$(uname -m)" = 'arm64'
+          export RUSTUP_AUTO_INSTALL=0
+          test "$(rustc --version | awk '{print $2}')" = '1.99.1'
+          node scripts/verify-release-frontend.mjs
+          source_dir="$(python3 scripts/fetch-reviewed-macos-runtime-sources.py | tail -n 1)"
+          runtime_dir="$(python3 scripts/build-arm64-runtime.py --approved-source-build "$source_dir" | tail -n 1)"
+          node --input-type=module -e "import { verifyRuntime } from './scripts/macos-architecture.mjs'; verifyRuntime(process.argv[1], 'arm64');" "$runtime_dir"
+          mkdir -p src-tauri/resources/openvpn-runtime
+          cp "$runtime_dir"/* src-tauri/resources/openvpn-runtime/
+          python3 scripts/provision-reviewed-tauri.py --target darwin-arm64 --approve-reviewed-download
+          export CARGO_NET_RETRY=1
+          export CARGO_HTTP_TIMEOUT=30
+          cargo fetch --locked
+          export CARGO_NET_OFFLINE=true
+          cargo test --offline --locked -p stellar-core --lib
+          node scripts/build-macos-test.mjs --arch arm64 --profile release --runtime src-tauri/resources/openvpn-runtime
+
+      - name: Stage and publish private draft signing input
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          app='target/aarch64-apple-darwin/release/bundle/macos/Stellar VPN.app'
+          test -d "$app"
+          if /usr/bin/codesign -dv --verbose=4 "$app" 2>&1 | /usr/bin/grep -q '^Authority='; then
+            echo 'Build output must not contain a Developer ID signature.' >&2
+            exit 1
+          fi
+          staging="$RUNNER_TEMP/stellar-vpn-macos-signing-input"
+          mkdir -p "$staging"
+          archive="$staging/Stellar-VPN-0.5.3-macos-arm64-unsigned-app.tar.gz"
+          /usr/bin/tar -C "$(dirname "$app")" -czf "$archive" 'Stellar VPN.app'
+          app_hash="$(/usr/bin/shasum -a 256 "$app/Contents/MacOS/stellar-vpn-desktop" | awk '{print $1}')"
+          helper_hash="$(/usr/bin/shasum -a 256 "$app/Contents/Resources/NetworkHelper.pkg" | awk '{print $1}')"
+          printf '{"schema":1,"sourceCommit":"%s","architecture":"arm64","kind":"macos-signing-input","appExecutableSha256":"%s","embeddedHelperPackageSha256":"%s","developerIDSigned":false,"notarized":false,"stapled":false,"installed":false}\n' \
+            "$SOURCE_COMMIT" "$app_hash" "$helper_hash" > "$staging/build-info.json"
+          (cd "$staging" && /usr/bin/shasum -a 256 Stellar-VPN-0.5.3-macos-arm64-unsigned-app.tar.gz build-info.json > SHA256SUMS)
+          tag="signing-inputs-0.5.3-$SOURCE_COMMIT"
+          gh release create "$tag" --target "$SOURCE_COMMIT" --draft \
+            --title "Stellar VPN 0.5.3 signing inputs ($SOURCE_COMMIT)" \
+            --notes "Unsigned macOS ARM64 signing input from reviewed source commit $SOURCE_COMMIT." \
+            "$archive" "$staging/build-info.json" "$staging/SHA256SUMS"
