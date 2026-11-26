@@ -53,9 +53,11 @@ pub async fn installation_status(app: AppHandle) -> Result<InstallationStatus, A
     #[cfg(target_os = "windows")]
     let setup_issue = tauri::async_runtime::spawn_blocking(crate::infrastructure::windows::setup_issue).await
         .map_err(|_| AppError::new("setup_unavailable", "Installation check unavailable"))?;
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(target_os = "linux")]
+    let setup_issue = (helper == "missing").then_some("installer_required");
+    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
     let setup_issue = None;
-    Ok(InstallationStatus { platform: if cfg!(target_os = "macos") { "macos" } else if cfg!(target_os = "windows") { "windows" } else { "unsupported" }, helper, firewall_verified, language, setup_issue })
+    Ok(InstallationStatus { platform: if cfg!(target_os = "macos") { "macos" } else if cfg!(target_os = "windows") { "windows" } else if cfg!(target_os = "linux") { "linux" } else { "unsupported" }, helper, firewall_verified, language, setup_issue })
 }
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]

@@ -3,7 +3,7 @@ import type { InstallationStatus } from './Installation.ts';
 // One diagnostic at a time. Never offer elevation when the fixed helper is absent
 // or incompatible, and never interpret setup diagnostics as VPN readiness.
 export function installationHelpState(status: InstallationStatus | null, error: boolean, openError: boolean, opened: boolean) {
-  const issue = status?.platform === 'windows' ? status.setupIssue : undefined;
+  const issue = status?.platform === 'windows' || status?.platform === 'linux' ? status.setupIssue : undefined;
   const blocked = !!issue;
   // An unavailable read-only probe does not establish a missing installation.
   const retryOnly = blocked || error || status?.helper === 'unavailable';
@@ -26,7 +26,7 @@ export function installationHelpState(status: InstallationStatus | null, error: 
     description, diagnostic, alert: !blocked && (error || openError),
     retryOnly,
     button: retryOnly ? 'Check again' : opened ? 'Try again' : 'Install network helper',
-    footnote: blocked ? 'This build cannot enable VPN protection on this Windows installation.'
+    footnote: blocked ? 'This build cannot enable VPN protection until the complete system helper is installed.'
       : 'macOS will ask for administrator approval. A local firewall check may briefly interrupt your network.',
   };
 }

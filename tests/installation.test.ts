@@ -15,6 +15,15 @@ test('Windows uses the same truthful helper readiness and explicit repair flow',
   assert.equal(installationReady({ ...windows, firewallVerified: false }), true);
   assert.equal(requiresInstallationHelp({ ...windows, helper: 'unavailable' }), true);
 });
+test('Linux requires the verified root helper and participates in recovery', () => {
+  const linux = { ...ready, platform: 'linux' as const };
+  assert.deepEqual(decodeInstallation(linux), linux);
+  assert.equal(installationReady(linux), true);
+  assert.equal(requiresInstallationHelp({ ...linux, helper: 'missing' }), true);
+  const blocked = { ...linux, helper: 'missing' as const, setupIssue: 'installer_required' as const };
+  assert.equal(installationReady(blocked), false);
+  assert.equal(installationHelpState(blocked, false, false, false).retryOnly, true);
+});
 test('helper readiness never implies firewall verification', () => {
   assert.equal(installationReady({ ...ready, firewallVerified: false }), true);
   for (const helper of ['missing', 'outdated', 'unavailable'] as const) assert.equal(installationReady({ ...ready, helper }), false);
@@ -69,8 +78,8 @@ test('a failed repair has one error, not a status plus an identical alert', () =
   assert.equal(help.alert, true);
   assert.equal(help.retryOnly, true);
 });
-test('normal Mac repair and Windows installed-helper recovery are preserved', () => {
-  for (const platform of ['macos', 'windows'] as const) {
+test('normal Mac repair and installed-helper recovery are preserved', () => {
+  for (const platform of ['macos', 'windows', 'linux'] as const) {
     assert.equal(installationHelpState({ ...ready, platform, helper: 'missing' }, false, false, false).button, 'Install network helper');
     assert.equal(installationHelpState({ ...ready, platform, helper: 'missing' }, false, false, true).button, 'Try again');
   }
