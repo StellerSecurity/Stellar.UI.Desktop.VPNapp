@@ -27,10 +27,12 @@ stages:
 
           - bash: |
               set -euo pipefail
+              export RUSTUP_AUTO_INSTALL=0
+              export RUSTUP_TOOLCHAIN=stable
               node scripts/verify-release-frontend.mjs
               node --test tests/release-frontend.test.mjs tests/linux-service.test.mjs
-              rustup toolchain list | grep -Eq '^1\.99\.1(-|$)'
-              test "$(rustup run 1.99.1 rustc --version | awk '{print $2}')" = '1.99.1'
+              rustup toolchain list | grep -Eq '^stable(-|$)'
+              test "$(rustc --version | awk '{print $2}')" = '1.99.1'
             displayName: Verify pinned source and preinstalled tools
 
           - bash: |
@@ -49,7 +51,9 @@ stages:
 
           - bash: |
               set -euo pipefail
-              export RUSTUP_TOOLCHAIN=1.99.1
+              export RUSTUP_AUTO_INSTALL=0
+              export RUSTUP_TOOLCHAIN=stable
+              test "$(rustc --version | awk '{print $2}')" = '1.99.1'
               cargo fetch --locked
               export CARGO_NET_OFFLINE=true
               cargo test --offline --locked -p stellar-vpn-helper
