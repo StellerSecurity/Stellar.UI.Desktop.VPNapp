@@ -45,6 +45,14 @@ jobs:
           node scripts/check-linux-glib.mjs
           node --test tests/linux-glib.test.mjs
 
+      - name: Inventory exact Ubuntu system-library candidates
+        run: |
+          set -euo pipefail
+          for package in libglib2.0-dev libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf; do
+            apt-cache policy "$package"
+          done
+          dpkg-query -W -f='${binary:Package} ${Version}\n' libglib2.0-0t64 libgtk-3-0t64 libwebkit2gtk-4.1-0 libayatana-appindicator3-1 librsvg2-2 patchelf 2>/dev/null || true
+
       - name: Fetch the unchanged locked dependency graph
         run: cargo fetch --locked
 
