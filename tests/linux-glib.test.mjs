@@ -18,7 +18,7 @@ function fixture(t) {
 
 test('reviewed glib backport and local resolution pass integrity verification', () => {
   const evidence = verifyLinuxGlib(root);
-  assert.equal(evidence.nativeLinuxVerification, 'pending');
+  assert.match(evidence.nativeLinuxVerification, /run 45879068461.*passed offline/);
   assert.ok(evidence.verifiedArchiveFiles > 100);
 });
 

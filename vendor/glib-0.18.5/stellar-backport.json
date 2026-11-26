@@ -15,14 +15,14 @@
     "Gir_GObject.toml",
     ".cargo_vcs_info.json"
   ],
-  "nativeLinuxVerification": "pending",
+  "nativeLinuxVerification": "GitHub Actions run 45879068461 at d15dfab53619c623f8c5f11542a9132f4c8820f9: Ubuntu 24.04 debug/release regressions and cargo check passed offline with the reviewed package closure.",
   "commandsRequiredOnLinux": [
     "cargo test --offline --locked -p stellar-vpn-desktop --test linux_glib_backport",
     "cargo test --offline --locked --release -p stellar-vpn-desktop --test linux_glib_backport",
     "cargo check --offline --locked -p stellar-vpn-desktop"
   ],
   "limitations": [
-    "Native Linux debug/release tests not run on this macOS host; Linux release remains blocked.",
+    "Native verification covers the GLib backport and desktop compilation only; the Linux VPN helper, kill switch and updater remain separate release blockers.",
     "Advisory scanners may still flag version 0.18.5; do not claim a clean registry version upgrade or globally suppress the advisory.",
     "proc-macro-error maintenance warning is separate and not fixed by this backport."
   ],
@@ -152,6 +152,6 @@
       "Set Cargo.toml readme=false"
     ],
     "runtime_fix_preserved": true,
-    "native_linux_verification": "pending"
+    "native_linux_verification": "GitHub Actions run 45879068461 at d15dfab53619c623f8c5f11542a9132f4c8820f9: passed"
   }
 }
