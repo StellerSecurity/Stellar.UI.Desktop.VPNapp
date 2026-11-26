@@ -29,8 +29,11 @@ jobs:
         run: |
           set -euo pipefail
           cache="$RUNNER_TEMP/stellar-runtime-package-review"
+          before="$RUNNER_TEMP/stellar-runtime-packages-before.txt"
           mkdir -p "$cache/partial"
           chmod 755 "$cache" "$cache/partial"
+          dpkg-query -W -f='${binary:Package}\t${db:Status-Abbrev}\t${Version}\n' \
+            | LC_ALL=C sort > "$before"
           sudo apt-get update
           sudo apt-get \
             -o "Dir::Cache::archives=$cache" \
@@ -39,7 +42,6 @@ jobs:
             nftables=1.0.9-1ubuntu0.1 \
             iproute2=6.1.0-1ubuntu6.4 \
             systemd-resolved=255.4-1ubuntu8.19
-          test -z "$(dpkg-query -W -f='${db:Status-Abbrev} ${binary:Package}\n' openvpn nftables 2>/dev/null | awk '$1 == "ii" { print }')"
 
       - name: Inspect package metadata, files and maintainer scripts
         run: |
@@ -84,5 +86,9 @@ jobs:
       - name: Confirm review remained download-only
         run: |
           set -euo pipefail
-          test -z "$(dpkg-query -W -f='${db:Status-Abbrev} ${binary:Package}\n' openvpn nftables 2>/dev/null | awk '$1 == "ii" { print }')"
+          dpkg-query -W -f='${binary:Package}\t${db:Status-Abbrev}\t${Version}\n' \
+            | LC_ALL=C sort > "$RUNNER_TEMP/stellar-runtime-packages-after.txt"
+          cmp \
+            "$RUNNER_TEMP/stellar-runtime-packages-before.txt" \
+            "$RUNNER_TEMP/stellar-runtime-packages-after.txt"
           printf 'No reviewed runtime package was installed.\n'

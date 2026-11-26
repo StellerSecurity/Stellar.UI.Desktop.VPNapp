@@ -134,8 +134,11 @@ jobs:
           set -euo pipefail
           cache="$RUNNER_TEMP/stellar-runtime-package-review"
           controls="$RUNNER_TEMP/stellar-runtime-package-controls"
+          before="$RUNNER_TEMP/stellar-runtime-packages-before.txt"
           mkdir -p "$cache/partial" "$controls"
           chmod 755 "$cache" "$cache/partial"
+          dpkg-query -W -f='${binary:Package}\t${db:Status-Abbrev}\t${Version}\n' \
+            | LC_ALL=C sort > "$before"
           sudo apt-get \
             -o "Dir::Cache::archives=$cache" \
             --download-only --reinstall --no-install-recommends -y install \
@@ -176,7 +179,9 @@ jobs:
             'systemd-resolved 255.4-1ubuntu8.19'; do
             grep -Eq "^PACKAGE ${required} (amd64|all)$" "$rows"
           done
-          test -z "$(dpkg-query -W -f='${db:Status-Abbrev} ${binary:Package}\n' openvpn nftables 2>/dev/null | awk '$1 == "ii" { print }')"
+          dpkg-query -W -f='${binary:Package}\t${db:Status-Abbrev}\t${Version}\n' \
+            | LC_ALL=C sort > "$RUNNER_TEMP/stellar-runtime-packages-after.txt"
+          cmp "$before" "$RUNNER_TEMP/stellar-runtime-packages-after.txt"
 
       - name: Fetch the unchanged locked dependency graph
         if: ${{ inputs.install_reviewed_packages }}
