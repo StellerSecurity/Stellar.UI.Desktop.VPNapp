@@ -162,6 +162,10 @@ stages:
               if ($LASTEXITCODE -ne 0) { throw 'Reviewed Windows Rust staging failed.' }
               powershell -NoProfile -NonInteractive -File scripts/windows-rust-build.ps1 -SourceCommit '$(Build.SourceVersion)' -ExportInterfaceTest -ExportReleaseInput -RuntimeDirectory $runtime
               if ($LASTEXITCODE -ne 0) { throw 'Reviewed Windows candidate build failed.' }
+              $installerInput = Join-Path '$(Agent.TempDirectory)' 'stellar-windows-release-signing-input'
+              $installerOutput = Join-Path '$(Agent.TempDirectory)' 'stellar-windows-ota-installer-signing-input'
+              powershell -NoProfile -NonInteractive -File scripts/package-windows-ota-candidate.ps1 -InputDirectory $installerInput -OutputDirectory $installerOutput -SourceCommit '$(Build.SourceVersion)'
+              if ($LASTEXITCODE -ne 0) { throw 'Windows OTA installer packaging failed.' }
             displayName: Test and build reviewed Windows candidate
 
           - powershell: |
@@ -178,6 +182,12 @@ stages:
               foreach ($name in $artifacts) {
                 $source = Join-Path '$(Agent.TempDirectory)' $name
                 if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { throw ('Missing Windows artifact: ' + $name) }
+                [IO.File]::Copy($source, (Join-Path $staging $name), $false)
+              }
+              $installerDirectory = Join-Path '$(Agent.TempDirectory)' 'stellar-windows-ota-installer-signing-input'
+              foreach ($name in @('Stellar-VPN-setup.exe', 'windows-installer-build-info.json')) {
+                $source = Join-Path $installerDirectory $name
+                if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { throw ('Missing Windows installer artifact: ' + $name) }
                 [IO.File]::Copy($source, (Join-Path $staging $name), $false)
               }
               Get-ChildItem -LiteralPath $staging -File | ForEach-Object {
