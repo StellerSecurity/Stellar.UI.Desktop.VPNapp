@@ -38,7 +38,7 @@ jobs:
             openvpn=2.6.19-0ubuntu0.24.04.5 \
             nftables=1.0.9-1ubuntu0.1 \
             iproute2=6.1.0-1ubuntu6.4 \
-            systemd-resolved=255.4-1ubuntu8.18
+            systemd-resolved=255.4-1ubuntu8.19
           test -z "$(dpkg-query -W -f='${db:Status-Abbrev} ${binary:Package}\n' openvpn nftables 2>/dev/null | awk '$1 == "ii" { print }')"
 
       - name: Inspect package metadata, files and maintainer scripts
@@ -77,7 +77,7 @@ jobs:
             'openvpn 2.6.19-0ubuntu0.24.04.5' \
             'nftables 1.0.9-1ubuntu0.1' \
             'iproute2 6.1.0-1ubuntu6.4' \
-            'systemd-resolved 255.4-1ubuntu8.18'; do
+            'systemd-resolved 255.4-1ubuntu8.19'; do
             grep -Eq "^PACKAGE ${required} (amd64|all)$" "$rows"
           done
 
