@@ -50,8 +50,8 @@ pub fn installation_check() -> (&'static str, bool) {
     #[cfg(target_os = "linux")]
     {
         use std::io::{BufRead, Read, Write};
-        if !std::path::Path::new("/usr/lib/stellar-vpn/stellar-vpn-helper").is_file() { return ("missing", false); }
-        let Ok(mut stream) = helper() else { return ("unavailable", false); };
+        if linux_setup_issue().is_some() { return ("missing", false); }
+        let Ok(mut stream) = helper() else { return ("missing", false); };
         let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(2)));
         if stream.write_all(b"CAPABILITIES\n").is_err() { return ("unavailable", false); }
         let mut line = String::new();
@@ -64,6 +64,11 @@ pub fn installation_check() -> (&'static str, bool) {
     }
     #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
     ("unavailable", false)
+}
+#[cfg(target_os = "linux")]
+pub fn linux_setup_issue() -> Option<&'static str> {
+    ["/usr/lib/stellar-vpn/stellar-vpn-helper", "/lib/systemd/system/stellar-vpn@.service"]
+        .iter().any(|path| !std::path::Path::new(path).is_file()).then_some("installer_required")
 }
 pub fn known_server(id: &str) -> bool { !id.is_empty() && id.len() <= 64 && id.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-') }
 #[cfg(not(target_os = "windows"))]

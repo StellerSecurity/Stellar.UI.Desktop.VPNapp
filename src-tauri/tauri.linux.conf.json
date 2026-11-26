@@ -1,0 +1,13 @@
+{
+  "bundle": {
+    "targets": ["deb"],
+    "linux": {
+      "deb": {
+        "files": {
+          "/usr/lib/stellar-vpn/stellar-vpn-helper": "../target/release/stellar-vpn-helper",
+          "/lib/systemd/system/stellar-vpn@.service": "../scripts/linux/stellar-vpn@.service"
+        }
+      }
+    }
+  }
+}

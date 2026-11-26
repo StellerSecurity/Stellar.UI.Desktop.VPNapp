@@ -219,7 +219,8 @@ pub fn run() -> io::Result<()> {
     if Path::new(SOCKET).exists() { fs::remove_file(SOCKET)?; }
     let listener = UnixListener::bind(SOCKET)?; listener.set_nonblocking(true)?; fs::set_permissions(SOCKET, fs::Permissions::from_mode(0o600))?;
     let socket = std::ffi::CString::new(SOCKET).unwrap(); if unsafe { chown(socket.as_ptr(), uid, u32::MAX) } != 0 { return Err(io::Error::other("Socket permissions unavailable")); }
-    clear_dns(); let state = Arc::new(Mutex::new(Tunnel::default()));
+    clear_dns();
+    let state = Arc::new(Mutex::new(Tunnel { protected: crate::linux_firewall::is_armed(), ..Tunnel::default() }));
     unsafe { signal(15, shutdown_signal as *const () as usize); signal(2, shutdown_signal as *const () as usize); }
     let active = Arc::new(std::sync::atomic::AtomicUsize::new(0));
     while !SHUTDOWN.load(std::sync::atomic::Ordering::Relaxed) {

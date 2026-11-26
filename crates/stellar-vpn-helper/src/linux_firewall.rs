@@ -41,6 +41,14 @@ pub fn available() -> bool {
     std::fs::symlink_metadata(NFT).is_ok_and(|meta| meta.is_file() && !meta.file_type().is_symlink())
 }
 
+pub fn is_armed() -> bool {
+    run(&["list", "table", "inet", TABLE], None).is_ok_and(|loaded| {
+        loaded.contains("hook output priority -100; policy drop;")
+            && loaded.contains("oifname \"lo\" accept")
+            && loaded.contains("reject")
+    })
+}
+
 pub fn arm(endpoints: &[Endpoint], tunnel: Option<&str>) -> io::Result<()> {
     if !available() { return Err(io::Error::other("nftables unavailable")); }
     let _ = run(&["delete", "table", "inet", TABLE], None);
