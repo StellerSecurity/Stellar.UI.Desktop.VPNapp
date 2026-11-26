@@ -31,7 +31,7 @@ jobs:
           $files = @(
             @{ path = 'scripts/windows-rust-build.ps1'; sha256 = '558342fc5341dc0e4f06c226a8c44a906ac99a518e80023637f5638d0b7de2aa' },
             @{ path = 'scripts/windows-rust-extract.py'; sha256 = 'f2d095f48d9235bb52865a0b09160eae5871bdc6f5deb37df4820e179b74c69e' },
-            @{ path = 'scripts/windows-rust-inputs.json'; sha256 = 'ccee0c498b3d23922454b9be619e05b0aaa86434589eb1844860b41241bdea50' },
+            @{ path = 'scripts/windows-rust-inputs.json'; sha256 = 'fd5e72d75c5616908ae188f0288a9cf8235147d381e45d22ca61de72edd08601' },
             @{ path = '.github/actions/upload-windows-interface-test/action.yml'; sha256 = 'aa643c5298b83c09698d7f7a55e9eea1f4455f3dc778c78aba9a6d63bac3c617' },
             @{ path = '.github/actions/upload-windows-interface-test/index.mjs'; sha256 = 'd23e3a3a932c676a4ebd1307dd678ccfeb9816731fa374803ea41f67292891b6' }
           )
