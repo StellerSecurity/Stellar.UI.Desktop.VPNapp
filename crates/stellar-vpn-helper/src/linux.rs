@@ -83,7 +83,10 @@ fn stop_inner(tunnel: &mut Tunnel) -> io::Result<()> {
     }
     clear_dns(); Ok(())
 }
-fn stop(state: &Shared) -> io::Result<()> { stop_inner(&mut locked(state)?) }
+fn stop(state: &Shared) -> io::Result<()> {
+    let mut tunnel = locked(state)?;
+    stop_inner(&mut tunnel)
+}
 fn stop_generation(state: &Shared, generation: u64) { if let Ok(mut tunnel) = locked(state) { if tunnel.generation == generation { let _ = stop_inner(&mut tunnel); } } }
 fn status(state: &Shared, stream: &mut UnixStream) -> io::Result<()> {
     let tunnel = locked(state)?;
@@ -178,7 +181,10 @@ fn handle(mut stream: UnixStream, state: &Shared, allowed_uid: u32) -> io::Resul
     if header == "EXPIRE" { stop(state)?; return status(state, &mut stream); }
     if matches!(header.as_str(), "PROTECT 0" | "PROTECT 1") {
         let _operation = CONNECT_LOCK.try_lock().map_err(|_| io::Error::other("Connection in progress"))?;
-        let enabled = header == "PROTECT 1"; update_protection(&mut locked(state)?, enabled)?; return writeln!(stream, "PROTECTED {}", u8::from(enabled));
+        let enabled = header == "PROTECT 1";
+        let mut tunnel = locked(state)?;
+        update_protection(&mut tunnel, enabled)?;
+        return writeln!(stream, "PROTECTED {}", u8::from(enabled));
     }
     if header == "DISCONNECT" {
         let _operation = CONNECT_LOCK.lock().map_err(|_| io::Error::other("State unavailable"))?;
