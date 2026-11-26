@@ -102,5 +102,5 @@ jobs:
               $output = [IO.File]::Open($script, [IO.FileMode]::CreateNew)
               try { $input.CopyTo($output) } finally { $output.Dispose(); $input.Dispose() }
           } finally { $response.Dispose() }
-          if ((Get-FileHash -LiteralPath $script -Algorithm SHA256).Hash.ToLowerInvariant() -ne '2b043358b08d4f721feb3d80f6fd35f57603c0f769f13068c6b229acb15c492e') { throw 'Unapproved first-party extraction script.' }
+          if ((Get-FileHash -LiteralPath $script -Algorithm SHA256).Hash.ToLowerInvariant() -ne '290444517847b1c4f62e5640f30b5295cb9672778beaf035f1f84354ee485bf1') { throw 'Unapproved first-party extraction script.' }
           & $script -Package $file

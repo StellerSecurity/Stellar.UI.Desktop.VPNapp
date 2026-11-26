@@ -1,6 +1,6 @@
 # Exact reviewed hosted Rust/SDK toolchain, locked graph and vendored source only.
 # No installer/driver/service registration, GUI launch or production credentials.
-param([Parameter(Mandatory = $true)][string] $SourceCommit, [switch] $ExportInterfaceTest, [switch] $PrepareRustOnly)
+param([Parameter(Mandatory = $true)][string] $SourceCommit, [switch] $ExportInterfaceTest, [switch] $ExportReleaseInput, [string] $RuntimeDirectory = '', [switch] $PrepareRustOnly)
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 if ($SourceCommit -notmatch '^[a-f0-9]{40}$') { throw 'Exact first-party source commit required.' }
@@ -219,6 +219,39 @@ try {
     & $cargo build --locked --offline --target x86_64-pc-windows-msvc -p stellar-vpn-desktop
     if ($LASTEXITCODE -ne 0) { throw 'Windows desktop debug build failed.' }
     Verify-Lock
+    if ($ExportReleaseInput) {
+        if ($review.releaseBinaryExecutionApproval.approved -ne $true -or
+            $review.releaseBinaryExecutionApproval.scope -ne 'exact-reviewed-windows-release-binary-build') { throw 'Exact Windows release-binary execution approval required.' }
+        if ([string]::IsNullOrEmpty($RuntimeDirectory) -or -not [IO.Path]::IsPathRooted($RuntimeDirectory) -or
+            -not (Test-Path -LiteralPath (Join-Path $RuntimeDirectory 'runtime.sha256') -PathType Leaf)) { throw 'Reviewed Windows runtime directory required.' }
+        & $cargo build --locked --offline --release --target x86_64-pc-windows-msvc -p stellar-vpn-desktop --features tauri/custom-protocol
+        if ($LASTEXITCODE -ne 0) { throw 'Windows desktop release-binary build failed.' }
+        Verify-Lock
+        $releaseOutput = Join-Path $env:RUNNER_TEMP 'stellar-windows-release-signing-input'
+        $releaseZip = $releaseOutput + '.zip'
+        if ((Test-Path -LiteralPath $releaseOutput) -or (Test-Path -LiteralPath $releaseZip)) { throw 'Fresh Windows release signing input required.' }
+        [IO.Directory]::CreateDirectory($releaseOutput) | Out-Null
+        $app = Join-Path $releaseOutput 'Stellar VPN.exe'
+        $helper = Join-Path $releaseOutput 'stellar-vpn-service.exe'
+        [IO.File]::Copy((Join-Path $env:CARGO_TARGET_DIR 'x86_64-pc-windows-msvc/release/stellar-vpn-desktop.exe'), $app, $false)
+        [IO.File]::Copy((Join-Path $root 'native-preflight/stellar-vpn-service.exe'), $helper, $false)
+        if ((Get-AuthenticodeSignature -LiteralPath $app).Status -ne 'NotSigned' -or
+            (Get-AuthenticodeSignature -LiteralPath $helper).Status -ne 'NotSigned') { throw 'Only unsigned first-party binaries may leave CI.' }
+        $runtimeOutput = Join-Path $releaseOutput 'Runtime'
+        [IO.Directory]::CreateDirectory($runtimeOutput) | Out-Null
+        foreach ($file in Get-ChildItem -LiteralPath $RuntimeDirectory -File) { [IO.File]::Copy($file.FullName, (Join-Path $runtimeOutput $file.Name), $false) }
+        $proof = [ordered]@{
+            schema = 1; sourceCommit = $SourceCommit; architecture = 'x86_64'; kind = 'windows-release-signing-input'
+            appSha256 = (Get-FileHash -LiteralPath $app -Algorithm SHA256).Hash.ToLowerInvariant()
+            helperSha256 = (Get-FileHash -LiteralPath $helper -Algorithm SHA256).Hash.ToLowerInvariant()
+            runtimeManifestSha256 = (Get-FileHash -LiteralPath (Join-Path $runtimeOutput 'runtime.sha256') -Algorithm SHA256).Hash.ToLowerInvariant()
+            signed = $false; installerIncluded = $false; binariesExecuted = $false; runtimeExecuted = $false; driverInstalled = $false
+            nextStep = 'Sign both first-party executables, then package and sign the installer on the approved Windows signing machine.'
+        }
+        [IO.File]::WriteAllText((Join-Path $releaseOutput 'build-info.json'), ($proof | ConvertTo-Json), $utf8)
+        Compress-Archive -Path (Join-Path $releaseOutput '*') -DestinationPath $releaseZip -CompressionLevel Optimal
+        $proof | ConvertTo-Json -Compress
+    }
     if ($ExportInterfaceTest) {
         # A standalone UI test, not the installer or VPN runtime. Embed the
         # pinned frontend snapshot instead of depending on a localhost server.

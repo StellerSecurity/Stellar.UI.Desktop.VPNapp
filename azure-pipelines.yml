@@ -155,9 +155,12 @@ stages:
               $ErrorActionPreference = 'Stop'
               node scripts/verify-release-frontend.mjs
               $env:RUNNER_TEMP = '$(Agent.TempDirectory)'
+              $runtime = Join-Path '$(Agent.TempDirectory)' 'stellar-reviewed-windows-runtime'
+              powershell -NoProfile -NonInteractive -File scripts/prepare-reviewed-windows-runtime.ps1 -OutputDirectory $runtime
+              if ($LASTEXITCODE -ne 0) { throw 'Reviewed Windows VPN runtime staging failed.' }
               powershell -NoProfile -NonInteractive -File scripts/windows-rust-build.ps1 -SourceCommit '$(Build.SourceVersion)' -PrepareRustOnly
               if ($LASTEXITCODE -ne 0) { throw 'Reviewed Windows Rust staging failed.' }
-              powershell -NoProfile -NonInteractive -File scripts/windows-rust-build.ps1 -SourceCommit '$(Build.SourceVersion)' -ExportInterfaceTest
+              powershell -NoProfile -NonInteractive -File scripts/windows-rust-build.ps1 -SourceCommit '$(Build.SourceVersion)' -ExportInterfaceTest -ExportReleaseInput -RuntimeDirectory $runtime
               if ($LASTEXITCODE -ne 0) { throw 'Reviewed Windows candidate build failed.' }
             displayName: Test and build reviewed Windows candidate
 
@@ -169,7 +172,8 @@ stages:
               $artifacts = @(
                 'stellar-windows-interface-test.zip',
                 'stellar-windows-unsigned-native-helper.zip',
-                'stellar-windows-native-synthetic-test.zip'
+                'stellar-windows-native-synthetic-test.zip',
+                'stellar-windows-release-signing-input.zip'
               )
               foreach ($name in $artifacts) {
                 $source = Join-Path '$(Agent.TempDirectory)' $name

@@ -123,7 +123,7 @@
     },
     {
       "path": "native/windows/rust-build-approval.json",
-      "sha256": "8765cf9b42cd92f6f621d503b36a6d4f12022d0e2cc9a19ca888f25f794d80bc"
+      "sha256": "f67c102df4980368c857d81716c21d53b12319c46c5b83d1d3bac797b4b649ee"
     },
     {
       "path": "native/windows/service.cpp",

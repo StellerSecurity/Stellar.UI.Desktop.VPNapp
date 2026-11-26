@@ -1,4 +1,4 @@
-param([Parameter(Mandatory = $true)][string]$Package)
+param([Parameter(Mandatory = $true)][string]$Package, [string]$ExportDirectory = '')
 # Static inspection only. No MSI session, custom action, service or driver setup.
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -172,6 +172,32 @@ public static class StellarStaticCatalog {
             [ordered]@{ catalog = $catId; member = $memberId; sha256CatalogMember = $true; catalogSignature = 'Valid' } | ConvertTo-Json -Compress
         }
         if ([StellarStaticCatalog]::Contains($cat, $extracted['config.README.txt'])) { throw 'Catalog negative control failed.' }
+    }
+    if (-not [string]::IsNullOrEmpty($ExportDirectory)) {
+        if (-not [IO.Path]::IsPathRooted($ExportDirectory) -or (Test-Path -LiteralPath $ExportDirectory)) { throw 'Fresh absolute runtime export directory required.' }
+        [IO.Directory]::CreateDirectory($ExportDirectory) | Out-Null
+        $runtime = @(
+            @{ id = 'bin.openvpn.exe'; name = 'openvpn.exe'; sha256 = '02d1f147e58de4e12735d9d4614a40d69a87a4874928b962aa235264fa364ea1' },
+            @{ id = 'libcrypto_3_x64.dll'; name = 'libcrypto-3-x64.dll'; sha256 = '1bbececb5ccb120a2003d105ace388fec5ffa174dd8268ba51a6d4f29d41a94f' },
+            @{ id = 'libssl_3_x64.dll'; name = 'libssl-3-x64.dll'; sha256 = '434801bbecc42f2b861c9da535baacb8d8720d3f463f92129a1667edda8aad9c' },
+            @{ id = 'libpkcs11_helper_1.dll'; name = 'libpkcs11-helper-1.dll'; sha256 = '6636876cf2682a45b411d516bf592f40c3c811fe1f415fbe17ef363da6a63e35' },
+            @{ id = 'legacy.dll'; name = 'legacy.dll'; sha256 = '99d82596f76263690d8857600cfb89d5669bfb89e651f03272d7f1cbb7f11cf7' },
+            @{ id = 'vcruntime140.dll'; name = 'vcruntime140.dll'; sha256 = 'c51c64dfb7c445ecf0001f69c27e13299ddcfba0780efa72b866a7487b7491c7' },
+            @{ id = 'ovpndco_nx21.inf' + $suffix; name = 'ovpn-dco.inf'; sha256 = 'bcfe1a0c6584306ed072dfbee51cbf838ec53fc71bd580b249b3bfdaa5176742' },
+            @{ id = 'ovpndco_nx21.cat' + $suffix; name = 'ovpn-dco.cat'; sha256 = '85351773de9e3af57650b44c0911354613613cad569b3381d429218a1e2bf2e8' },
+            @{ id = 'ovpndco_nx21.sys' + $suffix; name = 'ovpn-dco.sys'; sha256 = '80b2b2962dd421e566cacddf3e003455a6aa50764dec76479092b92570330a1b' }
+        )
+        $manifestLines = @()
+        foreach ($pin in $runtime) {
+            if (-not $extracted.ContainsKey($pin.id)) { throw ('Reviewed runtime file missing: ' + $pin.id) }
+            $source = $extracted[$pin.id]
+            if ((Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant() -ne $pin.sha256) { throw ('Reviewed runtime hash changed: ' + $pin.name) }
+            $destination = Join-Path $ExportDirectory $pin.name
+            [IO.File]::Copy($source, $destination, $false)
+            $manifestLines += ($pin.sha256 + '  ' + $pin.name)
+        }
+        [IO.File]::WriteAllLines((Join-Path $ExportDirectory 'runtime.sha256'), $manifestLines, (New-Object Text.UTF8Encoding($false)))
+        if (@(Get-ChildItem -LiteralPath $ExportDirectory -File).Count -ne 10) { throw 'Unexpected exported runtime file count.' }
     }
     [ordered]@{ review = 'static-extraction-only'; filesInspected = $extracted.Count; packageExtracted = $true; packageExecuted = $false; serviceInstalled = $false; driverInstalled = $false; catalogMembershipVerified = $true; catalogNegativeControls = 2; releaseApproved = $false } | ConvertTo-Json -Compress
 } finally {

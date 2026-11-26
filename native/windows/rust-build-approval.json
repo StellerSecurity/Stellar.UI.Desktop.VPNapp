@@ -3,6 +3,11 @@
   "approved": true,
   "scope": "windows-rust-debug-build-and-synthetic-tests",
   "userApproval": "Explicit user approval after exact Rust/SDK/locked dependency review on 2026-10-31",
+  "releaseBinaryExecutionApproval": {
+    "approved": true,
+    "scope": "exact-reviewed-windows-release-binary-build",
+    "reason": "Explicit user approval on 2026-11-26 to build the locked 0.5.3 Windows signing inputs in Azure without executing the app, service, runtime or driver."
+  },
   "lockSha256": "5e3c4cdc49cb24737c79c710d20cb587fab10cded0aadc78d179dff11f79cf9e",
   "rustVersion": "1.99.1 (58cf8f9c3 2026-10-13)",
   "rust": [
