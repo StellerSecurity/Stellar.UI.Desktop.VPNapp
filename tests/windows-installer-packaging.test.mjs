@@ -15,6 +15,7 @@ test('Windows pipeline emits the final OTA installer filename without downloads'
   assert(packager.includes('Get-AuthenticodeSignature'));
   assert(packager.includes('authenticodeSigned = $false'));
   assert(packager.includes('otaSigned = $false'));
+  assert(!/-or\s+Test-Path|-and\s+Test-Path/.test(packager));
   assert(!/Invoke-WebRequest|WebClient|HttpWebRequest|Start-BitsTransfer|winget|choco|npm|npx|curl|wget/i.test(packager));
 });
 

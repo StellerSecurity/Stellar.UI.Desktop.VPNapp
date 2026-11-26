@@ -17,7 +17,7 @@ if ($SourceCommit -notmatch '^[a-f0-9]{40}$' -or $env:BUILD_SOURCEVERSION -cne $
 foreach ($path in @($InputDirectory, $OutputDirectory)) {
     if (-not [IO.Path]::IsPathRooted($path)) { throw 'Absolute staging paths required.' }
 }
-if (-not (Test-Path -LiteralPath $InputDirectory -PathType Container) -or Test-Path -LiteralPath $OutputDirectory) {
+if (-not (Test-Path -LiteralPath $InputDirectory -PathType Container) -or (Test-Path -LiteralPath $OutputDirectory)) {
     throw 'Existing input and fresh output directories required.'
 }
 
