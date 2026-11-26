@@ -19,8 +19,9 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 
 def build(inputs):
-    if sys.platform != 'darwin' or os.uname().machine != 'arm64':
-        raise ValueError('Native Apple Silicon macOS build required')
+    if sys.platform != 'darwin' or os.uname().machine not in {'arm64', 'x86_64'}:
+        raise ValueError('macOS build host required')
+    native_arm64 = os.uname().machine == 'arm64'
     lock = json.loads((ROOT / 'scripts/intel-source-lock.json').read_text())
     packages = [p for p in lock['artifacts'] if p['name'] != 'rust-std']
     # Verify all inputs before any extraction or third-party execution.
@@ -97,7 +98,7 @@ def build(inputs):
             run(directory / 'lib', '/usr/bin/make', '-j4', 'liblz4', 'PREFIX=' + str(prefix))
             run(directory / 'lib', '/usr/bin/make', 'install', 'PREFIX=' + str(prefix))
         else:
-            options = ['--prefix=' + str(prefix), '--enable-shared', '--disable-static']
+            options = ['--host=aarch64-apple-darwin', '--prefix=' + str(prefix), '--enable-shared', '--disable-static']
             extra = {'OPENSSL_CFLAGS': f'-I{prefix}/include', 'OPENSSL_LIBS': f'-L{prefix}/lib -lcrypto'}
             run(directory, '/bin/sh', './configure', *options, extra=extra)
             run(directory, '/usr/bin/make', '-j4')
@@ -106,7 +107,7 @@ def build(inputs):
                'LZO_CFLAGS': f'-I{prefix}/include', 'LZO_LIBS': f'-L{prefix}/lib -llzo2',
                'LZ4_CFLAGS': f'-I{prefix}/include', 'LZ4_LIBS': f'-L{prefix}/lib -llz4',
                'PKCS11_HELPER_CFLAGS': f'-I{prefix}/include', 'PKCS11_HELPER_LIBS': f'-L{prefix}/lib -lpkcs11-helper'}
-    run(sources['openvpn'], '/bin/sh', './configure', '--prefix=' + str(prefix),
+    run(sources['openvpn'], '/bin/sh', './configure', '--host=aarch64-apple-darwin', '--prefix=' + str(prefix),
         '--disable-dco', '--disable-debug', '--enable-pkcs11', '--disable-unit-tests', '--disable-plugin-auth-pam', '--disable-plugin-down-root', extra=options)
     run(sources['openvpn'], '/usr/bin/make', '-j4')
     runtime = work / 'openvpn-runtime'
@@ -138,8 +139,11 @@ def build(inputs):
     # First-party static checker verifies actual Mach-O targets, not build flags.
     checker = "import fs from 'node:fs';import {verifyRuntime,minimumMacOS} from './scripts/macos-architecture.mjs';const d=process.argv[1];const m=verifyRuntime(d,'arm64');for(const r of m.files)r.minimumMacOS=minimumMacOS(d+'/'+r.file);fs.writeFileSync(d+'/runtime-manifest.json',JSON.stringify(m,null,2)+'\\n');"
     subprocess.run(['node', '--input-type=module', '-e', checker, str(runtime)], cwd=ROOT, check=True)
+    # Execute the reviewed binary only on a native Apple Silicon host. Intel
+    # Azure agents cross-build it and rely on the Mach-O/runtime verifier above.
     # No VPN connection, helper installation, external test or signing-key use.
-    run(work, str(runtime / 'openvpn'), '--version')
+    if native_arm64:
+        run(work, str(runtime / 'openvpn'), '--version')
     print(runtime)
 
 

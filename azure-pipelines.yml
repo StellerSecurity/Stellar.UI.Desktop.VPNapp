@@ -208,7 +208,8 @@ stages:
 
           - bash: |
               set -euo pipefail
-              test "$(uname -m)" = 'arm64'
+              test "$(uname -s)" = 'Darwin'
+              case "$(uname -m)" in arm64|x86_64) ;; *) exit 1 ;; esac
               node scripts/verify-release-frontend.mjs
               source_dir="$(python3 scripts/fetch-reviewed-macos-runtime-sources.py | tail -n 1)"
               runtime_dir="$(python3 scripts/build-arm64-runtime.py --approved-source-build "$source_dir" | tail -n 1)"
@@ -219,9 +220,9 @@ stages:
               export RUSTUP_AUTO_INSTALL=0
               export CARGO_NET_RETRY=1
               export CARGO_HTTP_TIMEOUT=30
-              cargo fetch --locked --target aarch64-apple-darwin
+              cargo fetch --locked
               export CARGO_NET_OFFLINE=true
-              cargo test --offline --locked --target aarch64-apple-darwin -p stellar-core --lib
+              cargo test --offline --locked -p stellar-core --lib
               node scripts/build-macos-test.mjs --arch arm64 --profile release --runtime src-tauri/resources/openvpn-runtime
             displayName: Test and build reviewed macOS candidate
 
