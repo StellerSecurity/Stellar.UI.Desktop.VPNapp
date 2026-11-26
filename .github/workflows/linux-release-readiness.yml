@@ -1,0 +1,58 @@
+name: Linux release readiness
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: linux-release-readiness-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-verification:
+    if: github.repository == 'StellerSecurity/Stellar.UI.Desktop.VPNapp'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      CARGO_TERM_COLOR: always
+      RUSTUP_TOOLCHAIN: 1.99.1
+    steps:
+      - name: Fetch exact first-party source
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test "$SOURCE_COMMIT" = "$(printf '%s' "$SOURCE_COMMIT" | tr -cd 'a-f0-9')"
+          test "${#SOURCE_COMMIT}" -eq 40
+          git init .
+          git remote add origin https://github.com/StellerSecurity/Stellar.UI.Desktop.VPNapp.git
+          git -c protocol.version=2 fetch --no-tags --depth=1 origin "$SOURCE_COMMIT"
+          git checkout --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "$SOURCE_COMMIT"
+
+      - name: Require the reviewed Rust toolchain to be preinstalled
+        run: |
+          set -euo pipefail
+          rustup toolchain list
+          rustup toolchain list | grep -Eq '^1\.99\.1(-|$)'
+          test "$(rustc --version | awk '{print $2}')" = '1.99.1'
+
+      - name: Verify reviewed Linux source boundary
+        run: |
+          set -euo pipefail
+          node scripts/check-linux-glib.mjs
+          node --test tests/linux-glib.test.mjs
+
+      - name: Fetch the unchanged locked dependency graph
+        run: cargo fetch --locked
+
+      - name: Run native Linux debug and release regressions offline
+        env:
+          CARGO_NET_OFFLINE: 'true'
+        run: |
+          set -euo pipefail
+          cargo test --offline --locked -p stellar-vpn-desktop --test linux_glib_backport
+          cargo test --offline --locked --release -p stellar-vpn-desktop --test linux_glib_backport
+          cargo check --offline --locked -p stellar-vpn-desktop
