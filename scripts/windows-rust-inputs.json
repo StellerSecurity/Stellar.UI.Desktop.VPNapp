@@ -10,6 +10,30 @@
       "sha256": "b5b5bf0c5893c7aea3fa4a83abd05ef9020d719e9c8ce65a2aa2ec4f454c9d4e"
     },
     {
+      "path": "dist/assets/app-icon-CXXrWLgr.png",
+      "sha256": "46da88c5724492c5f3a49a73ff1937e38cd6ad1dffd2f70433c36fa193b5f34e"
+    },
+    {
+      "path": "dist/assets/index-A9-Nk-lZ.js",
+      "sha256": "5f2caf71a90363cd599bac4fb6407fbc43779a6fdbd8d10e51b587c4ee214b1e"
+    },
+    {
+      "path": "dist/assets/index-cB2S1gZW.css",
+      "sha256": "9e2522b36a1baf94bc2e96a470b55bbb3ee5dc841ab844cb0e4f3c19a8b0c706"
+    },
+    {
+      "path": "dist/assets/stellar-vpn-logo-DlzHSNow.png",
+      "sha256": "010a384eeaf7254ade811c77c8f8ad854a6c80b49c1ca41526c17b64cdf6cb8d"
+    },
+    {
+      "path": "dist/assets/world-countries-Bwle1vj3.geojson",
+      "sha256": "a4d67eac9c75d5b6f20170d2b07bb53ea791536b0c8e5ebae3ba94df093f76e0"
+    },
+    {
+      "path": "dist/index.html",
+      "sha256": "63ff0b7678232c900e5db65e7bba48064f1cf6f95b5a41a310ec55a563a66865"
+    },
+    {
       "path": "crates/stellar-core/Cargo.toml",
       "sha256": "a17a9b020a34cd42d09ffb93cc190d592369adc1fd0584a806767388858df781"
     },
