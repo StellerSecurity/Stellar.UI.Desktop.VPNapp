@@ -65,6 +65,8 @@ jobs:
           cache="$RUNNER_TEMP/stellar-ubuntu-package-review"
           controls="$RUNNER_TEMP/stellar-ubuntu-package-controls"
           mkdir -p "$cache/partial" "$controls"
+          chmod 755 "$cache" "$cache/partial"
+          sudo apt-get update
           sudo apt-get \
             -o "Dir::Cache::archives=$cache" \
             --download-only --no-install-recommends -y install \
