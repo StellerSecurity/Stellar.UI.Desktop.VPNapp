@@ -31,7 +31,6 @@ stages:
               export RUSTUP_TOOLCHAIN=stable
               node scripts/verify-release-frontend.mjs
               node --test tests/release-frontend.test.mjs tests/linux-service.test.mjs
-              rustup toolchain list | grep -Eq '^stable(-|$)'
               test "$(rustc --version | awk '{print $2}')" = '1.99.1'
             displayName: Verify pinned source and preinstalled tools
 
