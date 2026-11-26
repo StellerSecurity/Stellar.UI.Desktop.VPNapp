@@ -4,3 +4,4 @@ vite.config.ts text eol=lf
 tsconfig.json text eol=lf
 package.json text eol=lf
 package-lock.json text eol=lf
+dist/** -text
