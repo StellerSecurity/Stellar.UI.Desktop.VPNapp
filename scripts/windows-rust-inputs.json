@@ -59,7 +59,7 @@
     },
     {
       "path": "crates/stellar-vpn-helper/src/main.rs",
-      "sha256": "f88405b8bd0803d2336a7911d797d3e999d07258e3a5ee960b0b3ca6846f93ff"
+      "sha256": "56ac8c582ed9eadf46fbb2497fabdbef0635773019d0358049a8b4e22263188d"
     },
     {
       "path": "native/windows/bridge-link-test.cpp",
@@ -235,7 +235,7 @@
     },
     {
       "path": "src-tauri/src/commands.rs",
-      "sha256": "079cd910012dcebb7050ab1f18c644118199d8695307f8b35fa1ffb493276b4c"
+      "sha256": "7023ddbbd3a14bf8b4b7376397c51c1d7d9e52e43c8dc1ce1aaf48e491c13540"
     },
     {
       "path": "src-tauri/src/Info.plist",
@@ -279,7 +279,7 @@
     },
     {
       "path": "src-tauri/src/infrastructure/vpn.rs",
-      "sha256": "1fd629fe5391a2886da55954bf55957b168ab1b069d96fd5c17214965f9d0066"
+      "sha256": "53e028420969e1b5926bd4298ec0b6676ed6424627f2d559ab6f114d483e9a3e"
     },
     {
       "path": "src-tauri/src/infrastructure/windows_engine_tests.rs",
