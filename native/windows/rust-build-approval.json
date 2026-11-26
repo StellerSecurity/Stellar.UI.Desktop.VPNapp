@@ -2076,11 +2076,11 @@
     }
   ],
   "releaseApproved": false,
-  "sourceLockSha256": "04a5766c1d5914bb857907b93a14b6d193d2f49d07f6e781c42b1258d4ffb7d2",
+  "sourceLockSha256": "907ef8b33ece3038162436e9a32fe3e51be60fa2998b6592f8c898209b085d78",
   "firstPartyLockVersion": {
     "name": "stellar-vpn-desktop",
     "from": "0.1.0",
-    "to": "0.5.1"
+    "to": "0.5.3"
   },
   "sdkExecutionApproval": {
     "approved": true,

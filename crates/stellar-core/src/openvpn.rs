@@ -107,6 +107,8 @@ impl ValidatedConfig {
                     | ["key-direction", "1"] => true,
                 ["proto", "udp" | "udp4" | "tcp-client" | "tcp4-client"] => true,
                 ["resolv-retry", "infinite"] => true,
+                ["tun-mtu", mtu] => mtu.parse::<u16>().is_ok_and(|n| (1200..=1500).contains(&n)),
+                ["mssfix", mtu] | ["mssfix", mtu, "mtu"] => mtu.parse::<u16>().is_ok_and(|n| (1200..=1500).contains(&n)),
                 ["hand-window", seconds] => seconds.parse::<u32>().is_ok_and(|n| (1..=120).contains(&n)),
                 ["verb", "0" | "1" | "2" | "3"] => true,
                 ["remote", host, port] => {
@@ -206,6 +208,16 @@ mod tests {
         }
         assert!(ValidatedConfig::parse(&config().replace("remote-cert-tls server", "")).is_err());
         assert!(ValidatedConfig::parse(&config().replace("</key>", "")).is_err());
+    }
+    #[test]
+    fn bounded_tunnel_mtu_options_are_accepted() {
+        let input = config() + "tun-mtu 1400\nmssfix 1400 mtu\n";
+        let parsed = ValidatedConfig::parse(&input).unwrap();
+        assert!(parsed.as_str().contains("tun-mtu 1400\n"));
+        assert!(parsed.as_str().contains("mssfix 1400 mtu\n"));
+        for unsafe_line in ["tun-mtu 0", "tun-mtu 1199", "tun-mtu 1501", "mssfix 0", "mssfix 1501", "mssfix 1400 fixed"] {
+            assert!(ValidatedConfig::parse(&(config() + unsafe_line + "\n")).is_err(), "{unsafe_line}");
+        }
     }
     #[test]
     fn vpn_auth_is_not_account_auth_and_cannot_inject_management_commands() {

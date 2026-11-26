@@ -3,7 +3,7 @@
   "files": [
     {
       "path": "Cargo.lock",
-      "sha256": "04a5766c1d5914bb857907b93a14b6d193d2f49d07f6e781c42b1258d4ffb7d2"
+      "sha256": "907ef8b33ece3038162436e9a32fe3e51be60fa2998b6592f8c898209b085d78"
     },
     {
       "path": "Cargo.toml",
@@ -35,7 +35,7 @@
     },
     {
       "path": "crates/stellar-core/src/openvpn.rs",
-      "sha256": "37d2a3e1d7dfa9f0179c78c5e2c805bc8b8965cf38c9aa27fe6a4e538cb5447c"
+      "sha256": "095d54c5ecee4b1d5cbf4396fa806181a753f6721c70b5aa1e1ff2c0109af4c2"
     },
     {
       "path": "crates/stellar-core/src/ports.rs",
@@ -123,7 +123,7 @@
     },
     {
       "path": "native/windows/rust-build-approval.json",
-      "sha256": "a954c56acf17f5c3e58b8ddabb9eeccb503c3fa11aa905f3fbb80bc8599be58f"
+      "sha256": "67bf326348173d0f10b2e261b5c56bf54606668921aec9542d123ec1e8491b33"
     },
     {
       "path": "native/windows/service.cpp",
@@ -147,7 +147,7 @@
     },
     {
       "path": "src-tauri/Cargo.toml",
-      "sha256": "6888ae247c5bcee879cd33f6c855b5b33e2c90412b17830b0dce5ceb9452c819"
+      "sha256": "b79f52dcd45cbe05f2cffee818b01053377e1cb015061e61e316d3321f06f126"
     },
     {
       "path": "src-tauri/icons/128x128.png",
@@ -235,7 +235,7 @@
     },
     {
       "path": "src-tauri/src/commands.rs",
-      "sha256": "2b62a7b0371b0da615ce998681f5e8f814bb3da5b5f3eadb54d025689097446a"
+      "sha256": "079cd910012dcebb7050ab1f18c644118199d8695307f8b35fa1ffb493276b4c"
     },
     {
       "path": "src-tauri/src/Info.plist",
@@ -335,7 +335,7 @@
     },
     {
       "path": "src-tauri/tauri.conf.json",
-      "sha256": "5fdc9742bafee867175f6d2ee72f1e37a082468939579f78b9f955c9da1f2eb2"
+      "sha256": "c76e0bab5374880f2bc6ce29a4d965a24c6f75a4ef42e3f0a835ebdebd3bbcc9"
     },
     {
       "path": "src/shared/i18n/notices.ts",

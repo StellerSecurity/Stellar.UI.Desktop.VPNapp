@@ -126,12 +126,12 @@ function Verify-Lock {
     $lockPath = Join-Path $root 'Cargo.lock'
     if ((Get-FileHash -LiteralPath $lockPath -Algorithm SHA256).Hash.ToLowerInvariant() -ne $review.sourceLockSha256) { throw 'Exact source Cargo.lock changed.' }
     if ($review.firstPartyLockVersion.name -ne 'stellar-vpn-desktop' -or
-        $review.firstPartyLockVersion.from -ne '0.1.0' -or $review.firstPartyLockVersion.to -ne '0.5.1') {
+        $review.firstPartyLockVersion.from -ne '0.1.0' -or $review.firstPartyLockVersion.to -ne '0.5.3') {
         throw 'Unexpected first-party version-only change.'
     }
     # Preserve the original reviewed dependency lock hash. Only the authored app version differs.
     $text = [IO.File]::ReadAllText($lockPath)
-    $current = 'name = "stellar-vpn-desktop"' + "`n" + 'version = "0.5.1"'
+    $current = 'name = "stellar-vpn-desktop"' + "`n" + 'version = "0.5.3"'
     $original = 'name = "stellar-vpn-desktop"' + "`n" + 'version = "0.1.0"'
     if ([regex]::Matches($text, [regex]::Escape($current)).Count -ne 1) { throw 'Unique first-party lock entry required.' }
     $normalized = $text.Replace($current, $original)
