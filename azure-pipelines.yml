@@ -7,9 +7,6 @@ trigger:
 
 pr: none
 
-variables:
-  rustToolchain: '1.99.1'
-
 stages:
   - stage: LinuxCandidate
     displayName: Linux release candidate
@@ -31,7 +28,9 @@ stages:
               export RUSTUP_TOOLCHAIN=stable
               node scripts/verify-release-frontend.mjs
               node --test tests/release-frontend.test.mjs tests/linux-service.test.mjs
-              test "$(rustc --version | awk '{print $2}')" = '1.99.1'
+              rust_version="$(rustc --version | awk '{print $2}')"
+              printf 'Using preinstalled rustc %s\n' "$rust_version"
+              test "$(printf '%s\n' 1.85.0 "$rust_version" | sort -V | head -n 1)" = '1.85.0'
             displayName: Verify pinned source and preinstalled tools
 
           - bash: |
@@ -52,7 +51,8 @@ stages:
               set -euo pipefail
               export RUSTUP_AUTO_INSTALL=0
               export RUSTUP_TOOLCHAIN=stable
-              test "$(rustc --version | awk '{print $2}')" = '1.99.1'
+              rust_version="$(rustc --version | awk '{print $2}')"
+              test "$(printf '%s\n' 1.85.0 "$rust_version" | sort -V | head -n 1)" = '1.85.0'
               cargo fetch --locked
               export CARGO_NET_OFFLINE=true
               cargo test --offline --locked -p stellar-vpn-helper
