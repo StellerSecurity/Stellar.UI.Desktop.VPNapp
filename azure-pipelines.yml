@@ -228,6 +228,7 @@ stages:
               cp "$runtime_dir"/* src-tauri/resources/openvpn-runtime/
               python3 scripts/provision-reviewed-tauri.py --target darwin-arm64 --approve-reviewed-download
               export RUSTUP_AUTO_INSTALL=0
+              export RUSTUP_TOOLCHAIN=stable
               export CARGO_NET_RETRY=1
               export CARGO_HTTP_TIMEOUT=30
               cargo fetch --locked

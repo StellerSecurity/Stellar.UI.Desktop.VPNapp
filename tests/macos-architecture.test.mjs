@@ -31,6 +31,12 @@ test('Node and Rust architecture names map explicitly; unknown targets fail clos
   assert.throws(() => packageOptions(['--runtime'])); assert.throws(() => packageOptions(['--arch','arm64','--arch','x64']));
   assert.match(packageOptions(['--arch','x86_64']).runtime, /openvpn-runtime-x86_64$/);
 });
+test('Azure macOS build disables Rust auto-install and selects the preinstalled toolchain', () => {
+  const pipeline = fs.readFileSync(new URL('../azure-pipelines.yml', import.meta.url), 'utf8');
+  const macStage = pipeline.slice(pipeline.indexOf('  - stage: MacCandidate'));
+  assert.match(macStage, /export RUSTUP_AUTO_INSTALL=0\n\s+export RUSTUP_TOOLCHAIN=stable/);
+  assert.match(macStage, /node scripts\/build-macos-test\.mjs --arch arm64/);
+});
 test('deployment targets are read from bytes and newer runtimes fail even with matching hashes', t => {
   const { directory, manifest } = runtime(t, 'arm64');
   const file = path.join(directory, 'openvpn');

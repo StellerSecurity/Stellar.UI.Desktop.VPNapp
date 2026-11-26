@@ -11,7 +11,8 @@ test('Windows pipeline emits the final OTA installer filename without downloads'
   assert(pipeline.includes("'Stellar-VPN-setup.exe'"));
   assert(packager.includes("'windows-ota-installer-signing-input'"));
   assert(packager.includes("'Stellar-VPN-setup.exe'"));
-  assert(packager.includes("'^3\\.10(?:\\D|$)'"));
+  assert(packager.includes('& $nsisFile.FullName /VERSION'));
+  assert(packager.includes("'^v?3\\.10(?:\\D|$)'"));
   assert(packager.includes('Get-AuthenticodeSignature'));
   assert(packager.includes('authenticodeSigned = $false'));
   assert(packager.includes('otaSigned = $false'));

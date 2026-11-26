@@ -70,8 +70,10 @@ $nsis = $nsisCandidates | Where-Object { Test-Path -LiteralPath $_ -PathType Lea
 if ([string]::IsNullOrEmpty($nsis)) { throw 'Preinstalled NSIS was not found; downloads are forbidden.' }
 $nsisFile = Get-Item -LiteralPath $nsis
 if ($nsisFile.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'NSIS reparse points are rejected.' }
-$nsisVersion = $nsisFile.VersionInfo.ProductVersion
-if ($nsisVersion -notmatch '^3\.10(?:\D|$)') { throw ('Only preinstalled NSIS 3.10 is approved, found: ' + $nsisVersion) }
+$nsisVersion = ((& $nsisFile.FullName /VERSION) | Out-String).Trim()
+if ($LASTEXITCODE -ne 0 -or $nsisVersion -notmatch '^v?3\.10(?:\D|$)') {
+    throw ('Only preinstalled NSIS 3.10 is approved, found: ' + $nsisVersion)
+}
 $nsisSha256 = (Get-FileHash -LiteralPath $nsisFile.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
 
 [IO.Directory]::CreateDirectory($OutputDirectory) | Out-Null
