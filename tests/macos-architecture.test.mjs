@@ -38,6 +38,7 @@ test('macOS candidate uses native Apple Silicon without installing a Rust target
   assert.match(workflow, /runs-on: macos-15/);
   assert.match(workflow, /test "\$\(uname -m\)" = 'arm64'/);
   assert.match(workflow, /export RUSTUP_AUTO_INSTALL=0/);
+  assert.match(workflow, /export RUSTUP_TOOLCHAIN=stable/);
   assert.match(workflow, /node scripts\/build-macos-test\.mjs --arch arm64/);
   assert(!/rustup\s+(?:target|toolchain)\s+(?:add|install)/.test(workflow));
   assert(!/uses:/.test(workflow));
