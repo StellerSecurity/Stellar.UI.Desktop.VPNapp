@@ -56,6 +56,12 @@ jobs:
           export CARGO_HTTP_TIMEOUT=30
           cargo fetch --locked
           export CARGO_NET_OFFLINE=true
+          cargo build --offline --locked -p stellar-vpn-helper --target aarch64-apple-darwin --release
+          node scripts/package-network-helper.mjs \
+            --arch arm64 \
+            --profile release \
+            --runtime src-tauri/resources/openvpn-runtime \
+            --helper target/aarch64-apple-darwin/release/stellar-vpn-helper
           cargo test --offline --locked -p stellar-core --lib
           cargo test --offline --locked -p stellar-vpn-desktop \
             codesign_requirement_is_one_option_and_cannot_be_misparsed_as_a_path
