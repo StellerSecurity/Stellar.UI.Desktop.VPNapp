@@ -30,7 +30,7 @@ const env = { ...process.env, CARGO_NET_OFFLINE:'true', MACOSX_DEPLOYMENT_TARGET
 for (const key of ['APPLE_SIGNING_IDENTITY','APPLE_CERTIFICATE','APPLE_CERTIFICATE_PASSWORD','APPLE_API_KEY','APPLE_API_KEY_PATH','APPLE_API_ISSUER','APPLE_ID','APPLE_PASSWORD','APPLE_TEAM_ID']) delete env[key];
 Object.assign(process.env, env);
 for (const key of ['APPLE_SIGNING_IDENTITY','APPLE_CERTIFICATE','APPLE_CERTIFICATE_PASSWORD','APPLE_API_KEY','APPLE_API_KEY_PATH','APPLE_API_ISSUER','APPLE_ID','APPLE_PASSWORD','APPLE_TEAM_ID']) delete process.env[key];
-function run(command, options) { execFileSync(command, options, { stdio:'inherit', env }); }
+function run(command, options) { execFileSync(command, options, { stdio:'inherit', env, cwd:root }); }
 run(cargo, ['build','--locked','--offline','-p','stellar-vpn-helper','--target',target, ...(profile === 'release' ? ['--release'] : [])]);
 run(process.execPath, [path.join(root,'scripts/package-network-helper.mjs'),'--arch',arch,'--profile',profile,'--runtime',runtime,'--helper',path.join(root,`target/${target}/${profile}/stellar-vpn-helper`)]);
 await runReviewedTauri(['build','--target',target,'--bundles','app','--no-sign', ...(profile === 'debug' ? ['--debug'] : [])],
