@@ -26,7 +26,7 @@ export function releaseArtifacts(directory) {
   ];
   const artifacts = definitions.filter(item => files.includes(item.name));
   const linux = files.filter(name => /^Stellar VPN_0\.5\.3_amd64\.deb$/.test(name));
-  for (const name of linux) artifacts.push({ name, target: 'linux-x86_64', ota: false });
+  for (const name of linux) artifacts.push({ name, target: 'linux-x86_64', ota: true });
   if (!artifacts.length) fail('No final release artifacts found. Expected Stellar-VPN-setup.exe, Stellar VPN.app.tar.gz or Stellar VPN_0.5.3_amd64.deb.');
   if (files.some(name => /(?:unsigned|signing-input)/i.test(name))) {
     fail('Unsigned/signing-input intermediates cannot be OTA signed. Add the final installer/archive instead.');

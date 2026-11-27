@@ -14,5 +14,6 @@ test('release manifest can never replace the production trust root with a test k
   assert.notEqual(PINNED_PUBLIC_KEY, key);
   assert.throws(() => createManifest(bytes, sig, '1.2.3', 'darwin-aarch64'));
   assert.throws(() => createManifest(bytes, sig, '1.2.3', 'windows-x86_64'));
+  assert.throws(() => createManifest(bytes, sig, '1.2.3', 'linux-x86_64'));
   for (const value of ['v1.0.0', '01.0.0', '1.0.0-beta', '1.0.0+build', '4294967296.0.0']) assert.throws(() => stableVersion(value));
 });

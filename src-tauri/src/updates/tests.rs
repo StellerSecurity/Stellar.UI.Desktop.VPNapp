@@ -95,6 +95,15 @@ fn candidate() -> Candidate { Candidate { version: "1.2.3".into(), notes: String
         assert!(!artifact_url_for_target(&bad, "1.2.3", "windows-x86_64"));
     }
 }
+#[test] fn linux_deb_feed_is_pinned_and_cannot_swap_other_platform_artifacts() {
+    let url = "https://desktopreleasesassetsprod.stellarsecurity.com/vpn/desktop-v2/1.2.3/linux-x86_64/Stellar%20VPN_1.2.3_amd64.deb";
+    assert!(artifact_url_for_target(url, "1.2.3", "linux-x86_64"));
+    assert!(!artifact_url_for_target(url, "1.2.3", "darwin-aarch64"));
+    assert!(!artifact_url_for_target(url, "1.2.3", "windows-x86_64"));
+    for bad in [url.replace("https:", "http:"), url.replace(".com/", ".com.evil/"), url.replace("1.2.3/", "9.9.9/"), format!("{url}?override=1"), url.replace("linux-x86_64", "darwin-aarch64"), url.replace("amd64.deb", "arm64.deb")] {
+        assert!(!artifact_url_for_target(&bad, "1.2.3", "linux-x86_64"));
+    }
+}
 #[test] fn archive_traversal_links_and_wrong_products_are_refused() {
     archive_paths("Stellar VPN.app/\nStellar VPN.app/Contents/a\n", "drwx\n-rwx\n").unwrap();
     archive_paths("Stellar VPN.app\nStellar VPN.app/Contents/a\n", "drwx\n-rwx\n").unwrap();
