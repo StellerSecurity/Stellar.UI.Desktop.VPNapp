@@ -58,6 +58,11 @@ def build(inputs):
                     with archive.extractfile(member) as source, destination.open('xb') as output:
                         shutil.copyfileobj(source, output)
                     destination.chmod(0o755 if member.mode & 0o111 else 0o644)
+                    # Extraction order must not make generated Autotools files
+                    # appear older than their inputs and trigger regeneration.
+                    # A shared deterministic timestamp preserves the archive's
+                    # intended ready-to-build source relationship.
+                    os.utime(destination, (0, 0), follow_symlinks=False)
         sources[item['name']] = work / expected
     spec = importlib.util.spec_from_file_location('backports', ROOT / 'scripts/review-intel-backports.py')
     patches = importlib.util.module_from_spec(spec)
