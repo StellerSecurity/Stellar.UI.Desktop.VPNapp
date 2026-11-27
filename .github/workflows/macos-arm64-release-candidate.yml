@@ -1,6 +1,7 @@
 name: macOS ARM64 release candidate
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - stellar/release-0.5.4-macos-killswitch
@@ -56,6 +57,8 @@ jobs:
           cargo fetch --locked
           export CARGO_NET_OFFLINE=true
           cargo test --offline --locked -p stellar-core --lib
+          cargo test --offline --locked -p stellar-vpn-desktop \
+            codesign_requirement_is_one_option_and_cannot_be_misparsed_as_a_path
           node scripts/build-macos-test.mjs --arch arm64 --profile release --runtime src-tauri/resources/openvpn-runtime
 
       - name: Stage and publish private draft signing input

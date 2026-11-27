@@ -29,6 +29,15 @@ fn plist(bundle: &Path, key: &str, cancel: Arc<AtomicBool>) -> Result<String, Ap
     command.arg("-c").arg(format!("Print :{key}")).arg(bundle.join("Contents/Info.plist"));
     Ok(text(command, false, cancel)?.trim().to_owned())
 }
+
+fn codesign_verify_command(staged: &Path, requirement: &str) -> Command {
+    let mut command = Command::new("/usr/bin/codesign");
+    command.args(["--verify", "--deep", "--strict", "--all-architectures"])
+        .arg(format!("-R={requirement}"))
+        .arg(staged);
+    command
+}
+
 pub fn replace(package: &Path, candidate: &Candidate, cancel: Arc<AtomicBool>, before_swap: impl FnOnce() -> Result<(), AppError>) -> Result<(), AppError> {
     let current = bundle()?;
     let workspace = Workspace::new(current.parent().ok_or_else(failure)?)?;
@@ -56,9 +65,8 @@ pub fn replace(package: &Path, candidate: &Candidate, cancel: Arc<AtomicBool>, b
     let identity = text(identity, true, cancel.clone())?;
     let requirement = identity.lines().find_map(|s| s.strip_prefix("designated => ")).ok_or_else(failure)?;
     if !requirement.contains("certificate ") || !requirement.contains(&format!("identifier \"{}\"", trust::PRODUCT)) { return Err(failure()); }
-    let mut verify = Command::new("/usr/bin/codesign");
     fs::set_permissions(&staged, fs::Permissions::from_mode(0o755)).map_err(|_| failure())?;
-    verify.args(["--verify", "--deep", "--strict", "--all-architectures", "-R"]).arg(requirement).arg(&staged);
+    let verify = codesign_verify_command(&staged, requirement);
     process::capture(verify, false, 4096, 60, cancel.clone())?;
     if cancel.load(Ordering::SeqCst) { return Err(failure()); }
     before_swap()?;
@@ -72,4 +80,28 @@ pub fn replace(package: &Path, candidate: &Candidate, cancel: Arc<AtomicBool>, b
     // recovery instead of deleting the only rollback copy before relaunch.
     std::mem::forget(workspace);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn codesign_requirement_is_one_option_and_cannot_be_misparsed_as_a_path() {
+        let staged = Path::new("/tmp/Stellar VPN.app");
+        let requirement = "identifier \"org.stellarsecurity.vpn.desktop\" and certificate leaf[subject.OU] = \"7VYLUCU756\"";
+        let command = codesign_verify_command(staged, requirement);
+        let args: Vec<_> = command.get_args().map(|value| value.to_string_lossy().into_owned()).collect();
+
+        assert_eq!(command.get_program(), "/usr/bin/codesign");
+        assert_eq!(args, vec![
+            "--verify".to_owned(),
+            "--deep".to_owned(),
+            "--strict".to_owned(),
+            "--all-architectures".to_owned(),
+            format!("-R={requirement}"),
+            "/tmp/Stellar VPN.app".to_owned(),
+        ]);
+        assert!(!args.iter().any(|arg| arg == "-R"));
+    }
 }
