@@ -6,7 +6,7 @@
   "releaseBinaryExecutionApproval": {
     "approved": true,
     "scope": "exact-reviewed-windows-release-binary-build",
-    "reason": "Explicit user approval on 2026-11-26 to build the locked 0.5.3 Windows signing inputs in Azure without executing the app, service, runtime or driver."
+    "reason": "Explicit user approval on 2026-11-27 to build the locked 0.5.4 Windows signing inputs in Azure without executing the app, service, runtime or driver."
   },
   "lockSha256": "5e3c4cdc49cb24737c79c710d20cb587fab10cded0aadc78d179dff11f79cf9e",
   "rustVersion": "1.99.1 (58cf8f9c3 2026-10-13)",
@@ -2081,11 +2081,11 @@
     }
   ],
   "releaseApproved": false,
-  "sourceLockSha256": "907ef8b33ece3038162436e9a32fe3e51be60fa2998b6592f8c898209b085d78",
+  "sourceLockSha256": "989aba957985a6b96a0394368910ada2f3db8d4aa10d7b29e2eefc6e80d1871a",
   "firstPartyLockVersion": {
     "name": "stellar-vpn-desktop",
     "from": "0.1.0",
-    "to": "0.5.3"
+    "to": "0.5.4"
   },
   "sdkExecutionApproval": {
     "approved": true,
@@ -2101,9 +2101,9 @@
     "version": "3.0.12",
     "patchRevision": 1,
     "sourcePlanSha256": "32c2344d561eaefef9d3a09010b0158804a36e62fd2b63b219562f066728c289",
-    "reason": "Explicit user approval on 2026-11-26 to reuse the unchanged hash-verified source patch in the locked 0.5.3 Windows debug build and synthetic CI tests only.",
-    "githubWorkflowRef": "StellerSecurity/Stellar.UI.Desktop.VPNapp/.github/workflows/windows-rust-build.yml@refs/heads/stellar/release-0.5.3-ovpn-mtu",
-    "azurePipelineRef": "StellerSecurity/Stellar.UI.Desktop.VPNapp/azure-pipelines.yml@refs/heads/stellar/release-0.5.3-ovpn-mtu",
+    "reason": "Explicit user approval on 2026-11-27 to reuse the unchanged hash-verified source patch in the locked 0.5.4 Windows debug build and synthetic CI tests only.",
+    "githubWorkflowRef": "StellerSecurity/Stellar.UI.Desktop.VPNapp/.github/workflows/windows-rust-build.yml@refs/heads/stellar/release-0.5.4-macos-killswitch",
+    "azurePipelineRef": "StellerSecurity/Stellar.UI.Desktop.VPNapp/azure-pipelines.yml@refs/heads/stellar/release-0.5.4-macos-killswitch",
     "files": [
       {
         "path": "vendor/embed-resource-3.0.12/Cargo.toml",

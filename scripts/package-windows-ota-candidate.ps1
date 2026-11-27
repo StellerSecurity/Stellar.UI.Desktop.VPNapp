@@ -88,7 +88,7 @@ if ((Get-AuthenticodeSignature -LiteralPath $output).Status -ne 'NotSigned') { t
 $result = [ordered]@{
     schema = 1
     sourceCommit = $SourceCommit
-    version = '0.5.3'
+    version = '0.5.4'
     architecture = 'x86_64'
     kind = 'windows-ota-installer-signing-input'
     fileName = 'Stellar-VPN-setup.exe'
