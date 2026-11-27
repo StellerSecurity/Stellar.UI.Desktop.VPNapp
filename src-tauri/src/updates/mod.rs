@@ -99,7 +99,7 @@ pub async fn check_update(app: tauri::AppHandle) -> Result<UpdateView, AppError>
             let result = (|| {
                 let mut last = Err(trust::unavailable());
                 for attempt in 0..2 {
-                    last = process::capture(process::curl(trust::FEED, trust::MAX_MANIFEST, 10), false, trust::MAX_MANIFEST, 12, state.cancel.clone());
+                    last = process::capture(process::curl(&trust::feed(), trust::MAX_MANIFEST, 10), false, trust::MAX_MANIFEST, 12, state.cancel.clone());
                     if last.is_ok() || state.cancel.load(Ordering::SeqCst) { break; }
                     if attempt == 0 { std::thread::sleep(std::time::Duration::from_millis(400)); }
                 }

@@ -42,7 +42,7 @@ impl Drop for Workspace {
 pub fn fetch_manifest(cancel: Arc<AtomicBool>) -> Result<Vec<u8>, AppError> {
     let mut last = Err(trust::unavailable());
     for attempt in 0..2 {
-        last = process::capture(process::curl(trust::FEED, trust::MAX_MANIFEST, 10), false, trust::MAX_MANIFEST, 12, cancel.clone());
+        last = process::capture(process::curl(&trust::feed(), trust::MAX_MANIFEST, 10), false, trust::MAX_MANIFEST, 12, cancel.clone());
         if last.is_ok() || cancel.load(Ordering::SeqCst) { break; }
         if attempt == 0 { std::thread::sleep(std::time::Duration::from_millis(400)); }
     }

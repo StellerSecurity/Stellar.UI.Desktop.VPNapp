@@ -5,7 +5,7 @@ use std::{collections::HashMap, path::Path};
 use stellar_core::domain::AppError;
 
 pub const CHANNEL: &str = "desktop-v2";
-pub const FEED: &str = "https://desktopreleasesassetsprod.stellarsecurity.com/vpn/desktop-v2/latest.json";
+const FEED_BASE: &str = "https://desktopreleasesassetsprod.stellarsecurity.com/vpn/desktop-v2";
 #[cfg(target_os = "macos")]
 pub const PRODUCT: &str = "org.stellarsecurity.vpn.desktop";
 // Original VPN Minisign public key, from the tracked legacy configuration.
@@ -57,6 +57,7 @@ pub fn platform() -> &'static str {
     else if cfg!(all(target_os = "linux", target_arch = "x86_64")) { "linux-x86_64" }
     else { "unsupported" }
 }
+pub fn feed() -> String { format!("{FEED_BASE}/{}/latest.json", platform()) }
 pub fn valid_url(raw: &str, version: &str) -> bool {
     let Ok(url) = tauri::Url::parse(raw) else { return false; };
     let prefix = format!("/vpn/{CHANNEL}/{version}/");
