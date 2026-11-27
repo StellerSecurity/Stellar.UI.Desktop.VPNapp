@@ -6,9 +6,21 @@ const ROOT: &str = "/var/run/stellar-vpn";
 const SOCKET: &str = "/var/run/stellar-vpn/helper.sock";
 const RUNTIME: &str = "/Library/Application Support/Stellar VPN/Runtime/openvpn";
 const DNS_KEY: &str = "State:/Network/Service/org.stellarvpn.desktop/DNS";
+// The current PF data-path can pass its isolated probe while still blocking
+// ordinary macOS application traffic on a real OpenVPN tunnel. Keep the
+// capability fail-closed until an external-network regression test covers the
+// production path. Ordinary VPN connections remain available without PF.
+const KILL_SWITCH_AVAILABLE: bool = false;
 static CONNECT_LOCK: Mutex<()> = Mutex::new(());
 static SHUTDOWN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 extern "C" fn shutdown_signal(_: i32) { SHUTDOWN.store(true, std::sync::atomic::Ordering::Relaxed); }
+fn kill_switch_available() -> bool { KILL_SWITCH_AVAILABLE && crate::macos_firewall::verified() }
+fn capabilities_reply() -> &'static [u8] {
+    if kill_switch_available() { b"CAPABILITIES 3 kill-switch live-kill-switch\n" } else { b"CAPABILITIES 3\n" }
+}
+fn require_protection_available(enabled: bool) -> io::Result<()> {
+    if enabled && !kill_switch_available() { Err(io::Error::other("Firewall protection unavailable")) } else { Ok(()) }
+}
 unsafe extern "C" { fn geteuid() -> u32; fn getpeereid(fd: i32, euid: *mut u32, egid: *mut u32) -> i32; fn chown(path: *const i8, uid: u32, gid: u32) -> i32; fn signal(sig: i32, handler: usize) -> usize; }
 #[derive(Default)]
 struct Tunnel { child: Option<Child>, management: Option<UnixStream>, generation: u64, connected: bool, server: String, connected_at: u64, received: u64, sent: u64, directory: Option<PathBuf>, protected: bool, endpoints: Vec<crate::firewall::Endpoint>, interface: Option<String> }
@@ -190,12 +202,12 @@ fn handle(mut stream: UnixStream, state: &Shared, uid: u32) -> io::Result<()> {
     stream.set_read_timeout(Some(Duration::from_secs(3)))?; stream.set_write_timeout(Some(Duration::from_secs(3)))?;
     let mut reader = BufReader::new(stream.try_clone()?);
     let header = read_line(&mut reader, 256)?;
-    if header == "CAPABILITIES" { return stream.write_all(if crate::macos_firewall::verified() { b"CAPABILITIES 3 kill-switch live-kill-switch\n" } else { b"CAPABILITIES 3\n" }); }
+    if header == "CAPABILITIES" { return stream.write_all(capabilities_reply()); }
     if matches!(header.as_str(), "PROTECT 0" | "PROTECT 1") {
         let enabled = header == "PROTECT 1";
         // Never race a CONNECT operation or queue a stale setting behind one.
         let _operation = CONNECT_LOCK.try_lock().map_err(|_| io::Error::other("Connection in progress"))?;
-        if enabled && !crate::macos_firewall::verified() { return Err(io::Error::other("Firewall has not passed system verification")); }
+        require_protection_available(enabled)?;
         let mut tunnel = locked(state)?;
         update_protection(&mut tunnel, enabled, crate::macos_firewall::arm, crate::macos_firewall::disarm)?;
         return writeln!(stream, "PROTECTED {}", u8::from(enabled));
@@ -234,7 +246,7 @@ fn handle(mut stream: UnixStream, state: &Shared, uid: u32) -> io::Result<()> {
         Some(value) => value.parse::<u64>().ok().filter(|value| (1..=30_000).contains(value)).ok_or_else(|| io::Error::other("Invalid connection timeout"))?,
     };
     let deadline = Instant::now() + Duration::from_millis(budget);
-    if protect && !crate::macos_firewall::verified() { return Err(io::Error::other("Firewall has not passed system verification")); }
+    require_protection_available(protect)?;
     drop(fields);
     let mut raw_header = header.into_bytes();
     for byte in &mut raw_header { unsafe { std::ptr::write_volatile(byte, 0) }; }
@@ -330,6 +342,14 @@ fn firewall_endpoints(config: &ValidatedConfig) -> io::Result<Vec<crate::firewal
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn production_macos_kill_switch_stays_fail_closed() {
+        assert!(!KILL_SWITCH_AVAILABLE);
+        assert!(!kill_switch_available());
+        assert_eq!(capabilities_reply(), b"CAPABILITIES 3\n");
+        assert!(require_protection_available(false).is_ok());
+        assert_eq!(require_protection_available(true).unwrap_err().to_string(), "Firewall protection unavailable");
+    }
     fn live_tunnel() -> Tunnel {
         Tunnel { connected: true, generation: 42, server: "dk-1".into(), connected_at: 123, received: 456, sent: 789,
             interface: Some("utun12".into()), endpoints: vec![crate::firewall::Endpoint { ip: "203.0.113.10".parse().unwrap(), port: 1197, tcp: false }], ..Tunnel::default() }
