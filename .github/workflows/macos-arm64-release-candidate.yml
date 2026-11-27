@@ -1,9 +1,10 @@
 name: macOS ARM64 release candidate
 
 on:
+  workflow_dispatch:
   push:
     branches:
-      - stellar/release-0.5.3-ovpn-mtu
+      - stellar/release-0.5.4-macos-killswitch
 
 permissions:
   contents: write
@@ -56,6 +57,8 @@ jobs:
           cargo fetch --locked
           export CARGO_NET_OFFLINE=true
           cargo test --offline --locked -p stellar-core --lib
+          cargo test --offline --locked -p stellar-vpn-desktop \
+            codesign_requirement_is_one_option_and_cannot_be_misparsed_as_a_path
           node scripts/build-macos-test.mjs --arch arm64 --profile release --runtime src-tauri/resources/openvpn-runtime
 
       - name: Stage and publish private draft signing input
@@ -72,15 +75,15 @@ jobs:
           fi
           staging="$RUNNER_TEMP/stellar-vpn-macos-signing-input"
           mkdir -p "$staging"
-          archive="$staging/Stellar-VPN-0.5.3-macos-arm64-unsigned-app.tar.gz"
+          archive="$staging/Stellar-VPN-0.5.4-macos-arm64-unsigned-app.tar.gz"
           /usr/bin/tar -C "$(dirname "$app")" -czf "$archive" 'Stellar VPN.app'
           app_hash="$(/usr/bin/shasum -a 256 "$app/Contents/MacOS/stellar-vpn-desktop" | awk '{print $1}')"
           helper_hash="$(/usr/bin/shasum -a 256 "$app/Contents/Resources/NetworkHelper.pkg" | awk '{print $1}')"
           printf '{"schema":1,"sourceCommit":"%s","architecture":"arm64","kind":"macos-signing-input","appExecutableSha256":"%s","embeddedHelperPackageSha256":"%s","developerIDSigned":false,"notarized":false,"stapled":false,"installed":false}\n' \
             "$SOURCE_COMMIT" "$app_hash" "$helper_hash" > "$staging/build-info.json"
-          (cd "$staging" && /usr/bin/shasum -a 256 Stellar-VPN-0.5.3-macos-arm64-unsigned-app.tar.gz build-info.json > SHA256SUMS)
-          tag="signing-inputs-0.5.3-$SOURCE_COMMIT"
+          (cd "$staging" && /usr/bin/shasum -a 256 Stellar-VPN-0.5.4-macos-arm64-unsigned-app.tar.gz build-info.json > SHA256SUMS)
+          tag="signing-inputs-0.5.4-$SOURCE_COMMIT"
           gh release create "$tag" --target "$SOURCE_COMMIT" --draft \
-            --title "Stellar VPN 0.5.3 signing inputs ($SOURCE_COMMIT)" \
+            --title "Stellar VPN 0.5.4 signing inputs ($SOURCE_COMMIT)" \
             --notes "Unsigned macOS ARM64 signing input from reviewed source commit $SOURCE_COMMIT." \
             "$archive" "$staging/build-info.json" "$staging/SHA256SUMS"

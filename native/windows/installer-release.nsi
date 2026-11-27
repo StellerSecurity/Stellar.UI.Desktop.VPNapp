@@ -27,12 +27,12 @@ ShowInstDetails show
 ShowUninstDetails show
 BrandingText "Stellar Security"
 
-VIProductVersion "0.5.3.0"
+VIProductVersion "0.5.4.0"
 VIAddVersionKey /LANG=1033 "ProductName" "Stellar VPN"
-VIAddVersionKey /LANG=1033 "ProductVersion" "0.5.3"
+VIAddVersionKey /LANG=1033 "ProductVersion" "0.5.4"
 VIAddVersionKey /LANG=1033 "CompanyName" "Stellar Security"
 VIAddVersionKey /LANG=1033 "FileDescription" "Stellar VPN Installer"
-VIAddVersionKey /LANG=1033 "FileVersion" "0.5.3"
+VIAddVersionKey /LANG=1033 "FileVersion" "0.5.4"
 VIAddVersionKey /LANG=1033 "LegalCopyright" "Stellar Security"
 
 !define MUI_ICON "${STELLAR_ICON}"
@@ -60,7 +60,7 @@ Section "Stellar VPN" SecMain
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   WriteRegStr HKLM "Software\StellarSecurity\Stellar VPN" "InstallDir" "$INSTDIR"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Stellar VPN" "DisplayName" "Stellar VPN"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Stellar VPN" "DisplayVersion" "0.5.3"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Stellar VPN" "DisplayVersion" "0.5.4"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Stellar VPN" "Publisher" "Stellar Security"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Stellar VPN" "DisplayIcon" "$INSTDIR\Stellar VPN.exe"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Stellar VPN" "UninstallString" '$\"$INSTDIR\Uninstall.exe$\"'

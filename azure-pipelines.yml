@@ -3,7 +3,7 @@ trigger:
     include:
       - main
       - master
-      - stellar/release-0.5.3-ovpn-mtu
+      - stellar/release-0.5.4-macos-killswitch
 
 pr: none
 

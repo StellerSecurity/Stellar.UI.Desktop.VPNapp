@@ -10,11 +10,11 @@ function temporary() { return fs.mkdtempSync(path.join(os.tmpdir(), 'stellar-ota
 test('discovers only final release artifacts', () => {
   const directory = temporary();
   try {
-    for (const name of ['Stellar-VPN-setup.exe', 'Stellar VPN.app.tar.gz', 'Stellar VPN_0.5.3_amd64.deb']) fs.writeFileSync(path.join(directory, name), 'fixture');
+    for (const name of ['Stellar-VPN-setup.exe', 'Stellar VPN.app.tar.gz', 'Stellar VPN_0.5.4_amd64.deb']) fs.writeFileSync(path.join(directory, name), 'fixture');
     assert.deepEqual(releaseArtifacts(directory), [
       { name: 'Stellar-VPN-setup.exe', target: 'windows-x86_64', ota: true },
       { name: 'Stellar VPN.app.tar.gz', target: 'darwin-aarch64', ota: true },
-      { name: 'Stellar VPN_0.5.3_amd64.deb', target: 'linux-x86_64', ota: true },
+      { name: 'Stellar VPN_0.5.4_amd64.deb', target: 'linux-x86_64', ota: true },
     ]);
   } finally { fs.rmSync(directory, { recursive: true }); }
 });

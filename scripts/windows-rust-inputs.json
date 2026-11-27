@@ -3,7 +3,7 @@
   "files": [
     {
       "path": "Cargo.lock",
-      "sha256": "907ef8b33ece3038162436e9a32fe3e51be60fa2998b6592f8c898209b085d78"
+      "sha256": "989aba957985a6b96a0394368910ada2f3db8d4aa10d7b29e2eefc6e80d1871a"
     },
     {
       "path": "Cargo.toml",
@@ -147,7 +147,7 @@
     },
     {
       "path": "native/windows/rust-build-approval.json",
-      "sha256": "f67c102df4980368c857d81716c21d53b12319c46c5b83d1d3bac797b4b649ee"
+      "sha256": "35b701622fd97b2510e0801e6e700c304e077836777c966d0168311266e0b31d"
     },
     {
       "path": "native/windows/service.cpp",
@@ -171,7 +171,7 @@
     },
     {
       "path": "src-tauri/Cargo.toml",
-      "sha256": "b79f52dcd45cbe05f2cffee818b01053377e1cb015061e61e316d3321f06f126"
+      "sha256": "456351c9bb00face91ba475f3f2bd1df67b12c845fcba64308bba37dde7dddf8"
     },
     {
       "path": "src-tauri/icons/128x128.png",
@@ -359,7 +359,7 @@
     },
     {
       "path": "src-tauri/tauri.conf.json",
-      "sha256": "c76e0bab5374880f2bc6ce29a4d965a24c6f75a4ef42e3f0a835ebdebd3bbcc9"
+      "sha256": "3624d57065ebd5f6a3dcaf18042a58064239bbfd3853812276c4ab6a3bf2b8ac"
     },
     {
       "path": "src/shared/i18n/notices.ts",
