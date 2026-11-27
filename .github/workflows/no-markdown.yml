@@ -49,8 +49,9 @@ jobs:
           failed=0
           while IFS= read -r -d '' path; do
             case "$path" in
-              README.md)
-                # Explicit publication exception for the root project README only.
+              README.md|AGENTS.md)
+                # Explicit root-only publication exceptions for project context and
+                # the release invariants future automation must follow.
                 ;;
               *.[mM][dD])
                 printf 'Disallowed tracked file: %q\n' "$path"
@@ -60,6 +61,6 @@ jobs:
           done < "$scratch/paths"
 
           if (( failed )); then
-            echo "::error::Markdown files other than the root README.md must remain local and untracked."
+            echo "::error::Markdown files other than root README.md and AGENTS.md must remain local and untracked."
             exit 1
           fi
