@@ -2,10 +2,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { packageOptions, rustTarget, verifyRuntime } from './macos-architecture.mjs';
 import { runReviewedTauri } from './reviewed-tauri-runtime.mjs';
 
 const args = process.argv.slice(2), checkOnly = args.includes('--check');
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const { arch, profile, runtime } = packageOptions(args.filter(arg => arg !== '--check'));
 if (process.platform !== 'darwin') throw new Error('Build on macOS with the reviewed Xcode tools');
 const target = rustTarget(arch);
@@ -30,10 +32,10 @@ Object.assign(process.env, env);
 for (const key of ['APPLE_SIGNING_IDENTITY','APPLE_CERTIFICATE','APPLE_CERTIFICATE_PASSWORD','APPLE_API_KEY','APPLE_API_KEY_PATH','APPLE_API_ISSUER','APPLE_ID','APPLE_PASSWORD','APPLE_TEAM_ID']) delete process.env[key];
 function run(command, options) { execFileSync(command, options, { stdio:'inherit', env }); }
 run(cargo, ['build','--locked','--offline','-p','stellar-vpn-helper','--target',target, ...(profile === 'release' ? ['--release'] : [])]);
-run(process.execPath, ['scripts/package-network-helper.mjs','--arch',arch,'--profile',profile,'--runtime',runtime,'--helper',`target/${target}/${profile}/stellar-vpn-helper`]);
+run(process.execPath, [path.join(root,'scripts/package-network-helper.mjs'),'--arch',arch,'--profile',profile,'--runtime',runtime,'--helper',path.join(root,`target/${target}/${profile}/stellar-vpn-helper`)]);
 await runReviewedTauri(['build','--target',target,'--bundles','app','--no-sign', ...(profile === 'debug' ? ['--debug'] : [])],
                        'node scripts/build-macos-test.mjs');
-const app = path.resolve(`target/${target}/${profile}/bundle/macos/Stellar VPN.app`);
+const app = path.join(root, `target/${target}/${profile}/bundle/macos/Stellar VPN.app`);
 if (!fs.existsSync(app)) throw new Error('Expected architecture-specific app bundle was not generated');
-run(process.execPath, ['scripts/prepare-drag-dmg.mjs', app]);
+run(process.execPath, [path.join(root,'scripts/prepare-drag-dmg.mjs'), app]);
 console.log('App built and drag-DMG inputs staged. Use hdiutil with the printed stage/output paths; nothing installed.');
