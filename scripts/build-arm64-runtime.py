@@ -83,9 +83,18 @@ def build(inputs):
     def run(directory, *args, extra=None):
         commands.append({'cwd': str(directory), 'args': list(args)})
         (work / 'commands.json').write_text(json.dumps(commands, indent=2))
-        with (work / 'build.log').open('ab') as log:
-            subprocess.run(['/usr/bin/sandbox-exec', '-p', '(version 1)(allow default)(deny network*)', *args],
-                           cwd=directory, env={**env, **(extra or {})}, stdout=log, stderr=subprocess.STDOUT, check=True)
+        log_path = work / 'build.log'
+        try:
+            with log_path.open('ab') as log:
+                subprocess.run(['/usr/bin/sandbox-exec', '-p', '(version 1)(allow default)(deny network*)', *args],
+                               cwd=directory, env={**env, **(extra or {})}, stdout=log,
+                               stderr=subprocess.STDOUT, check=True)
+        except subprocess.CalledProcessError:
+            # The build environment is credential-free. Surface only a bounded
+            # tail so CI failures remain diagnosable without publishing inputs.
+            lines = log_path.read_text(errors='replace').splitlines()
+            print('\n'.join(lines[-200:]), file=sys.stderr)
+            raise
 
     openssl = sources['openssl']
     run(openssl, '/usr/bin/perl', 'Configure', 'darwin64-arm64-cc', 'shared', 'no-tests',
