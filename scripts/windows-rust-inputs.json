@@ -339,7 +339,7 @@
     },
     {
       "path": "src-tauri/src/updates/mod.rs",
-      "sha256": "f118cce3e1e75c79647466dcc77d09f2b807d8767fa841ad2222f14c93a0ccc2"
+      "sha256": "3ed00720d5a428ec3dfe837cbf6d0d9d90d1a096054f079c7e4997a4015e08cf"
     },
     {
       "path": "src-tauri/src/updates/process.rs",
@@ -347,15 +347,15 @@
     },
     {
       "path": "src-tauri/src/updates/tests.rs",
-      "sha256": "5b602b1dbbd1251631abb56ba9031fa668a8de3d6cc11e7a3fef9ca1229d0afe"
+      "sha256": "bc42e77fb6e9573b706f2197857175f1c0749e2acd1f1d7e06f80e1fc2bad65d"
     },
     {
       "path": "src-tauri/src/updates/trust.rs",
-      "sha256": "81a60b34fd670842351aa8e46c90a2e026775d1d6c7d844ce9e52c6f062dbc37"
+      "sha256": "12b43065f11d107feafe3b3b84a2d905c23ec1fdc327216ec3ae4b149d76fb92"
     },
     {
       "path": "src-tauri/src/updates/windows.rs",
-      "sha256": "249e3985bebc934fd5238246ba5adeb63b8d12446fd4aa8edc542227952e30fe"
+      "sha256": "dd9b0f8985c07ed6f47dd14efd93dc5fb6219640949c8d094074402b7304d8b3"
     },
     {
       "path": "src-tauri/tauri.conf.json",
