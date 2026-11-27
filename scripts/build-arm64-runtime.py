@@ -19,8 +19,9 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 
 def build(inputs):
-    if sys.platform != 'darwin' or os.uname().machine != 'arm64':
-        raise ValueError('Native Apple Silicon macOS build required')
+    if sys.platform != 'darwin' or os.uname().machine not in {'arm64', 'x86_64'}:
+        raise ValueError('macOS build host required')
+    native_arm64 = os.uname().machine == 'arm64'
     lock = json.loads((ROOT / 'scripts/intel-source-lock.json').read_text())
     packages = [p for p in lock['artifacts'] if p['name'] != 'rust-std']
     # Verify all inputs before any extraction or third-party execution.
@@ -57,6 +58,11 @@ def build(inputs):
                     with archive.extractfile(member) as source, destination.open('xb') as output:
                         shutil.copyfileobj(source, output)
                     destination.chmod(0o755 if member.mode & 0o111 else 0o644)
+                    # Extraction order must not make generated Autotools files
+                    # appear older than their inputs and trigger regeneration.
+                    # A shared deterministic timestamp preserves the archive's
+                    # intended ready-to-build source relationship.
+                    os.utime(destination, (0, 0), follow_symlinks=False)
         sources[item['name']] = work / expected
     spec = importlib.util.spec_from_file_location('backports', ROOT / 'scripts/review-intel-backports.py')
     patches = importlib.util.module_from_spec(spec)
@@ -82,9 +88,18 @@ def build(inputs):
     def run(directory, *args, extra=None):
         commands.append({'cwd': str(directory), 'args': list(args)})
         (work / 'commands.json').write_text(json.dumps(commands, indent=2))
-        with (work / 'build.log').open('ab') as log:
-            subprocess.run(['/usr/bin/sandbox-exec', '-p', '(version 1)(allow default)(deny network*)', *args],
-                           cwd=directory, env={**env, **(extra or {})}, stdout=log, stderr=subprocess.STDOUT, check=True)
+        log_path = work / 'build.log'
+        try:
+            with log_path.open('ab') as log:
+                subprocess.run(['/usr/bin/sandbox-exec', '-p', '(version 1)(allow default)(deny network*)', *args],
+                               cwd=directory, env={**env, **(extra or {})}, stdout=log,
+                               stderr=subprocess.STDOUT, check=True)
+        except subprocess.CalledProcessError:
+            # The build environment is credential-free. Surface only a bounded
+            # tail so CI failures remain diagnosable without publishing inputs.
+            lines = log_path.read_text(errors='replace').splitlines()
+            print('\n'.join(lines[-200:]), file=sys.stderr)
+            raise
 
     openssl = sources['openssl']
     run(openssl, '/usr/bin/perl', 'Configure', 'darwin64-arm64-cc', 'shared', 'no-tests',
@@ -97,7 +112,7 @@ def build(inputs):
             run(directory / 'lib', '/usr/bin/make', '-j4', 'liblz4', 'PREFIX=' + str(prefix))
             run(directory / 'lib', '/usr/bin/make', 'install', 'PREFIX=' + str(prefix))
         else:
-            options = ['--prefix=' + str(prefix), '--enable-shared', '--disable-static']
+            options = ['--host=aarch64-apple-darwin', '--prefix=' + str(prefix), '--enable-shared', '--disable-static']
             extra = {'OPENSSL_CFLAGS': f'-I{prefix}/include', 'OPENSSL_LIBS': f'-L{prefix}/lib -lcrypto'}
             run(directory, '/bin/sh', './configure', *options, extra=extra)
             run(directory, '/usr/bin/make', '-j4')
@@ -106,7 +121,7 @@ def build(inputs):
                'LZO_CFLAGS': f'-I{prefix}/include', 'LZO_LIBS': f'-L{prefix}/lib -llzo2',
                'LZ4_CFLAGS': f'-I{prefix}/include', 'LZ4_LIBS': f'-L{prefix}/lib -llz4',
                'PKCS11_HELPER_CFLAGS': f'-I{prefix}/include', 'PKCS11_HELPER_LIBS': f'-L{prefix}/lib -lpkcs11-helper'}
-    run(sources['openvpn'], '/bin/sh', './configure', '--prefix=' + str(prefix),
+    run(sources['openvpn'], '/bin/sh', './configure', '--host=aarch64-apple-darwin', '--prefix=' + str(prefix),
         '--disable-dco', '--disable-debug', '--enable-pkcs11', '--disable-unit-tests', '--disable-plugin-auth-pam', '--disable-plugin-down-root', extra=options)
     run(sources['openvpn'], '/usr/bin/make', '-j4')
     runtime = work / 'openvpn-runtime'
@@ -138,8 +153,11 @@ def build(inputs):
     # First-party static checker verifies actual Mach-O targets, not build flags.
     checker = "import fs from 'node:fs';import {verifyRuntime,minimumMacOS} from './scripts/macos-architecture.mjs';const d=process.argv[1];const m=verifyRuntime(d,'arm64');for(const r of m.files)r.minimumMacOS=minimumMacOS(d+'/'+r.file);fs.writeFileSync(d+'/runtime-manifest.json',JSON.stringify(m,null,2)+'\\n');"
     subprocess.run(['node', '--input-type=module', '-e', checker, str(runtime)], cwd=ROOT, check=True)
+    # Execute the reviewed binary only on a native Apple Silicon host. Intel
+    # Azure agents cross-build it and rely on the Mach-O/runtime verifier above.
     # No VPN connection, helper installation, external test or signing-key use.
-    run(work, str(runtime / 'openvpn'), '--version')
+    if native_arm64:
+        run(work, str(runtime / 'openvpn'), '--version')
     print(runtime)
 
 

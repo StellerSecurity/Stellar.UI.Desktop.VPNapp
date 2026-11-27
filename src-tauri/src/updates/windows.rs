@@ -46,7 +46,7 @@ impl Drop for Workspace {
 }
 pub fn fetch_manifest(cancel: Arc<AtomicBool>) -> Result<Vec<u8>, AppError> {
     let mut bytes = Vec::new();
-    crate::infrastructure::windows::https(trust::FEED, trust::MAX_MANIFEST, |chunk| {
+    crate::infrastructure::windows::https(&trust::feed(), trust::MAX_MANIFEST, |chunk| {
         if cancel.load(Ordering::SeqCst) { return Err(trust::failure()); }
         bytes.extend_from_slice(chunk); Ok(())
     })?;

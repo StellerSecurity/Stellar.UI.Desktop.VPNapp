@@ -2,6 +2,12 @@ name: Linux release readiness
 
 on:
   workflow_dispatch:
+    inputs:
+      install_reviewed_packages:
+        description: Install only after the download-only package/control review has passed
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -44,6 +50,7 @@ jobs:
           set -euo pipefail
           node scripts/check-linux-glib.mjs
           node --test tests/linux-glib.test.mjs
+          node --test tests/linux-service.test.mjs
 
       - name: Inventory exact Ubuntu system-library candidates
         run: |
@@ -53,14 +60,141 @@ jobs:
           done
           dpkg-query -W -f='${binary:Package} ${Version}\n' libglib2.0-0t64 libgtk-3-0t64 libwebkit2gtk-4.1-0 libayatana-appindicator3-1 librsvg2-2 patchelf 2>/dev/null || true
 
+      - name: Download and inspect the exact Ubuntu dependency closure
+        run: |
+          set -euo pipefail
+          cache="$RUNNER_TEMP/stellar-ubuntu-package-review"
+          controls="$RUNNER_TEMP/stellar-ubuntu-package-controls"
+          mkdir -p "$cache/partial" "$controls"
+          chmod 755 "$cache" "$cache/partial"
+          sudo apt-get update
+          sudo apt-get \
+            -o "Dir::Cache::archives=$cache" \
+            --download-only --no-install-recommends -y install \
+            libglib2.0-dev=2.80.0-6ubuntu3.10 \
+            libgtk-3-dev=3.24.41-4ubuntu1.3 \
+            libwebkit2gtk-4.1-dev=2.52.6-0ubuntu0.24.04.2 \
+            libayatana-appindicator3-dev=0.5.93-1build3 \
+            librsvg2-dev=2.58.0+dfsg-1ubuntu0.1
+          shopt -s nullglob
+          packages=("$cache"/*.deb)
+          test "${#packages[@]}" -gt 0
+          package_rows="$RUNNER_TEMP/stellar-ubuntu-package-rows.txt"
+          : > "$package_rows"
+          for package in "${packages[@]}"; do
+            name="$(dpkg-deb -f "$package" Package)"
+            version="$(dpkg-deb -f "$package" Version)"
+            test -n "$name"
+            test -n "$version"
+            destination="$controls/${name//:/_}"
+            mkdir "$destination"
+            dpkg-deb --control "$package" "$destination"
+            printf 'PACKAGE %s %s\n' "$name" "$version" | tee -a "$package_rows"
+            sha256sum "$package"
+            dpkg-deb --contents "$package"
+            for script in preinst postinst prerm postrm config triggers; do
+              if test -f "$destination/$script"; then
+                printf 'MAINTAINER_SCRIPT %s %s\n' "$name" "$script"
+                sed -n '1,400p' "$destination/$script"
+                if grep -Eini '(curl|wget|urlopen|urllib|requests\.|fetch[[:space:]]|apt(-get)?[[:space:]]|git[[:space:]]+clone|/dev/tcp|nc[[:space:]]|ssh[[:space:]]|\.ssh|\.gnupg|\.aws|\.azure|browser|cookie|password|token|launchctl|cron|systemctl|eval[[:space:]]|base64[[:space:]]+-d)' "$destination/$script"; then
+                  echo "Suspicious maintainer-script capability requires separate review: $name/$script" >&2
+                  exit 1
+                fi
+              fi
+            done
+          done
+          for required in \
+            'libglib2.0-dev 2.80.0-6ubuntu3.10' \
+            'libgtk-3-dev 3.24.41-4ubuntu1.3' \
+            'libwebkit2gtk-4.1-dev 2.52.6-0ubuntu0.24.04.2' \
+            'libayatana-appindicator3-dev 0.5.93-1build3' \
+            'librsvg2-dev 2.58.0+dfsg-1ubuntu0.1'; do
+            grep -Fxq "PACKAGE $required" "$package_rows"
+          done
+
+      - name: Install the inspected exact Ubuntu packages
+        if: ${{ inputs.install_reviewed_packages }}
+        run: |
+          set -euo pipefail
+          cache="$RUNNER_TEMP/stellar-ubuntu-package-review"
+          sudo apt-get \
+            -o "Dir::Cache::archives=$cache" \
+            --no-download --no-install-recommends -y install \
+            libglib2.0-dev=2.80.0-6ubuntu3.10 \
+            libgtk-3-dev=3.24.41-4ubuntu1.3 \
+            libwebkit2gtk-4.1-dev=2.52.6-0ubuntu0.24.04.2 \
+            libayatana-appindicator3-dev=0.5.93-1build3 \
+            librsvg2-dev=2.58.0+dfsg-1ubuntu0.1
+          dpkg-query -W -f='${binary:Package} ${Version}\n' \
+            libglib2.0-dev libgtk-3-dev libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev librsvg2-dev
+
+      - name: Download approved runtime packages without installing them
+        run: |
+          set -euo pipefail
+          cache="$RUNNER_TEMP/stellar-runtime-package-review"
+          controls="$RUNNER_TEMP/stellar-runtime-package-controls"
+          before="$RUNNER_TEMP/stellar-runtime-packages-before.txt"
+          mkdir -p "$cache/partial" "$controls"
+          chmod 755 "$cache" "$cache/partial"
+          dpkg-query -W -f='${binary:Package}\t${db:Status-Abbrev}\t${Version}\n' \
+            | LC_ALL=C sort > "$before"
+          sudo apt-get \
+            -o "Dir::Cache::archives=$cache" \
+            --download-only --reinstall --no-install-recommends -y install \
+            openvpn=2.6.19-0ubuntu0.24.04.5 \
+            nftables=1.0.9-1ubuntu0.1 \
+            iproute2=6.1.0-1ubuntu6.4 \
+            systemd-resolved=255.4-1ubuntu8.19
+          rows="$RUNNER_TEMP/stellar-runtime-package-rows.txt"
+          : > "$rows"
+          shopt -s nullglob
+          packages=("$cache"/*.deb)
+          test "${#packages[@]}" -ge 4
+          for package in "${packages[@]}"; do
+            name="$(dpkg-deb -f "$package" Package)"
+            version="$(dpkg-deb -f "$package" Version)"
+            architecture="$(dpkg-deb -f "$package" Architecture)"
+            destination="$controls/${name//:/_}"
+            mkdir "$destination"
+            dpkg-deb --control "$package" "$destination"
+            printf 'PACKAGE %s %s %s\n' "$name" "$version" "$architecture" | tee -a "$rows"
+            sha256sum "$package"
+            dpkg-deb --contents "$package"
+            for script in preinst postinst prerm postrm config triggers; do
+              if test -f "$destination/$script"; then
+                printf 'MAINTAINER_SCRIPT %s %s\n' "$name" "$script"
+                sed -n '1,500p' "$destination/$script"
+                if grep -Eini '(curl|wget|/dev/tcp|(^|[[:space:]])nc[[:space:]]|git[[:space:]]+clone|ssh[[:space:]]|\.ssh|\.gnupg|\.aws|\.azure|browser|cookie|password-store|launchctl|cron|eval[[:space:]]|base64[[:space:]]+-d)' "$destination/$script"; then
+                  echo "Unexpected maintainer-script capability: $name/$script" >&2
+                  exit 1
+                fi
+              fi
+            done
+          done
+          for required in \
+            'openvpn 2.6.19-0ubuntu0.24.04.5' \
+            'nftables 1.0.9-1ubuntu0.1' \
+            'iproute2 6.1.0-1ubuntu6.4' \
+            'systemd-resolved 255.4-1ubuntu8.19'; do
+            grep -Eq "^PACKAGE ${required} (amd64|all)$" "$rows"
+          done
+          dpkg-query -W -f='${binary:Package}\t${db:Status-Abbrev}\t${Version}\n' \
+            | LC_ALL=C sort > "$RUNNER_TEMP/stellar-runtime-packages-after.txt"
+          cmp "$before" "$RUNNER_TEMP/stellar-runtime-packages-after.txt"
+
       - name: Fetch the unchanged locked dependency graph
+        if: ${{ inputs.install_reviewed_packages }}
         run: cargo fetch --locked
 
       - name: Run native Linux debug and release regressions offline
+        if: ${{ inputs.install_reviewed_packages }}
         env:
           CARGO_NET_OFFLINE: 'true'
         run: |
           set -euo pipefail
           cargo test --offline --locked -p stellar-vpn-desktop --test linux_glib_backport
           cargo test --offline --locked --release -p stellar-vpn-desktop --test linux_glib_backport
+          cargo test --offline --locked -p stellar-vpn-helper
+          cargo check --offline --locked -p stellar-vpn-helper
           cargo check --offline --locked -p stellar-vpn-desktop

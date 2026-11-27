@@ -5,6 +5,7 @@ import path from 'node:path';
 import { verifyLinuxGlib } from './check-linux-glib.mjs';
 import { verifyWindowsRelease } from './check-windows-release.mjs';
 import { runReviewedTauri } from './reviewed-tauri-runtime.mjs';
+import { verifyReleaseFrontend } from './verify-release-frontend.mjs';
 const args = process.argv.slice(2);
 // Local test builds keep one certificate-backed identity across rebuilds.
 // Only a public fingerprint is stored here; keys stay in the macOS Keychain.
@@ -18,10 +19,7 @@ if (process.platform === 'darwin' && args[0] === 'build' && args.includes('--deb
 }
 verifyLinuxGlib();
 if (process.platform === 'win32' && args[0] === 'build') verifyWindowsRelease();
-if (process.platform === 'linux' && args[0] === 'build') {
-  console.error('Linux release remains blocked until the local glib security backport passes native Linux debug/release regression tests and the desktop build. See vendor/glib-0.18.5/stellar-backport.json.');
-  process.exit(1);
-}
+if (args[0] === 'build') verifyReleaseFrontend();
 const cargoBin = path.join(os.homedir(), '.cargo', 'bin');
 const env = { ...process.env };
 if (fs.existsSync(cargoBin)) env.PATH = cargoBin + path.delimiter + (env.PATH || '');

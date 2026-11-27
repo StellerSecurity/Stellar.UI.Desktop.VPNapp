@@ -53,9 +53,11 @@ pub async fn installation_status(app: AppHandle) -> Result<InstallationStatus, A
     #[cfg(target_os = "windows")]
     let setup_issue = tauri::async_runtime::spawn_blocking(crate::infrastructure::windows::setup_issue).await
         .map_err(|_| AppError::new("setup_unavailable", "Installation check unavailable"))?;
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(target_os = "linux")]
+    let setup_issue = crate::infrastructure::vpn::linux_setup_issue();
+    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
     let setup_issue = None;
-    Ok(InstallationStatus { platform: if cfg!(target_os = "macos") { "macos" } else if cfg!(target_os = "windows") { "windows" } else { "unsupported" }, helper, firewall_verified, language, setup_issue })
+    Ok(InstallationStatus { platform: if cfg!(target_os = "macos") { "macos" } else if cfg!(target_os = "windows") { "windows" } else if cfg!(target_os = "linux") { "linux" } else { "unsupported" }, helper, firewall_verified, language, setup_issue })
 }
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -78,7 +80,26 @@ pub async fn open_network_helper(app: AppHandle) -> Result<(), AppError> {
     }
     #[cfg(target_os = "windows")]
     { let _ = app; tauri::async_runtime::spawn_blocking(crate::infrastructure::windows::repair).await.map_err(|_| AppError::new("setup_unavailable", "Setup unavailable"))? }
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::unix::fs::MetadataExt;
+        let _ = app;
+        tauri::async_runtime::spawn_blocking(move || {
+            let failed = || AppError::new("setup_unavailable", "Setup could not finish. Approve the Linux system-service request and try again.");
+            let path = "/usr/bin/systemctl";
+            let metadata = std::fs::symlink_metadata(path).map_err(|_| failed())?;
+            if !metadata.is_file() || metadata.file_type().is_symlink() || metadata.uid() != 0 || metadata.mode() & 0o022 != 0 { return Err(failed()); }
+            unsafe extern "C" { fn geteuid() -> u32; }
+            let uid = unsafe { geteuid() };
+            if uid < 1000 { return Err(failed()); }
+            let unit = format!("stellar-vpn@{uid}.service");
+            let status = std::process::Command::new(path).env_clear().env("PATH", "/usr/sbin:/usr/bin:/sbin:/bin")
+                .args(["enable", "--now", &unit]).stdin(std::process::Stdio::null())
+                .stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).status().map_err(|_| failed())?;
+            if status.success() { Ok(()) } else { Err(failed()) }
+        }).await.map_err(|_| AppError::new("setup_unavailable", "Setup unavailable"))?
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
     { let _ = app; Err(AppError::new("setup_unavailable", "Setup unavailable")) }
 }
 #[derive(serde::Serialize)]

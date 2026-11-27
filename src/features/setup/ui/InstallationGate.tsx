@@ -57,7 +57,8 @@ function InstallationHelp({ status, busy, error, opened, openError, openHelper, 
 }) {
   const t = useTranslation();
   // Preserve every existing translation/layout; only the platform name changes.
-  const platformText = (text: string) => status?.platform === 'windows' ? t(text).replaceAll('macOS', 'Windows') : t(text);
+  const platformName = status?.platform === 'windows' ? 'Windows' : status?.platform === 'linux' ? 'Linux' : 'macOS';
+  const platformText = (text: string) => t(text).replaceAll('macOS', platformName);
   const help = installationHelpState(status, error, openError, opened);
   return <main className="installation-recovery" aria-labelledby="installation-title">
     <header><img src={appIcon} alt="" /><span>Stellar VPN</span></header>

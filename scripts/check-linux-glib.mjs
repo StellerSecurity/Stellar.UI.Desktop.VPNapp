@@ -57,6 +57,9 @@ export function verifyLinuxGlib(root = defaultRoot) {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  verifyLinuxGlib();
-  console.log('Linux glib backport: provenance, source hashes, patch and lockfile verified. Native Linux regression tests are still required.');
+  const evidence = verifyLinuxGlib();
+  const nativeStatus = evidence.nativeLinuxVerification === 'pending'
+    ? 'Native Linux regression tests are still required.'
+    : 'Recorded native Linux regression evidence is present.';
+  console.log(`Linux glib backport: provenance, source hashes, patch and lockfile verified. ${nativeStatus}`);
 }

@@ -1,5 +1,8 @@
 {
   "mainBinaryName": "Stellar VPN",
+  "build": {
+    "beforeBuildCommand": ""
+  },
   "bundle": {
     "targets": ["nsis"],
     "resources": {

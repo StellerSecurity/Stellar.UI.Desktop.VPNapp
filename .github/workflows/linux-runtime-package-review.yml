@@ -1,0 +1,94 @@
+name: Linux runtime package review
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  download-only-review:
+    if: github.repository == 'StellerSecurity/Stellar.UI.Desktop.VPNapp'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Fetch exact first-party review definition
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test "$SOURCE_COMMIT" = "$(printf '%s' "$SOURCE_COMMIT" | tr -cd 'a-f0-9')"
+          test "${#SOURCE_COMMIT}" -eq 40
+          git init .
+          git remote add origin https://github.com/StellerSecurity/Stellar.UI.Desktop.VPNapp.git
+          git -c protocol.version=2 fetch --no-tags --depth=1 origin "$SOURCE_COMMIT"
+          git checkout --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "$SOURCE_COMMIT"
+
+      - name: Download exact runtime packages without installing them
+        run: |
+          set -euo pipefail
+          cache="$RUNNER_TEMP/stellar-runtime-package-review"
+          before="$RUNNER_TEMP/stellar-runtime-packages-before.txt"
+          mkdir -p "$cache/partial"
+          chmod 755 "$cache" "$cache/partial"
+          dpkg-query -W -f='${binary:Package}\t${db:Status-Abbrev}\t${Version}\n' \
+            | LC_ALL=C sort > "$before"
+          sudo apt-get update
+          sudo apt-get \
+            -o "Dir::Cache::archives=$cache" \
+            --download-only --reinstall --no-install-recommends -y install \
+            openvpn=2.6.19-0ubuntu0.24.04.5 \
+            nftables=1.0.9-1ubuntu0.1 \
+            iproute2=6.1.0-1ubuntu6.4 \
+            systemd-resolved=255.4-1ubuntu8.19
+
+      - name: Inspect package metadata, files and maintainer scripts
+        run: |
+          set -euo pipefail
+          cache="$RUNNER_TEMP/stellar-runtime-package-review"
+          controls="$RUNNER_TEMP/stellar-runtime-package-controls"
+          mkdir -p "$controls"
+          rows="$RUNNER_TEMP/stellar-runtime-package-rows.txt"
+          : > "$rows"
+          shopt -s nullglob
+          packages=("$cache"/*.deb)
+          test "${#packages[@]}" -ge 4
+          for package in "${packages[@]}"; do
+            name="$(dpkg-deb -f "$package" Package)"
+            version="$(dpkg-deb -f "$package" Version)"
+            architecture="$(dpkg-deb -f "$package" Architecture)"
+            destination="$controls/${name//:/_}"
+            mkdir "$destination"
+            dpkg-deb --control "$package" "$destination"
+            printf 'PACKAGE %s %s %s\n' "$name" "$version" "$architecture" | tee -a "$rows"
+            sha256sum "$package"
+            dpkg-deb --contents "$package"
+            for script in preinst postinst prerm postrm config triggers; do
+              if test -f "$destination/$script"; then
+                printf 'MAINTAINER_SCRIPT %s %s\n' "$name" "$script"
+                sed -n '1,500p' "$destination/$script"
+                if grep -Eini '(curl|wget|/dev/tcp|(^|[[:space:]])nc[[:space:]]|git[[:space:]]+clone|ssh[[:space:]]|\.ssh|\.gnupg|\.aws|\.azure|browser|cookie|password-store|login item|launchctl|cron|eval[[:space:]]|base64[[:space:]]+-d)' "$destination/$script"; then
+                  echo "Unexpected maintainer-script capability: $name/$script" >&2
+                  exit 1
+                fi
+              fi
+            done
+          done
+          for required in \
+            'openvpn 2.6.19-0ubuntu0.24.04.5' \
+            'nftables 1.0.9-1ubuntu0.1' \
+            'iproute2 6.1.0-1ubuntu6.4' \
+            'systemd-resolved 255.4-1ubuntu8.19'; do
+            grep -Eq "^PACKAGE ${required} (amd64|all)$" "$rows"
+          done
+
+      - name: Confirm review remained download-only
+        run: |
+          set -euo pipefail
+          dpkg-query -W -f='${binary:Package}\t${db:Status-Abbrev}\t${Version}\n' \
+            | LC_ALL=C sort > "$RUNNER_TEMP/stellar-runtime-packages-after.txt"
+          cmp \
+            "$RUNNER_TEMP/stellar-runtime-packages-before.txt" \
+            "$RUNNER_TEMP/stellar-runtime-packages-after.txt"
+          printf 'No reviewed runtime package was installed.\n'

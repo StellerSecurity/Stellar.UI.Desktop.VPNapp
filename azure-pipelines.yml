@@ -1,0 +1,202 @@
+trigger:
+  branches:
+    include:
+      - main
+      - master
+      - stellar/release-0.5.3-ovpn-mtu
+
+pr: none
+
+stages:
+  - stage: LinuxCandidate
+    displayName: Linux release candidate
+    jobs:
+      - job: BuildDeb
+        displayName: Build verified Ubuntu 24.04 deb
+        timeoutInMinutes: 45
+        pool:
+          vmImage: ubuntu-24.04
+        steps:
+          - checkout: self
+            clean: true
+            fetchDepth: 1
+            persistCredentials: false
+
+          - bash: |
+              set -euo pipefail
+              export RUSTUP_AUTO_INSTALL=0
+              export RUSTUP_TOOLCHAIN=stable
+              node scripts/verify-release-frontend.mjs
+              node --test tests/release-frontend.test.mjs tests/linux-service.test.mjs
+              rust_version="$(rustc --version | awk '{print $2}')"
+              printf 'Using preinstalled rustc %s\n' "$rust_version"
+              test "$(printf '%s\n' 1.85.0 "$rust_version" | sort -V | head -n 1)" = '1.85.0'
+            displayName: Verify pinned source and preinstalled tools
+
+          - bash: |
+              set -euo pipefail
+              sudo apt-get update
+              sudo apt-get --no-install-recommends -y install \
+                libglib2.0-dev=2.80.0-6ubuntu3.10 \
+                libgtk-3-dev=3.24.41-4ubuntu1.3 \
+                libwebkit2gtk-4.1-dev=2.52.6-0ubuntu0.24.04.2 \
+                libayatana-appindicator3-dev=0.5.93-1build3 \
+                librsvg2-dev=2.58.0+dfsg-1ubuntu0.1
+              dpkg-query -W -f='${binary:Package} ${Version}\n' \
+                libglib2.0-dev libgtk-3-dev libwebkit2gtk-4.1-dev \
+                libayatana-appindicator3-dev librsvg2-dev patchelf
+            displayName: Install reviewed Ubuntu build libraries
+
+          - bash: |
+              set -euo pipefail
+              export RUSTUP_AUTO_INSTALL=0
+              export RUSTUP_TOOLCHAIN=stable
+              rust_version="$(rustc --version | awk '{print $2}')"
+              test "$(printf '%s\n' 1.85.0 "$rust_version" | sort -V | head -n 1)" = '1.85.0'
+              cargo fetch --locked
+              export CARGO_NET_OFFLINE=true
+              cargo test --offline --locked -p stellar-vpn-helper
+              cargo test --offline --locked -p stellar-vpn-desktop --test linux_glib_backport
+              cargo build --offline --locked --release -p stellar-vpn-helper
+              python3 scripts/provision-reviewed-tauri.py --target linux-x64-gnu --approve-reviewed-download
+              node scripts/desktop.mjs build --config src-tauri/tauri.linux.conf.json
+            displayName: Test and build unsigned Linux candidate
+
+          - bash: |
+              set -euo pipefail
+              output="$(find target/release/bundle/deb -maxdepth 1 -type f -name '*.deb' -print -quit)"
+              test -n "$output"
+              mkdir -p "$(Build.ArtifactStagingDirectory)/linux"
+              cp "$output" "$(Build.ArtifactStagingDirectory)/linux/"
+              sha256sum "$output" > "$(Build.ArtifactStagingDirectory)/linux/SHA256SUMS"
+            displayName: Stage Linux candidate and hash
+
+          - task: PublishPipelineArtifact@1
+            displayName: Publish unsigned Linux candidate
+            inputs:
+              targetPath: '$(Build.ArtifactStagingDirectory)/linux'
+              artifactName: 'stellar-vpn-linux-unsigned'
+
+  - stage: NativeAgentInventory
+    displayName: Native signing input inventory
+    dependsOn: []
+    jobs:
+      - job: WindowsInventory
+        displayName: Inventory Windows hosted toolchain without executing it
+        pool:
+          vmImage: windows-2022
+        steps:
+          - checkout: self
+            clean: true
+            fetchDepth: 1
+            persistCredentials: false
+          - powershell: |
+              Set-StrictMode -Version Latest
+              $ErrorActionPreference = 'Stop'
+              node scripts/verify-release-frontend.mjs
+              $roots = @(
+                (Join-Path ${env:ProgramFiles} 'Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC'),
+                (Join-Path ${env:ProgramFiles} 'Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC')
+              )
+              $compilers = @($roots | Where-Object { Test-Path -LiteralPath $_ } | ForEach-Object {
+                Get-ChildItem -LiteralPath $_ -Filter cl.exe -File -Recurse
+              })
+              if ($compilers.Count -eq 0) { throw 'No hosted MSVC compiler was found for review.' }
+              foreach ($compiler in $compilers) {
+                $signature = Get-AuthenticodeSignature -LiteralPath $compiler.FullName
+                [ordered]@{
+                  path = $compiler.FullName
+                  version = $compiler.VersionInfo.ProductVersion
+                  sha256 = (Get-FileHash -LiteralPath $compiler.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+                  signature = $signature.Status.ToString()
+                  signer = $signature.SignerCertificate.Subject
+                } | ConvertTo-Json -Compress
+              }
+            displayName: Record Windows compiler identities
+
+      - job: MacInventory
+        displayName: Inventory macOS hosted toolchain without building
+        pool:
+          vmImage: macOS-15
+        steps:
+          - checkout: self
+            clean: true
+            fetchDepth: 1
+            persistCredentials: false
+          - bash: |
+              set -euo pipefail
+              node scripts/verify-release-frontend.mjs
+              /usr/bin/sw_vers
+              /usr/bin/xcodebuild -version
+              /usr/bin/xcrun --show-sdk-path
+              for tool in /usr/bin/clang /usr/bin/codesign /usr/bin/pkgbuild /usr/bin/productbuild; do
+                /usr/bin/codesign --verify --strict "$tool"
+                /usr/bin/shasum -a 256 "$tool"
+              done
+            displayName: Record Apple tool identities
+
+  - stage: WindowsCandidate
+    displayName: Windows unsigned candidate
+    dependsOn: NativeAgentInventory
+    jobs:
+      - job: BuildWindowsX64
+        displayName: Build reviewed Windows x64 candidate
+        timeoutInMinutes: 45
+        pool:
+          vmImage: windows-2022
+        steps:
+          - checkout: self
+            clean: true
+            fetchDepth: 1
+            persistCredentials: false
+
+          - powershell: |
+              Set-StrictMode -Version Latest
+              $ErrorActionPreference = 'Stop'
+              node scripts/verify-release-frontend.mjs
+              $env:RUNNER_TEMP = '$(Agent.TempDirectory)'
+              $runtime = Join-Path '$(Agent.TempDirectory)' 'stellar-reviewed-windows-runtime'
+              powershell -NoProfile -NonInteractive -File scripts/prepare-reviewed-windows-runtime.ps1 -OutputDirectory $runtime
+              if ($LASTEXITCODE -ne 0) { throw 'Reviewed Windows VPN runtime staging failed.' }
+              powershell -NoProfile -NonInteractive -File scripts/windows-rust-build.ps1 -SourceCommit '$(Build.SourceVersion)' -PrepareRustOnly
+              if ($LASTEXITCODE -ne 0) { throw 'Reviewed Windows Rust staging failed.' }
+              powershell -NoProfile -NonInteractive -File scripts/windows-rust-build.ps1 -SourceCommit '$(Build.SourceVersion)' -ExportInterfaceTest -ExportReleaseInput -RuntimeDirectory $runtime
+              if ($LASTEXITCODE -ne 0) { throw 'Reviewed Windows candidate build failed.' }
+              $installerInput = Join-Path '$(Agent.TempDirectory)' 'stellar-windows-release-signing-input'
+              $installerOutput = Join-Path '$(Agent.TempDirectory)' 'stellar-windows-ota-installer-signing-input'
+              powershell -NoProfile -NonInteractive -File scripts/package-windows-ota-candidate.ps1 -InputDirectory $installerInput -OutputDirectory $installerOutput -SourceCommit '$(Build.SourceVersion)'
+              if ($LASTEXITCODE -ne 0) { throw 'Windows OTA installer packaging failed.' }
+            displayName: Test and build reviewed Windows candidate
+
+          - powershell: |
+              Set-StrictMode -Version Latest
+              $ErrorActionPreference = 'Stop'
+              $staging = Join-Path '$(Build.ArtifactStagingDirectory)' 'windows'
+              [IO.Directory]::CreateDirectory($staging) | Out-Null
+              $artifacts = @(
+                'stellar-windows-interface-test.zip',
+                'stellar-windows-unsigned-native-helper.zip',
+                'stellar-windows-native-synthetic-test.zip',
+                'stellar-windows-release-signing-input.zip'
+              )
+              foreach ($name in $artifacts) {
+                $source = Join-Path '$(Agent.TempDirectory)' $name
+                if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { throw ('Missing Windows artifact: ' + $name) }
+                [IO.File]::Copy($source, (Join-Path $staging $name), $false)
+              }
+              $installerDirectory = Join-Path '$(Agent.TempDirectory)' 'stellar-windows-ota-installer-signing-input'
+              foreach ($name in @('Stellar-VPN-setup.exe', 'windows-installer-build-info.json')) {
+                $source = Join-Path $installerDirectory $name
+                if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { throw ('Missing Windows installer artifact: ' + $name) }
+                [IO.File]::Copy($source, (Join-Path $staging $name), $false)
+              }
+              Get-ChildItem -LiteralPath $staging -File | ForEach-Object {
+                ((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() + '  ' + $_.Name)
+              } | Set-Content -LiteralPath (Join-Path $staging 'SHA256SUMS') -Encoding ascii
+            displayName: Stage Windows candidates and hashes
+
+          - task: PublishPipelineArtifact@1
+            displayName: Publish unsigned Windows candidates
+            inputs:
+              targetPath: '$(Build.ArtifactStagingDirectory)/windows'
+              artifactName: 'stellar-vpn-windows-unsigned'

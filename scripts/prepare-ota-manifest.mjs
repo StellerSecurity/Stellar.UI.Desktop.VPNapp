@@ -33,16 +33,20 @@ export function verifyRelease(bytes, input, version, publicKey) {
 }
 export function createManifest(bytes, signatureText, version, target) {
   stableVersion(version);
-  if (!['darwin-aarch64', 'darwin-x86_64', 'windows-x86_64'].includes(target)) throw new Error('Unsupported OTA target.');
+  if (!['darwin-aarch64', 'darwin-x86_64', 'windows-x86_64', 'linux-x86_64'].includes(target)) throw new Error('Unsupported OTA target.');
   if (target === 'windows-x86_64') verifyWindowsRelease(root);
   const signature = verifyRelease(bytes, signatureText, version, PINNED_PUBLIC_KEY);
-  const artifact = target === 'windows-x86_64' ? 'Stellar-VPN-setup.exe' : 'Stellar%20VPN.app.tar.gz';
+  const artifact = target === 'windows-x86_64' ? 'Stellar-VPN-setup.exe'
+    : target === 'linux-x86_64' ? `Stellar%20VPN_${version}_amd64.deb`
+      : 'Stellar%20VPN.app.tar.gz';
   return { version, notes: `Stellar VPN ${version}`, platforms: { [target]: { url: `https://desktopreleasesassetsprod.stellarsecurity.com/vpn/desktop-v2/${version}/${target}/${artifact}`, signature } } };
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const [artifact, signaturePath, version, target, ...extra] = process.argv.slice(2);
-  const correctArtifact = target === 'windows-x86_64' ? artifact?.endsWith('-setup.exe') : artifact?.endsWith('.app.tar.gz');
-  if (!artifact || !signaturePath || !version || !target || extra.length || !correctArtifact || !signaturePath.endsWith('.sig')) throw new Error('Usage: node scripts/prepare-ota-manifest.mjs ARTIFACT SIGNATURE.sig VERSION darwin-aarch64|darwin-x86_64|windows-x86_64');
+  const correctArtifact = target === 'windows-x86_64' ? artifact?.endsWith('-setup.exe')
+    : target === 'linux-x86_64' ? artifact?.endsWith('_amd64.deb')
+      : artifact?.endsWith('.app.tar.gz');
+  if (!artifact || !signaturePath || !version || !target || extra.length || !correctArtifact || !signaturePath.endsWith('.sig')) throw new Error('Usage: node scripts/prepare-ota-manifest.mjs ARTIFACT SIGNATURE.sig VERSION darwin-aarch64|darwin-x86_64|windows-x86_64|linux-x86_64');
   const config = JSON.parse(fs.readFileSync(path.join(root, 'src-tauri/tauri.conf.json'), 'utf8'));
   const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   const cargo = fs.readFileSync(path.join(root, 'src-tauri/Cargo.toml'), 'utf8');

@@ -1,7 +1,8 @@
 mod trust;
-#[cfg(target_os = "macos")] mod process;
+#[cfg(any(target_os = "macos", target_os = "linux"))] mod process;
 #[cfg(target_os = "macos")] mod macos;
 #[cfg(target_os = "windows")] mod windows;
+#[cfg(target_os = "linux")] mod linux;
 #[cfg(test)] mod tests;
 
 use serde::Serialize;
@@ -11,7 +12,7 @@ use tauri::{Emitter, Manager};
 use stellar_core::notifications::UpdateNotice;
 fn notify(app: &tauri::AppHandle, notice: UpdateNotice) { if let Some(notices) = app.try_state::<crate::notifications::Notifications>() { notices.update(notice); } }
 
-#[cfg(any(target_os = "macos", target_os = "windows"))]
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 fn pending_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, AppError> { Ok(app.path().app_data_dir().map_err(|_| trust::failure())?.join("ota-restart-pending")) }
 
 pub fn after_restart(app: &tauri::AppHandle) {
@@ -39,7 +40,19 @@ pub fn after_restart(app: &tauri::AppHandle) {
         drop(file); if std::fs::remove_file(path).is_err() { return; }
         if valid { notify(app, if trust::completed_version(&version, &app.package_info().version.to_string()) { UpdateNotice::Completed(version) } else { UpdateNotice::Failed }); }
     }
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))] let _ = app;
+    #[cfg(target_os = "linux")]
+    {
+        use std::io::Read;
+        let Ok(path) = pending_path(app) else { return; };
+        let Ok(meta) = std::fs::symlink_metadata(&path) else { return; };
+        if !meta.is_file() || meta.file_type().is_symlink() || meta.len() > 64 { return; }
+        let Ok(mut file) = std::fs::File::open(&path) else { return; };
+        let mut version = String::new();
+        let valid = (&mut file).take(65).read_to_string(&mut version).is_ok() && trust::Version::parse(&version).is_ok();
+        drop(file); if std::fs::remove_file(path).is_err() { return; }
+        if valid { notify(app, if trust::completed_version(&version, &app.package_info().version.to_string()) { UpdateNotice::Completed(version) } else { UpdateNotice::Failed }); }
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))] let _ = app;
 }
 
 #[derive(Clone, Serialize)]
@@ -52,11 +65,11 @@ pub struct UpdateView {
     downloaded: usize,
     message: String,
 }
-struct Inner { view: UpdateView, candidate: Option<trust::Candidate>, #[cfg(target_os = "macos")] prepared: Option<macos::Workspace>, #[cfg(target_os = "windows")] windows_prepared: Option<windows::Workspace>, checked: Option<std::time::Instant> }
+struct Inner { view: UpdateView, candidate: Option<trust::Candidate>, #[cfg(target_os = "macos")] prepared: Option<macos::Workspace>, #[cfg(target_os = "windows")] windows_prepared: Option<windows::Workspace>, #[cfg(target_os = "linux")] linux_prepared: Option<linux::Workspace>, checked: Option<std::time::Instant> }
 pub struct Updates { inner: Mutex<Inner>, cancel: Arc<AtomicBool>, restarting: AtomicBool }
 impl Updates {
     pub fn new(version: String) -> Self {
-        Self { inner: Mutex::new(Inner { view: UpdateView { phase: if cfg!(any(target_os = "macos", target_os = "windows")) { "idle" } else { "unsupported" }, current_version: version, version: None, notes: String::new(), downloaded: 0, message: String::new() }, candidate: None, #[cfg(target_os = "macos")] prepared: None, #[cfg(target_os = "windows")] windows_prepared: None, checked: None }), cancel: Arc::new(AtomicBool::new(false)), restarting: AtomicBool::new(false) }
+        Self { inner: Mutex::new(Inner { view: UpdateView { phase: if cfg!(any(target_os = "macos", target_os = "windows", target_os = "linux")) { "idle" } else { "unsupported" }, current_version: version, version: None, notes: String::new(), downloaded: 0, message: String::new() }, candidate: None, #[cfg(target_os = "macos")] prepared: None, #[cfg(target_os = "windows")] windows_prepared: None, #[cfg(target_os = "linux")] linux_prepared: None, checked: None }), cancel: Arc::new(AtomicBool::new(false)), restarting: AtomicBool::new(false) }
     }
     pub fn restarting(&self) -> bool { self.restarting.load(Ordering::SeqCst) }
 }
@@ -66,7 +79,7 @@ fn busy() -> AppError { AppError::new("update_busy", "An update operation is alr
 // The existing app-lifetime monitor calls this without depending on webview
 // timers. It creates no new LaunchAgent, daemon or other persistence.
 pub fn background_due(app: &tauri::AppHandle, resumed: bool) {
-    if !cfg!(any(target_os = "macos", target_os = "windows")) { return; }
+    if !cfg!(any(target_os = "macos", target_os = "windows", target_os = "linux")) { return; }
     let due = app.try_state::<Updates>().and_then(|state| state.inner.try_lock().ok().map(|inner| resumed || inner.checked.is_none_or(|t| t.elapsed().as_secs() >= 4 * 60 * 60))).unwrap_or(false);
     if due { let app = app.clone(); tauri::async_runtime::spawn(async move { let _ = check_update(app).await; }); }
 }
@@ -76,7 +89,7 @@ pub async fn check_update(app: tauri::AppHandle) -> Result<UpdateView, AppError>
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<Updates>();
         let mut inner = state.inner.try_lock().map_err(|_| busy())?;
-        if !cfg!(any(target_os = "macos", target_os = "windows")) { return Ok(inner.view.clone()); }
+        if !cfg!(any(target_os = "macos", target_os = "windows", target_os = "linux")) { return Ok(inner.view.clone()); }
         if inner.checked.is_some_and(|t| t.elapsed().as_secs() < 30) || inner.view.phase == "ready" { return Ok(inner.view.clone()); }
         state.cancel.store(false, Ordering::SeqCst);
         inner.checked = Some(std::time::Instant::now());
@@ -86,7 +99,7 @@ pub async fn check_update(app: tauri::AppHandle) -> Result<UpdateView, AppError>
             let result = (|| {
                 let mut last = Err(trust::unavailable());
                 for attempt in 0..2 {
-                    last = process::capture(process::curl(trust::FEED, trust::MAX_MANIFEST, 10), false, trust::MAX_MANIFEST, 12, state.cancel.clone());
+                    last = process::capture(process::curl(&trust::feed(), trust::MAX_MANIFEST, 10), false, trust::MAX_MANIFEST, 12, state.cancel.clone());
                     if last.is_ok() || state.cancel.load(Ordering::SeqCst) { break; }
                     if attempt == 0 { std::thread::sleep(std::time::Duration::from_millis(400)); }
                 }
@@ -110,6 +123,15 @@ pub async fn check_update(app: tauri::AppHandle) -> Result<UpdateView, AppError>
                 Err(error) => { inner.view.phase = if inner.candidate.is_some() { "available" } else { "error" }; inner.view.message = error.message; }
             }
         }
+        #[cfg(target_os = "linux")]
+        {
+            let result = linux::fetch_manifest(state.cancel.clone()).and_then(|bytes| trust::manifest(&bytes, &inner.view.current_version, trust::platform()));
+            match result {
+                Ok(Some(candidate)) => { inner.view.phase = "available"; inner.view.version = Some(candidate.version.clone()); inner.view.notes = candidate.notes.clone(); inner.candidate = Some(candidate); }
+                Ok(None) => { inner.view.phase = "current"; inner.view.version = None; inner.view.notes.clear(); inner.candidate = None; }
+                Err(error) => { inner.view.phase = if inner.candidate.is_some() { "available" } else { "error" }; inner.view.message = error.message; }
+            }
+        }
         emit(&app, &inner.view); Ok(inner.view.clone())
     }).await.map_err(|_| trust::unavailable())?
 }
@@ -119,7 +141,7 @@ pub async fn download_update(app: tauri::AppHandle) -> Result<UpdateView, AppErr
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<Updates>();
         let mut inner = state.inner.try_lock().map_err(|_| busy())?;
-        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+        #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
         { let _ = &mut inner; return Err(AppError::new("update_unsupported", "In-app updates are not available on this platform yet.")); }
         #[cfg(target_os = "windows")]
         {
@@ -134,6 +156,23 @@ pub async fn download_update(app: tauri::AppHandle) -> Result<UpdateView, AppErr
                 if last_emit.elapsed().as_millis() >= 200 { emit(&app, &inner.view); last_emit = std::time::Instant::now(); }
             }) {
                 Ok(workspace) => { inner.windows_prepared = Some(workspace); inner.view.phase = "ready"; inner.view.message = "Signature verified. Disconnect VPN before installing.".into(); notify(&app, UpdateNotice::Ready(candidate.version)); }
+                Err(error) => { inner.view.phase = "available"; inner.view.message = if state.cancel.load(Ordering::SeqCst) { "Download cancelled. Nothing was installed.".into() } else { notify(&app, UpdateNotice::Failed); error.message }; }
+            }
+            emit(&app, &inner.view); Ok(inner.view.clone())
+        }
+        #[cfg(target_os = "linux")]
+        {
+            let candidate = inner.candidate.clone().ok_or_else(trust::failure)?;
+            if trust::Version::parse(&candidate.version)? <= trust::Version::parse(&inner.view.current_version)? { return Err(trust::failure()); }
+            if inner.linux_prepared.is_some() { return Ok(inner.view.clone()); }
+            state.cancel.store(false, Ordering::SeqCst); inner.view.phase = "downloading"; inner.view.downloaded = 0; inner.view.message.clear(); emit(&app, &inner.view);
+            notify(&app, UpdateNotice::Downloading(candidate.version.clone()));
+            let directory = app.path().app_data_dir().map_err(|_| trust::failure())?; let mut last_emit = std::time::Instant::now();
+            match linux::download(&directory, &candidate, state.cancel.clone(), |count| {
+                inner.view.downloaded = count;
+                if last_emit.elapsed().as_millis() >= 200 { emit(&app, &inner.view); last_emit = std::time::Instant::now(); }
+            }) {
+                Ok(workspace) => { inner.linux_prepared = Some(workspace); inner.view.phase = "ready"; inner.view.message = "Signature verified. Disconnect VPN before installing.".into(); notify(&app, UpdateNotice::Ready(candidate.version)); }
                 Err(error) => { inner.view.phase = "available"; inner.view.message = if state.cancel.load(Ordering::SeqCst) { "Download cancelled. Nothing was installed.".into() } else { notify(&app, UpdateNotice::Failed); error.message }; }
             }
             emit(&app, &inner.view); Ok(inner.view.clone())
@@ -185,7 +224,7 @@ pub async fn install_update(app: tauri::AppHandle) -> Result<(), AppError> {
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<Updates>();
         let mut inner = state.inner.try_lock().map_err(|_| busy())?;
-        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+        #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
         { let _ = &mut inner; return Err(AppError::new("update_unsupported", "In-app updates are not available on this platform yet.")); }
         #[cfg(target_os = "windows")]
         {
@@ -208,6 +247,27 @@ pub async fn install_update(app: tauri::AppHandle) -> Result<(), AppError> {
             if let Some(notices) = app.try_state::<crate::notifications::Notifications>() { notices.stop(); }
             if let Some(guard) = app.try_state::<crate::infrastructure::startup::InstanceGuard>() { guard.release_for_restart(); }
             app.exit(0); Ok(())
+        }
+        #[cfg(target_os = "linux")]
+        {
+            let desktop = app.state::<crate::AppState>(); let service = desktop.0.try_lock().map_err(|_| busy())?;
+            if !trust::installation_allowed(&service.snapshot().connection) { return Err(AppError::new("update_disconnect_required", "Disconnect VPN before installing the update. Your connection was not changed.")); }
+            let candidate = inner.candidate.clone().ok_or_else(trust::failure)?;
+            if trust::Version::parse(&candidate.version)? <= trust::Version::parse(&inner.view.current_version)? { return Err(trust::failure()); }
+            let workspace = inner.linux_prepared.as_mut().ok_or_else(trust::failure)?;
+            state.cancel.store(false, Ordering::SeqCst);
+            let marker = pending_path(&app)?;
+            {
+                use std::{io::Write, os::unix::fs::OpenOptionsExt};
+                let mut file = std::fs::OpenOptions::new().write(true).create_new(true).mode(0o600).open(&marker).map_err(|_| trust::failure())?;
+                file.write_all(candidate.version.as_bytes()).and_then(|_| file.sync_all()).map_err(|_| trust::failure())?;
+            }
+            if let Err(error) = linux::install(workspace, &candidate, state.cancel.clone()) { let _ = std::fs::remove_file(marker); notify(&app, UpdateNotice::Failed); return Err(error); }
+            inner.view.phase = "installing"; emit(&app, &inner.view); notify(&app, UpdateNotice::Installing(candidate.version));
+            state.restarting.store(true, Ordering::SeqCst);
+            if let Some(notices) = app.try_state::<crate::notifications::Notifications>() { notices.stop(); }
+            let _service = service;
+            app.restart();
         }
         #[cfg(target_os = "macos")]
         {

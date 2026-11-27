@@ -73,6 +73,12 @@ fn candidate() -> Candidate { Candidate { version: "1.2.3".into(), notes: String
     assert!(Version::parse("1.10.0").unwrap() > Version::parse("1.9.99").unwrap());
     for invalid in ["v1.2.3", "01.2.3", "1.2", "1.2.3.4", "1.2.3-beta", "1.2.3+build", "1.-2.3", "1. 2.3", "4294967296.0.0"] { assert!(Version::parse(invalid).is_err()); }
 }
+#[test] fn every_new_client_uses_an_isolated_platform_feed() {
+    let value = feed();
+    assert!(value.starts_with("https://desktopreleasesassetsprod.stellarsecurity.com/vpn/desktop-v2/"));
+    assert!(value.ends_with("/latest.json"));
+    assert!(value.contains(platform()));
+}
 #[test] fn artifact_origin_channel_and_version_cannot_be_changed_by_the_server() {
     assert!(artifact_url(&candidate().url, "1.2.3"));
     for url in ["http://desktopreleasesassetsprod.stellarsecurity.com/vpn/desktop-v2/1.2.3/a.app.tar.gz", "https://evil.test/a.app.tar.gz", "https://desktopreleasesassetsprod.stellarsecurity.com.evil.test/vpn/desktop-v2/1.2.3/a.app.tar.gz", "https://user@desktopreleasesassetsprod.stellarsecurity.com/vpn/desktop-v2/1.2.3/a.app.tar.gz", "https://desktopreleasesassetsprod.stellarsecurity.com/vpn/0.2.0/a.app.tar.gz", "https://desktopreleasesassetsprod.stellarsecurity.com/vpn/desktop-v2/1.2.3/%2e%2e/a.app.tar.gz", "https://desktopreleasesassetsprod.stellarsecurity.com/vpn/desktop-v2/1.2.3/a.app.tar.gz?key=override"] { assert!(!artifact_url(url, "1.2.3"), "{url}"); }
@@ -93,6 +99,15 @@ fn candidate() -> Candidate { Candidate { version: "1.2.3".into(), notes: String
     assert!(!artifact_url_for_target(&candidate().url, "1.2.3", "windows-x86_64"));
     for bad in [url.replace("https:", "http:"), url.replace(".com/", ".com.evil/"), url.replace("1.2.3/", "9.9.9/"), format!("{url}?override=1"), url.replace("Stellar-VPN", "%2fStellar-VPN")] {
         assert!(!artifact_url_for_target(&bad, "1.2.3", "windows-x86_64"));
+    }
+}
+#[test] fn linux_deb_feed_is_pinned_and_cannot_swap_other_platform_artifacts() {
+    let url = "https://desktopreleasesassetsprod.stellarsecurity.com/vpn/desktop-v2/1.2.3/linux-x86_64/Stellar%20VPN_1.2.3_amd64.deb";
+    assert!(artifact_url_for_target(url, "1.2.3", "linux-x86_64"));
+    assert!(!artifact_url_for_target(url, "1.2.3", "darwin-aarch64"));
+    assert!(!artifact_url_for_target(url, "1.2.3", "windows-x86_64"));
+    for bad in [url.replace("https:", "http:"), url.replace(".com/", ".com.evil/"), url.replace("1.2.3/", "9.9.9/"), format!("{url}?override=1"), url.replace("linux-x86_64", "darwin-aarch64"), url.replace("amd64.deb", "arm64.deb")] {
+        assert!(!artifact_url_for_target(&bad, "1.2.3", "linux-x86_64"));
     }
 }
 #[test] fn archive_traversal_links_and_wrong_products_are_refused() {

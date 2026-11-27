@@ -1,6 +1,6 @@
 # Exact reviewed hosted Rust/SDK toolchain, locked graph and vendored source only.
 # No installer/driver/service registration, GUI launch or production credentials.
-param([Parameter(Mandatory = $true)][string] $SourceCommit, [switch] $ExportInterfaceTest, [switch] $PrepareRustOnly)
+param([Parameter(Mandatory = $true)][string] $SourceCommit, [switch] $ExportInterfaceTest, [switch] $ExportReleaseInput, [string] $RuntimeDirectory = '', [switch] $PrepareRustOnly)
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 if ($SourceCommit -notmatch '^[a-f0-9]{40}$') { throw 'Exact first-party source commit required.' }
@@ -49,9 +49,16 @@ if ($review.cfbSourceExecutionApproval.approved -ne $true -or
 if ($review.packages.Count -ne 406 -or @($review.packages | Where-Object name -ceq 'cfb').Count -ne 0) {
     throw 'Reviewed registry dependency count changed.'
 }
-if ($env:GITHUB_ACTIONS -ne 'true' -or $env:GITHUB_WORKFLOW_REF -cne $review.vendoredSourceExecutionApproval.githubWorkflowRef -or
-    $env:GITHUB_SHA -cne $SourceCommit) {
-    throw 'Vendored source execution approval applies only to the recorded GitHub workflow and commit.'
+$githubContext = $env:GITHUB_ACTIONS -eq 'true' -and
+    $env:GITHUB_WORKFLOW_REF -ceq $review.vendoredSourceExecutionApproval.githubWorkflowRef -and
+    $env:GITHUB_SHA -ceq $SourceCommit
+$azureRef = $env:BUILD_REPOSITORY_NAME + '/azure-pipelines.yml@' + $env:BUILD_SOURCEBRANCH
+$azureContext = $env:TF_BUILD -eq 'True' -and
+    $env:BUILD_REPOSITORY_NAME -ceq 'StellerSecurity/Stellar.UI.Desktop.VPNapp' -and
+    $azureRef -ceq $review.vendoredSourceExecutionApproval.azurePipelineRef -and
+    $env:BUILD_SOURCEVERSION -ceq $SourceCommit
+if (-not ($githubContext -or $azureContext)) {
+    throw 'Vendored source execution approval applies only to the recorded CI workflow, branch and commit.'
 }
 $rustRoot = Join-Path $env:RUNNER_TEMP 'stellar-reviewed-rust'
 if ($PrepareRustOnly) {
@@ -212,17 +219,52 @@ try {
     & $cargo build --locked --offline --target x86_64-pc-windows-msvc -p stellar-vpn-desktop
     if ($LASTEXITCODE -ne 0) { throw 'Windows desktop debug build failed.' }
     Verify-Lock
+    $releaseUiFiles = @($manifest.files | Where-Object { $_.path.StartsWith('dist/') })
+    if ($releaseUiFiles.Count -ne 6) { throw 'Exact six-file release frontend required.' }
+    if ($ExportReleaseInput) {
+        if ($review.releaseBinaryExecutionApproval.approved -ne $true -or
+            $review.releaseBinaryExecutionApproval.scope -ne 'exact-reviewed-windows-release-binary-build') { throw 'Exact Windows release-binary execution approval required.' }
+        if ([string]::IsNullOrEmpty($RuntimeDirectory) -or -not [IO.Path]::IsPathRooted($RuntimeDirectory) -or
+            -not (Test-Path -LiteralPath (Join-Path $RuntimeDirectory 'runtime.sha256') -PathType Leaf)) { throw 'Reviewed Windows runtime directory required.' }
+        & $cargo build --locked --offline --release --target x86_64-pc-windows-msvc -p stellar-vpn-desktop --features tauri/custom-protocol
+        if ($LASTEXITCODE -ne 0) { throw 'Windows desktop release-binary build failed.' }
+        Verify-Lock
+        $releaseOutput = Join-Path $env:RUNNER_TEMP 'stellar-windows-release-signing-input'
+        $releaseZip = $releaseOutput + '.zip'
+        if ((Test-Path -LiteralPath $releaseOutput) -or (Test-Path -LiteralPath $releaseZip)) { throw 'Fresh Windows release signing input required.' }
+        [IO.Directory]::CreateDirectory($releaseOutput) | Out-Null
+        $app = Join-Path $releaseOutput 'Stellar VPN.exe'
+        $helper = Join-Path $releaseOutput 'stellar-vpn-service.exe'
+        [IO.File]::Copy((Join-Path $env:CARGO_TARGET_DIR 'x86_64-pc-windows-msvc/release/stellar-vpn-desktop.exe'), $app, $false)
+        [IO.File]::Copy((Join-Path $root 'native-preflight/stellar-vpn-service.exe'), $helper, $false)
+        if ((Get-AuthenticodeSignature -LiteralPath $app).Status -ne 'NotSigned' -or
+            (Get-AuthenticodeSignature -LiteralPath $helper).Status -ne 'NotSigned') { throw 'Only unsigned first-party binaries may leave CI.' }
+        $runtimeOutput = Join-Path $releaseOutput 'Runtime'
+        [IO.Directory]::CreateDirectory($runtimeOutput) | Out-Null
+        foreach ($file in Get-ChildItem -LiteralPath $RuntimeDirectory -File) { [IO.File]::Copy($file.FullName, (Join-Path $runtimeOutput $file.Name), $false) }
+        $proof = [ordered]@{
+            schema = 1; sourceCommit = $SourceCommit; architecture = 'x86_64'; kind = 'windows-release-signing-input'
+            appSha256 = (Get-FileHash -LiteralPath $app -Algorithm SHA256).Hash.ToLowerInvariant()
+            helperSha256 = (Get-FileHash -LiteralPath $helper -Algorithm SHA256).Hash.ToLowerInvariant()
+            runtimeManifestSha256 = (Get-FileHash -LiteralPath (Join-Path $runtimeOutput 'runtime.sha256') -Algorithm SHA256).Hash.ToLowerInvariant()
+            signed = $false; installerIncluded = $false; binariesExecuted = $false; runtimeExecuted = $false; driverInstalled = $false
+            nextStep = 'Sign both first-party executables, then package and sign the installer on the approved Windows signing machine.'
+        }
+        [IO.File]::WriteAllText((Join-Path $releaseOutput 'build-info.json'), ($proof | ConvertTo-Json), $utf8)
+        Compress-Archive -Path (Join-Path $releaseOutput '*') -DestinationPath $releaseZip -CompressionLevel Optimal
+        $proof | ConvertTo-Json -Compress
+    }
     if ($ExportInterfaceTest) {
         # A standalone UI test, not the installer or VPN runtime. Embed the
         # pinned frontend snapshot instead of depending on a localhost server.
-        $uiRoot = Join-Path $root 'native/windows/preview-ui'
         $uiFiles = @($manifest.files | Where-Object { $_.path.StartsWith('native/windows/preview-ui/') })
         if ($uiFiles.Count -ne 6) { throw 'Exact six-file frontend snapshot required.' }
+        Remove-Item -LiteralPath (Join-Path $root 'dist') -Recurse
         foreach ($entry in $uiFiles) {
             $relative = $entry.path.Substring('native/windows/preview-ui/'.Length)
             $destination = Join-Path $root ('dist/' + $relative)
             [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($destination)) | Out-Null
-            [IO.File]::Copy((Join-Path $root $entry.path), $destination)
+            [IO.File]::Copy((Join-Path $root $entry.path), $destination, $false)
         }
         & $cargo build --locked --offline --target x86_64-pc-windows-msvc -p stellar-vpn-desktop --features tauri/custom-protocol
         if ($LASTEXITCODE -ne 0) { throw 'Standalone Windows interface build failed.' }
@@ -242,7 +284,7 @@ try {
         $zip = Join-Path $env:RUNNER_TEMP 'stellar-windows-interface-test.zip'
         if (Test-Path -LiteralPath $zip) { throw 'Fresh interface artifact required.' }
         Compress-Archive -LiteralPath $executable, (Join-Path $output 'build-info.json') -DestinationPath $zip -CompressionLevel Optimal
-        "STELLAR_WINDOWS_PREVIEW_ZIP=$zip" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        if ($githubContext) { "STELLAR_WINDOWS_PREVIEW_ZIP=$zip" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append }
         $proof | ConvertTo-Json -Depth 5 -Compress
         # Separate unsigned first-party input for the documented local signing flow.
         $helper = Join-Path $root 'native-preflight/stellar-vpn-service.exe'
@@ -261,7 +303,7 @@ try {
         $helperManifest = Join-Path $helperOutput 'build-info.json'
         [IO.File]::WriteAllText($helperManifest, ($helperProof | ConvertTo-Json), $utf8)
         Compress-Archive -LiteralPath $stagedHelper, $helperManifest -DestinationPath $helperZip -CompressionLevel Optimal
-        "STELLAR_WINDOWS_HELPER_ZIP=$helperZip" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        if ($githubContext) { "STELLAR_WINDOWS_HELPER_ZIP=$helperZip" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append }
 
         $nativeTest = Join-Path $root 'native-preflight/native-tests.exe'
         $testOutput = Join-Path $env:RUNNER_TEMP 'stellar-windows-native-synthetic-test'
@@ -278,7 +320,7 @@ try {
         }
         [IO.File]::WriteAllText($testManifest, ($testProof | ConvertTo-Json), $utf8)
         Compress-Archive -LiteralPath $stagedTest, $testManifest -DestinationPath $testZip -CompressionLevel Optimal
-        "STELLAR_WINDOWS_NATIVE_TEST_ZIP=$testZip" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        if ($githubContext) { "STELLAR_WINDOWS_NATIVE_TEST_ZIP=$testZip" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append }
     }
     [ordered]@{ suite = 'windows-rust-debug-build-and-tests'; sourceCommit = $SourceCommit; lockedArchivesVerified = $archives.Count; releaseApproved = $false; serviceInstalled = $false; driverInstalled = $false; appExecuted = $false } | ConvertTo-Json -Compress
 } finally { Pop-Location }

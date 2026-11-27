@@ -5,7 +5,7 @@ use std::{collections::HashMap, path::Path};
 use stellar_core::domain::AppError;
 
 pub const CHANNEL: &str = "desktop-v2";
-pub const FEED: &str = "https://desktopreleasesassetsprod.stellarsecurity.com/vpn/desktop-v2/latest.json";
+const FEED_BASE: &str = "https://desktopreleasesassetsprod.stellarsecurity.com/vpn/desktop-v2";
 #[cfg(target_os = "macos")]
 pub const PRODUCT: &str = "org.stellarsecurity.vpn.desktop";
 // Original VPN Minisign public key, from the tracked legacy configuration.
@@ -54,8 +54,10 @@ pub fn platform() -> &'static str {
     else if cfg!(all(target_os = "macos", target_arch = "x86_64")) { "darwin-x86_64" }
     else if cfg!(all(target_os = "windows", target_arch = "x86_64")) { "windows-x86_64" }
     else if cfg!(all(target_os = "windows", target_arch = "aarch64")) { "windows-aarch64" }
+    else if cfg!(all(target_os = "linux", target_arch = "x86_64")) { "linux-x86_64" }
     else { "unsupported" }
 }
+pub fn feed() -> String { format!("{FEED_BASE}/{}/latest.json", platform()) }
 pub fn valid_url(raw: &str, version: &str) -> bool {
     let Ok(url) = tauri::Url::parse(raw) else { return false; };
     let prefix = format!("/vpn/{CHANNEL}/{version}/");
@@ -72,11 +74,15 @@ pub fn artifact_url(raw: &str, version: &str) -> bool {
 }
 pub fn artifact_url_for_target(raw: &str, version: &str, target: &str) -> bool {
     if target.starts_with("darwin-") { return matches!(target, "darwin-aarch64" | "darwin-x86_64") && artifact_url(raw, version); }
-    if !matches!(target, "windows-x86_64" | "windows-aarch64") || !raw.ends_with("-setup.exe") { return false; }
-    // Reuse the exact origin/path/encoding checks without accepting a Mac archive
-    // in the Windows slot or a Windows executable in either Mac slot.
-    let Some(stem) = raw.strip_suffix("-setup.exe") else { return false; };
-    artifact_url(&format!("{stem}.app.tar.gz"), version)
+    if matches!(target, "windows-x86_64" | "windows-aarch64") && raw.ends_with("-setup.exe") {
+        let Some(stem) = raw.strip_suffix("-setup.exe") else { return false; };
+        return raw.contains(&format!("/{target}/")) && artifact_url(&format!("{stem}.app.tar.gz"), version);
+    }
+    if target == "linux-x86_64" && raw.ends_with(&format!("_{version}_amd64.deb")) {
+        let Some(stem) = raw.strip_suffix(&format!("_{version}_amd64.deb")) else { return false; };
+        return raw.contains("/linux-x86_64/") && artifact_url(&format!("{stem}.app.tar.gz"), version);
+    }
+    false
 }
 pub fn manifest(bytes: &[u8], installed: &str, target: &str) -> Result<Option<Candidate>, AppError> {
     if bytes.is_empty() { return Ok(None); } // HTTP 204 from a dynamic feed.

@@ -15,7 +15,7 @@ impl Default for OpenVpnEngine {
 }
 #[cfg(not(target_os = "windows"))]
 fn firewall_supported() -> bool {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     {
         use std::io::{BufRead, Read, Write};
         let Ok(mut stream) = helper() else { return false; };
@@ -24,7 +24,7 @@ fn firewall_supported() -> bool {
         let mut line = String::new();
         return std::io::BufReader::new(stream).take(128).read_line(&mut line).is_ok() && matches!(line.trim(), "CAPABILITIES 2 kill-switch" | "CAPABILITIES 3 kill-switch live-kill-switch");
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     false
 }
 /// Read-only setup check: no firewall changes, credentials, installers or shell.
@@ -47,8 +47,28 @@ pub fn installation_check() -> (&'static str, bool) {
             _ => ("unavailable", false),
         }
     }
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    #[cfg(target_os = "linux")]
+    {
+        use std::io::{BufRead, Read, Write};
+        if linux_setup_issue().is_some() { return ("missing", false); }
+        let Ok(mut stream) = helper() else { return ("missing", false); };
+        let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(2)));
+        if stream.write_all(b"CAPABILITIES\n").is_err() { return ("unavailable", false); }
+        let mut line = String::new();
+        if std::io::BufReader::new(stream).take(128).read_line(&mut line).is_err() { return ("unavailable", false); }
+        match line.trim() {
+            "CAPABILITIES 3 kill-switch live-kill-switch" => ("ready", true),
+            "CAPABILITIES 3" => ("ready", false),
+            _ => ("outdated", false),
+        }
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
     ("unavailable", false)
+}
+#[cfg(target_os = "linux")]
+pub fn linux_setup_issue() -> Option<&'static str> {
+    ["/usr/lib/stellar-vpn/stellar-vpn-helper", "/lib/systemd/system/stellar-vpn@.service"]
+        .iter().any(|path| !std::path::Path::new(path).is_file()).then_some("installer_required")
 }
 pub fn known_server(id: &str) -> bool { !id.is_empty() && id.len() <= 64 && id.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-') }
 #[cfg(not(target_os = "windows"))]
@@ -64,7 +84,21 @@ fn helper() -> Result<std::os::unix::net::UnixStream, AppError> {
     stream.set_write_timeout(Some(std::time::Duration::from_secs(3))).map_err(|_| unavailable())?;
     Ok(stream)
 }
-#[cfg(target_os = "macos")]
+#[cfg(target_os = "linux")]
+fn helper() -> Result<std::os::unix::net::UnixStream, AppError> {
+    use std::os::fd::AsRawFd;
+    #[repr(C)] struct UCred { pid: i32, uid: u32, gid: u32 }
+    unsafe extern "C" { fn getsockopt(fd: i32, level: i32, name: i32, value: *mut core::ffi::c_void, length: *mut u32) -> i32; }
+    let stream = std::os::unix::net::UnixStream::connect("/run/stellar-vpn/helper.sock").map_err(|_| unavailable())?;
+    let mut peer = UCred { pid: 0, uid: u32::MAX, gid: u32::MAX }; let mut length = std::mem::size_of::<UCred>() as u32;
+    if unsafe { getsockopt(stream.as_raw_fd(), 1, 17, (&mut peer as *mut UCred).cast(), &mut length) } != 0 || peer.uid != 0 {
+        return Err(unavailable());
+    }
+    stream.set_read_timeout(Some(std::time::Duration::from_secs(40))).map_err(|_| unavailable())?;
+    stream.set_write_timeout(Some(std::time::Duration::from_secs(3))).map_err(|_| unavailable())?;
+    Ok(stream)
+}
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 fn response(stream: std::os::unix::net::UnixStream) -> Result<(ConnectionSnapshot, u64, u64), AppError> {
     use std::io::{BufRead, Read};
     let mut line = String::new();
@@ -84,24 +118,24 @@ fn response(stream: std::os::unix::net::UnixStream) -> Result<(ConnectionSnapsho
 pub fn disconnect_helper() -> Result<ConnectionSnapshot, AppError> {
     #[cfg(target_os = "windows")]
     { return super::windows_vpn::disconnect_helper(); }
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     { use std::io::Write; let mut stream = helper()?; stream.write_all(b"DISCONNECT\n").map_err(|_| unavailable())?; response(stream).map(|(snapshot, _, _)| snapshot) }
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
     Err(unavailable())
 }
 pub fn interrupt_connect_helper() -> Result<ConnectionSnapshot, AppError> {
     #[cfg(target_os = "windows")]
     { return super::windows_vpn::interrupt_connect_helper(); }
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     { use std::io::Write; let mut stream = helper()?; stream.set_read_timeout(Some(std::time::Duration::from_secs(3))).map_err(|_| unavailable())?; stream.write_all(b"EXPIRE\n").map_err(|_| unavailable())?; response(stream).map(|(snapshot, _, _)| snapshot) }
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
     Err(unavailable())
 }
 #[cfg(not(target_os = "windows"))]
 impl VpnEngine for OpenVpnEngine {
     fn expire(&mut self) -> Result<ConnectionSnapshot, AppError> {
         if !self.kill_switch { return self.disconnect(); }
-        #[cfg(target_os = "macos")]
+        #[cfg(any(target_os = "macos", target_os = "linux"))]
         {
             use std::io::Write;
             let mut stream = helper()?; stream.write_all(b"EXPIRE\n").map_err(|_| unavailable())?;
@@ -109,7 +143,7 @@ impl VpnEngine for OpenVpnEngine {
             self.connected = false; self.traffic = None;
             return Ok(snapshot);
         }
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(not(any(target_os = "macos", target_os = "linux")))]
         Err(unavailable())
     }
     fn supports_kill_switch(&self) -> bool { self.firewall_supported || firewall_supported() }
@@ -120,7 +154,7 @@ impl VpnEngine for OpenVpnEngine {
         if self.connected || (!enabled && self.kill_switch) { live_protection(enabled)?; }
         self.kill_switch = enabled; Ok(())
     }
-    fn supports_rotation(&self) -> bool { cfg!(target_os = "macos") }
+    fn supports_rotation(&self) -> bool { cfg!(any(target_os = "macos", target_os = "linux")) }
     fn connect(&mut self, server_id: &str) -> Result<ConnectionSnapshot, AppError> {
         self.connect_with_timeout(server_id, stellar_core::openvpn::CONNECTION_TIMEOUT)
     }
@@ -128,13 +162,13 @@ impl VpnEngine for OpenVpnEngine {
         if !known_server(server_id) { return Err(AppError::new("invalid_server", "Unknown VPN location.")); }
         let credentials = self.credentials.as_ref().ok_or_else(|| AppError::new("vpn_auth_required", "Please log in again to enable VPN."))?;
         let config = self.configurations.get(server_id).ok_or_else(|| AppError::new("vpn_config_required", "Open the app and select this location before connecting."))?;
-        #[cfg(target_os = "macos")]
+        #[cfg(any(target_os = "macos", target_os = "linux"))]
         { let mut stream = helper()?; credentials.write_helper_connect_budget(server_id, self.expires_at, config, self.kill_switch, timeout, &mut stream).map_err(|_| unavailable())?;
             let (snapshot, received, sent) = response(stream)?;
             if snapshot.status != ConnectionStatus::Connected || snapshot.server_id.as_deref() != Some(server_id) { return Err(unavailable()); }
             self.traffic = Some((std::time::Instant::now(), received, sent));
             self.connected = true; Ok(snapshot) }
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(not(any(target_os = "macos", target_os = "linux")))]
         { let _ = (credentials, config, timeout); Err(unavailable()) }
     }
     fn disconnect(&mut self) -> Result<ConnectionSnapshot, AppError> {
@@ -151,7 +185,7 @@ impl VpnEngine for OpenVpnEngine {
     }
     fn poll(&mut self) -> Result<Option<ConnectionSnapshot>, AppError> {
         if !self.connected && !self.kill_switch { return Ok(None); }
-        #[cfg(target_os = "macos")]
+        #[cfg(any(target_os = "macos", target_os = "linux"))]
         { use std::io::Write;
             let result = (|| { let mut stream = helper()?; stream.set_read_timeout(Some(std::time::Duration::from_secs(2))).map_err(|_| unavailable())?; stream.write_all(b"STATUS\n").map_err(|_| unavailable())?; response(stream) })();
             match result { Ok((mut snapshot, received, sent)) => {
@@ -167,13 +201,13 @@ impl VpnEngine for OpenVpnEngine {
                 } else { self.traffic = None; }
                 Ok(Some(snapshot))
             }, Err(_) => { self.connected = false; self.traffic = None; Ok(Some(ConnectionSnapshot::default())) } } }
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(not(any(target_os = "macos", target_os = "linux")))]
         Ok(None)
     }
 }
 #[cfg(not(target_os = "windows"))]
 fn live_protection(enabled: bool) -> Result<(), AppError> {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     {
         use std::io::{BufRead, Read, Write};
         let failure = || AppError::new("kill_switch_update_failed", "Could not update kill switch. Check that the latest Stellar VPN system helper is installed.");
@@ -185,6 +219,6 @@ fn live_protection(enabled: bool) -> Result<(), AppError> {
         if line != format!("PROTECTED {}\n", u8::from(enabled)) { return Err(failure()); }
         Ok(())
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     { let _ = enabled; Err(unavailable()) }
 }
