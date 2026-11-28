@@ -303,7 +303,7 @@
     },
     {
       "path": "src-tauri/src/infrastructure/vpn.rs",
-      "sha256": "53e028420969e1b5926bd4298ec0b6676ed6424627f2d559ab6f114d483e9a3e"
+      "sha256": "c4e358ebdd778aa95c97f5de9232dcdc746d2ed21d5048ca159e362d8ea37845"
     },
     {
       "path": "src-tauri/src/infrastructure/windows_engine_tests.rs",
