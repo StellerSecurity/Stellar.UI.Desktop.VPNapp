@@ -4,6 +4,11 @@ set -eu
 uid=$(/usr/bin/stat -f '%u' /dev/console)
 case "$uid" in ''|*[!0-9]*) exit 1;; esac
 [ "$uid" -ge 501 ] || exit 1
+# pkgbuild preserves staging modes, but repair them defensively for upgrades
+# created by an older release or a restrictive build-host umask. The app only
+# needs traversal/read access; helper and runtime ownership remain root:wheel.
+/usr/sbin/chown root:wheel '/Library/Application Support/Stellar VPN' '/Library/Application Support/Stellar VPN/Runtime'
+/bin/chmod 755 '/Library/Application Support/Stellar VPN' '/Library/Application Support/Stellar VPN/Runtime'
 /bin/launchctl bootout system/org.stellarvpn.desktop.helper 2>/dev/null || true
 /bin/cat > /Library/LaunchDaemons/org.stellarvpn.desktop.helper.plist <<EOF
 <?xml version="1.0" encoding="UTF-8"?>

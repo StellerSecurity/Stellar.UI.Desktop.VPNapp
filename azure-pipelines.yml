@@ -27,7 +27,7 @@ stages:
               export RUSTUP_AUTO_INSTALL=0
               export RUSTUP_TOOLCHAIN=stable
               node scripts/verify-release-frontend.mjs
-              node --test tests/release-frontend.test.mjs tests/linux-service.test.mjs
+              node --test tests/release-frontend.test.mjs tests/linux-service.test.mjs tests/macos-helper-permissions.test.mjs
               rust_version="$(rustc --version | awk '{print $2}')"
               printf 'Using preinstalled rustc %s\n' "$rust_version"
               test "$(printf '%s\n' 1.85.0 "$rust_version" | sort -V | head -n 1)" = '1.85.0'
