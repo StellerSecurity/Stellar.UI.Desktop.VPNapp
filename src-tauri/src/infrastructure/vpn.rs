@@ -34,7 +34,12 @@ pub fn installation_check() -> (&'static str, bool) {
     #[cfg(target_os = "macos")]
     {
         use std::io::{BufRead, Read, Write};
-        if !std::path::Path::new("/Library/Application Support/Stellar VPN/stellar-vpn-helper").is_file() { return ("missing", false); }
+        // The helper payload is deliberately inside a root-only directory.  A
+        // desktop process must not inspect that protected path to decide if the
+        // service is installed.  The user-owned socket is the public service
+        // boundary; the handshake below authenticates its root peer and the
+        // helper separately authenticates this signed application.
+        if !std::path::Path::new("/var/run/stellar-vpn/helper.sock").exists() { return ("missing", false); }
         let Ok(mut stream) = helper() else { return ("unavailable", false); };
         let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(2)));
         if stream.write_all(b"CAPABILITIES\n").is_err() { return ("unavailable", false); }
