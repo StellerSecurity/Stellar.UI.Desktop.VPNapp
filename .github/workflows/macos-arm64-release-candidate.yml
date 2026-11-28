@@ -45,6 +45,7 @@ jobs:
           rust_minor="${rust_minor%%.*}"
           test "$rust_major" -eq 1
           test "$rust_minor" -ge 85
+          node --test tests/macos-helper-permissions.test.mjs
           node scripts/verify-release-frontend.mjs
           source_dir="$(python3 scripts/fetch-reviewed-macos-runtime-sources.py | tail -n 1)"
           runtime_dir="$(python3 scripts/build-arm64-runtime.py --approved-source-build "$source_dir" | tail -n 1)"

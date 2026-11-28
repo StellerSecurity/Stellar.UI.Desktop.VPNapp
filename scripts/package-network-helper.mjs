@@ -13,6 +13,9 @@ const stage = fs.mkdtempSync(path.join(os.tmpdir(), 'stellar-network-helper-'));
 const root = path.join(stage, 'root/Library/Application Support/Stellar VPN');
 const scripts = path.join(stage, 'scripts');
 fs.mkdirSync(path.join(root, 'Runtime'), { recursive: true }); fs.mkdirSync(scripts);
+// Release jobs deliberately use a restrictive umask. pkgbuild preserves the
+// staged directory mode, so make every app-readable payload directory explicit.
+for (const directory of [root, path.join(root, 'Runtime'), scripts]) fs.chmodSync(directory, 0o755);
 const hash = file => createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 for (const { file, sha256 } of manifest.files) {
   if (!['openvpn','libcrypto.4.dylib','libssl.4.dylib','liblzo2.2.dylib','libpkcs11-helper.1.dylib','liblz4.1.dylib'].includes(file) || hash(path.join(runtime,file)) !== sha256) throw new Error('Runtime integrity mismatch');

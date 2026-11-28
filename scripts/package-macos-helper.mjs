@@ -21,6 +21,7 @@ const stage = fs.mkdtempSync(path.join(os.tmpdir(), 'stellar-helper-installer-')
 const root = path.join(stage, 'root');
 const destination = path.join(root, 'Library/Application Support/Stellar VPN');
 fs.mkdirSync(path.join(destination, 'Runtime'), { recursive: true, mode: 0o755 });
+for (const directory of [destination, path.join(destination, 'Runtime')]) fs.chmodSync(directory, 0o755);
 function copy(input, output, mode) { regular(input); fs.copyFileSync(input, output); fs.chmodSync(output, mode); }
 for (const file of [...files, 'runtime-manifest.json']) copy(path.join(runtime, file), path.join(destination, 'Runtime', file), file === 'runtime-manifest.json' ? 0o644 : 0o755);
 copy(helper, path.join(destination, 'stellar-vpn-helper'), 0o755);

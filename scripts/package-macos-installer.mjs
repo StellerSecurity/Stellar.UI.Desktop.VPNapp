@@ -32,6 +32,7 @@ const root = path.join(stage, 'root'), support = path.join(root, 'Library/Applic
 fs.mkdirSync(path.join(root, 'Applications'), { recursive: true });
 fs.cpSync(app, path.join(root, 'Applications/Stellar VPN.app'), { recursive: true, dereference: false });
 fs.mkdirSync(path.join(support, 'Runtime'), { recursive: true });
+for (const directory of [support, path.join(support, 'Runtime')]) fs.chmodSync(directory, 0o755);
 function copy(input, destination, mode = 0o755) { regular(input); fs.copyFileSync(input, destination); fs.chmodSync(destination, mode); }
 copy(helper, path.join(support, 'stellar-vpn-helper'));
 copy('scripts/macos-helper/uninstall', path.join(support, 'uninstall-helper'));
