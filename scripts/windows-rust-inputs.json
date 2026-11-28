@@ -147,7 +147,7 @@
     },
     {
       "path": "native/windows/rust-build-approval.json",
-      "sha256": "35b701622fd97b2510e0801e6e700c304e077836777c966d0168311266e0b31d"
+      "sha256": "389bbf3a2a0027eb008758259b8f3f6accf8151aeff3f23296c8f9fd074a068f"
     },
     {
       "path": "native/windows/service.cpp",
@@ -335,7 +335,7 @@
     },
     {
       "path": "src-tauri/src/updates/macos.rs",
-      "sha256": "ca4b14124cd78f73e5597468f1182145187afdfc4dbd9d1fde7851842a8320c4"
+      "sha256": "bf5c8769785fc6051d72b8ebc22a8c2e8d386ff80600d74a0f699ad52b723698"
     },
     {
       "path": "src-tauri/src/updates/mod.rs",
